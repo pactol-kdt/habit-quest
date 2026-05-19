@@ -1,36 +1,121 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HabitQuest
 
-## Getting Started
+HabitQuest is a dark-mode RPG habit tracker built with Next.js App Router, TypeScript, Tailwind CSS, Zustand, Framer Motion, Recharts, and browser `localStorage`.
 
-First, run the development server:
+## Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Next.js App Router
+- TypeScript
+- Tailwind CSS v4
+- Zustand
+- Framer Motion
+- Recharts
+- `localStorage` persistence only
 
-## Learn More
+## Routes
 
-To learn more about Next.js, take a look at the following resources:
+- `/` dashboard
+- `/shop` cosmetic shop and inventory
+- `/achievements` achievement ledger
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```text
+src/
+  app/
+    achievements/page.tsx
+    shop/page.tsx
+    globals.css
+    layout.tsx
+    page.tsx
+  components/habitquest/
+    achievement-grid.tsx
+    achievements-page.tsx
+    achievements-panel.tsx
+    analytics-panel.tsx
+    app-shell.tsx
+    challenge-card.tsx
+    daily-reward-card.tsx
+    exp-progress.tsx
+    floating-reward-layer.tsx
+    glass-card.tsx
+    habit-form-modal.tsx
+    habit-list.tsx
+    habit-quest-app.tsx
+    navigation.tsx
+    profile-panel.tsx
+    purchase-modal.tsx
+    reward-toast-layer.tsx
+    shop-item-card.tsx
+    shop-page.tsx
+    stat-card.tsx
+    unlock-tracker.tsx
+  hooks/
+    use-habitquest-hydration.ts
+  lib/
+    habitquest/
+      constants.ts
+      seed.ts
+      storage.ts
+      utils.ts
+    ui/
+      cn.ts
+  store/
+    habitquest-store.ts
+  types/
+    habitquest.ts
+```
 
-## Deploy on Vercel
+## Persistence model
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- All persistent game data is stored under one `localStorage` key: `habitquest::save`.
+- The Zustand store hydrates only on the client after mount.
+- The store runs a single reconciliation pass that updates:
+  - daily login coins
+  - daily completion coin rewards
+  - challenge progress
+  - achievement unlocks and rewards
+  - level unlocks
+- If stored data is missing or invalid, the app falls back to seeded data.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Core gamification rules
+
+- Daily login: `+1` coin once per local day
+- Perfect day reward: `+2` coins only if all habits due today are completed and at least `3` due habits were completed
+- Habit EXP:
+  - Easy: `10`
+  - Medium: `25`
+  - Hard: `50`
+- Level requirement: `level * 100`
+
+## Future backend migration
+
+The clean migration path is:
+
+1. Keep the domain types and gameplay logic in `src/lib/habitquest/`.
+2. Replace `storage.ts` with API or Server Action persistence.
+3. Load user data from a database during authenticated app boot.
+4. Keep Zustand as the client cache and optimistic UI layer.
+
+Good first tables are:
+
+- `users`
+- `habits`
+- `habit_completions`
+- `exp_history`
+- `wallets`
+- `shop_items`
+- `owned_cosmetics`
+- `equipped_cosmetics`
+- `achievements`
+- `challenges`
+- `level_unlocks`
