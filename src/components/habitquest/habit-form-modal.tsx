@@ -31,7 +31,7 @@ export function HabitFormModal({
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 p-3 backdrop-blur-md sm:items-center sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -88,8 +88,8 @@ function HabitFormDialog({
 
   return (
     <motion.div
-      className="glass-panel w-full max-w-2xl rounded-[2rem] border border-white/10 p-6 md:p-8"
-      initial={{ y: 20, opacity: 0, scale: 0.96 }}
+      className="glass-panel max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-[1.75rem] border border-white/10 p-4 md:rounded-[2rem] md:p-8"
+      initial={{ y: 20, opacity: 0, scale: 0.98 }}
       animate={{ y: 0, opacity: 1, scale: 1 }}
       exit={{ y: 12, opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.2 }}
@@ -99,14 +99,14 @@ function HabitFormDialog({
           <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
             Habit Setup
           </p>
-          <h2 className="section-title mt-2 text-3xl text-white">
+          <h2 className="section-title mt-2 text-2xl text-white md:text-3xl">
             {habit ? "Refine your quest" : "Create a new ritual"}
           </h2>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full border border-white/10 px-3 py-1 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
+          className="min-h-10 rounded-full border border-white/10 px-3 py-1 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
         >
           Close
         </button>
@@ -137,14 +137,14 @@ function HabitFormDialog({
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-3">
             <p className="text-sm text-[var(--color-text-muted)]">Difficulty</p>
-            <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2">
               {Object.entries(DIFFICULTY_LABELS).map(([key, label]) => (
                 <button
                   key={key}
                   type="button"
                   onClick={() => updateField("difficulty", key as HabitDifficulty)}
                   className={cn(
-                    "rounded-2xl border px-3 py-3 text-sm transition",
+                    "min-h-11 rounded-2xl border px-2 py-3 text-sm transition md:px-3",
                     values.difficulty === key
                       ? "border-cyan-300/60 bg-cyan-300/10 text-white"
                       : "border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:border-white/20 hover:text-white",
@@ -165,7 +165,7 @@ function HabitFormDialog({
                   type="button"
                   onClick={() => updateField("recurrence", key as HabitRecurrence)}
                   className={cn(
-                    "rounded-2xl border px-3 py-3 text-sm transition",
+                    "min-h-11 rounded-2xl border px-2 py-3 text-sm transition md:px-3",
                     values.recurrence === key
                       ? "border-amber-300/60 bg-amber-300/10 text-white"
                       : "border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:border-white/20 hover:text-white",
@@ -188,7 +188,7 @@ function HabitFormDialog({
                   type="button"
                   onClick={() => toggleDay(day)}
                   className={cn(
-                    "rounded-2xl border px-3 py-3 text-sm transition",
+                    "min-h-11 rounded-2xl border px-2 py-3 text-sm transition md:px-3",
                     values.customDays.includes(day)
                       ? "border-pink-300/60 bg-pink-300/10 text-white"
                       : "border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:border-white/20 hover:text-white",
@@ -202,18 +202,18 @@ function HabitFormDialog({
         ) : null}
       </div>
 
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
+      <div className="mt-8 grid gap-3 sm:flex sm:flex-row sm:justify-end">
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
+          className="min-h-12 rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={handleSubmit}
-          className="rounded-full bg-gradient-to-r from-cyan-400 via-sky-300 to-amber-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02]"
+          className="min-h-12 rounded-full bg-gradient-to-r from-cyan-400 via-sky-300 to-amber-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02]"
         >
           {habit ? "Save changes" : "Create habit"}
         </button>

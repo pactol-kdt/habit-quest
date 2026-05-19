@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.1 - Mobile Dashboard and Habit Focus Update
+
+### Added
+- Added a `Focus on habits` dashboard mode to prioritize the daily habit board.
+- Added stronger visual highlighting for the habit section when focus mode is active.
+
+### Changed
+- Removed the dashboard profile section to reduce clutter and keep the main screen task-oriented.
+- Updated major dashboard containers to use max-height constraints with internal scrolling.
+- Improved mobile responsiveness across the dashboard, navigation, shop, and habit modal flows.
+- Made mobile actions larger and easier to tap, with better stacking and spacing on small screens.
+- Made navigation and shop category controls more mobile-friendly with horizontal scrolling behavior where needed.
+- Tightened hero copy and section density for smaller viewports.
+
+### Fixed
+- Normalized habit list label rendering and improved narrow-screen action layouts.
+
 ## 0.2.0 - HabitQuest Gamification Release
 
 ### Added

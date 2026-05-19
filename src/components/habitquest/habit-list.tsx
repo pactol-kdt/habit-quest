@@ -53,7 +53,9 @@ export function HabitList({
                   <span
                     className={cn(
                       "rounded-full px-3 py-1 text-xs uppercase tracking-[0.22em]",
-                      completed ? "bg-emerald-300/14 text-emerald-200" : "bg-white/7 text-[var(--color-text-muted)]",
+                      completed
+                        ? "bg-emerald-300/14 text-emerald-200"
+                        : "bg-white/7 text-[var(--color-text-muted)]",
                     )}
                   >
                     {completed ? "Completed" : "Active"}
@@ -73,13 +75,13 @@ export function HabitList({
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
                 <button
                   type="button"
                   onClick={() => onComplete(habit.id)}
                   disabled={completed}
                   className={cn(
-                    "rounded-full px-4 py-2 text-sm font-medium transition",
+                    "min-h-11 rounded-full px-4 py-2 text-sm font-medium transition",
                     completed
                       ? "cursor-not-allowed border border-emerald-300/20 bg-emerald-300/10 text-emerald-200"
                       : "bg-gradient-to-r from-cyan-400 via-sky-300 to-amber-300 text-slate-950 hover:scale-[1.02]",
@@ -90,14 +92,14 @@ export function HabitList({
                 <button
                   type="button"
                   onClick={() => onEdit(habit)}
-                  className="rounded-full border border-white/10 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
+                  className="min-h-11 rounded-full border border-white/10 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
                 >
                   Edit
                 </button>
                 <button
                   type="button"
                   onClick={() => onDelete(habit.id)}
-                  className="rounded-full border border-rose-300/20 px-4 py-2 text-sm text-rose-200 transition hover:bg-rose-300/10"
+                  className="min-h-11 rounded-full border border-rose-300/20 px-4 py-2 text-sm text-rose-200 transition hover:bg-rose-300/10"
                 >
                   Delete
                 </button>

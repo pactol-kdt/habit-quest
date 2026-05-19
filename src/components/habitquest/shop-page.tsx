@@ -38,21 +38,21 @@ export function ShopPage() {
   const filteredItems = shopItems.filter((item) => item.category === selectedCategory);
 
   return (
-    <div className="grid gap-6 pt-6">
-      <GlassCard className="rounded-[2rem] p-6 md:p-8">
+    <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
+      <GlassCard className="rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
               In-App Shop
             </p>
-            <h1 className="section-title mt-2 text-4xl text-white md:text-5xl">
+            <h1 className="section-title mt-2 text-3xl text-white sm:text-4xl md:text-5xl">
               Cosmetic armory
             </h1>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--color-text-muted)]">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
               Spend coins on titles, frames, and avatars. Exclusive items come from challenge rewards.
             </p>
           </div>
-          <div className="rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm text-amber-100">
+          <div className="self-start rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm text-amber-100 lg:self-auto">
             Balance: {wallet.totalCoins} coins
           </div>
         </div>
@@ -74,15 +74,15 @@ export function ShopPage() {
           }}
         />
 
-        <GlassCard className="h-full">
-          <div className="mb-5 flex flex-wrap gap-2">
+        <GlassCard className="h-full overflow-hidden">
+          <div className="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0">
             {(Object.keys(categoryLabels) as ShopCategory[]).map((category) => (
               <button
                 key={category}
                 type="button"
                 onClick={() => setSelectedCategory(category)}
                 className={cn(
-                  "rounded-full px-4 py-2 text-sm transition",
+                  "min-h-11 shrink-0 rounded-full px-4 py-2 text-sm transition",
                   selectedCategory === category
                     ? "bg-white/10 text-white"
                     : "bg-white/5 text-[var(--color-text-muted)] hover:text-white",
@@ -93,7 +93,8 @@ export function ShopPage() {
             ))}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="max-h-[68vh] overflow-y-auto pr-1 md:max-h-none md:overflow-visible md:pr-0">
+            <div className="grid gap-4 md:grid-cols-2">
             {filteredItems.map((item) => {
               const lockedByFeature = item.requiredFeature
                 ? !isFeatureUnlocked(levelUnlocks, item.requiredFeature)
@@ -123,6 +124,7 @@ export function ShopPage() {
                 />
               );
             })}
+            </div>
           </div>
         </GlassCard>
       </div>
