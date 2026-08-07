@@ -137,6 +137,14 @@ export function hasCompletionForDate(
   return completions.some((completion) => completion.habitId === habitId && completion.date === date);
 }
 
+export function getWeeklyWeekday(habit: Habit) {
+  if (habit.customDays.length > 0) {
+    return habit.customDays[0]!;
+  }
+
+  return fromDateString(habit.createdAt.slice(0, 10)).getDay();
+}
+
 export function isHabitDueOnDate(habit: Habit, date: string) {
   const habitCreatedDate = habit.createdAt.slice(0, 10);
   if (getDaysBetween(habitCreatedDate, date) < 0) {
@@ -148,7 +156,7 @@ export function isHabitDueOnDate(habit: Habit, date: string) {
   }
 
   if (habit.recurrence === "weekly") {
-    return getDaysBetween(habitCreatedDate, date) % 7 === 0;
+    return fromDateString(date).getDay() === getWeeklyWeekday(habit);
   }
 
   return habit.customDays.includes(fromDateString(date).getDay());
@@ -159,8 +167,12 @@ export function getDueHabitsForDate(habits: Habit[], date: string) {
 }
 
 export function describeRecurrence(habit: Habit) {
-  if (habit.recurrence !== "custom") {
-    return RECURRENCE_LABELS[habit.recurrence];
+  if (habit.recurrence === "daily") {
+    return RECURRENCE_LABELS.daily;
+  }
+
+  if (habit.recurrence === "weekly") {
+    return `Weekly • ${WEEKDAY_LABELS[getWeeklyWeekday(habit)]}`;
   }
 
   if (!habit.customDays.length) {
@@ -177,8 +189,14 @@ export function getUniqueCompletionDates(completions: HabitCompletion[]) {
 export function getStreakStats(
   completions: HabitCompletion[],
   referenceDate = getTodayDateKey(),
+  shieldDates: string[] = [],
 ) {
-  const uniqueDates = getUniqueCompletionDates(completions);
+  const uniqueDates = Array.from(
+    new Set([
+      ...getUniqueCompletionDates(completions),
+      ...shieldDates.filter((entry) => /^\d{4}-\d{2}-\d{2}$/.test(entry)),
+    ]),
+  ).sort();
   if (!uniqueDates.length) {
     return {
       currentStreak: 0,
@@ -231,8 +249,10 @@ export function syncProgress(
   progress: UserProgress,
   completions: HabitCompletion[],
   extra: Partial<UserProgress>,
+  shieldDates: string[] = [],
+  referenceDate = getTodayDateKey(),
 ) {
-  const streakStats = getStreakStats(completions);
+  const streakStats = getStreakStats(completions, referenceDate, shieldDates);
   const levelState = getLevelState(extra.totalExp ?? progress.totalExp);
 
   return {
@@ -240,17 +260,166 @@ export function syncProgress(
     ...extra,
     level: levelState.level,
     currentStreak: streakStats.currentStreak,
-    bestStreak: streakStats.bestStreak,
+    bestStreak: Math.max(progress.bestStreak, streakStats.bestStreak),
     lastCompletedDate: streakStats.lastCompletedDate,
   };
 }
 
 export function normalizeFormValues(values: HabitFormValues): HabitFormValues {
+  const title = values.title.trim();
+  const description = values.description.trim();
+  const customDays = [...values.customDays].sort((left, right) => left - right);
+
+  if (values.recurrence === "weekly") {
+    return {
+      ...values,
+      title,
+      description,
+      customDays: customDays.length ? [customDays[0]!] : [new Date().getDay()],
+    };
+  }
+
+  if (values.recurrence === "custom") {
+    return {
+      ...values,
+      title,
+      description,
+      customDays: customDays.length ? customDays : [1, 3, 5],
+    };
+  }
+
   return {
     ...values,
-    title: values.title.trim(),
-    description: values.description.trim(),
-    customDays: [...values.customDays].sort((left, right) => left - right),
+    title,
+    description,
+    customDays: [],
+  };
+}
+
+export function getPeriodStreakDays(
+  completions: HabitCompletion[],
+  start: string,
+  end: string,
+) {
+  const uniqueDates = Array.from(
+    new Set(
+      getCompletionsInRange(completions, start, end).map((completion) => completion.date),
+    ),
+  ).sort();
+
+  if (!uniqueDates.length) {
+    return 0;
+  }
+
+  let bestStreak = 1;
+  let running = 1;
+
+  for (let index = 1; index < uniqueDates.length; index += 1) {
+    const gap = getDaysBetween(uniqueDates[index - 1]!, uniqueDates[index]!);
+    running = gap === 1 ? running + 1 : 1;
+    bestStreak = Math.max(bestStreak, running);
+  }
+
+  return bestStreak;
+}
+
+export function removeCompletionsFromProgress(
+  data: HabitQuestData,
+  removedCompletions: HabitCompletion[],
+  habitTitleById: Map<string, string>,
+): HabitQuestData {
+  if (!removedCompletions.length) {
+    return data;
+  }
+
+  const removedIds = new Set(removedCompletions.map((completion) => completion.id));
+  const remainingCompletions = data.completions.filter((completion) => !removedIds.has(completion.id));
+  const removedExp = removedCompletions.reduce(
+    (sum, completion) => sum + completion.expEarned + completion.streakBonusExp,
+    0,
+  );
+
+  const habitRemovals = removedCompletions.map((completion) => ({
+    date: completion.date,
+    label: `${habitTitleById.get(completion.habitId) ?? "Habit"} completed`,
+    amount: completion.expEarned,
+  }));
+  const streakRemovals = removedCompletions
+    .filter((completion) => completion.streakBonusExp > 0)
+    .map((completion) => ({
+      date: completion.date,
+      amount: completion.streakBonusExp,
+    }));
+
+  const expHistory = data.userProgress.expHistory.filter((entry) => {
+    if (entry.source === "habit") {
+      const matchIndex = habitRemovals.findIndex(
+        (removal) =>
+          removal.date === entry.date &&
+          removal.label === entry.label &&
+          removal.amount === entry.amount,
+      );
+
+      if (matchIndex >= 0) {
+        habitRemovals.splice(matchIndex, 1);
+        return false;
+      }
+    }
+
+    if (entry.source === "streak") {
+      const matchIndex = streakRemovals.findIndex(
+        (removal) => removal.date === entry.date && removal.amount === entry.amount,
+      );
+
+      if (matchIndex >= 0) {
+        streakRemovals.splice(matchIndex, 1);
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  const totalExp = Math.max(0, data.userProgress.totalExp - removedExp);
+  const shieldDates = data.rewardSystems?.streakShieldDates?.filter((entry) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(entry),
+  ) ?? [];
+
+  return {
+    ...data,
+    completions: remainingCompletions,
+    userProgress: syncProgress(data.userProgress, remainingCompletions, {
+      totalCompletedHabits: remainingCompletions.length,
+      totalExp,
+      expHistory,
+    }, shieldDates),
+  };
+}
+
+export function clawbackDailyCompletionReward(data: HabitQuestData, dateKey = getTodayDateKey()) {
+  if (data.dailyRewards.claimedDailyCompletionRewardDate !== dateKey) {
+    return { data, clawedBackCoins: 0 };
+  }
+
+  const dailyCompletion = checkDailyCompletion(data, dateKey);
+  if (dailyCompletion.qualifiesForReward) {
+    return { data, clawedBackCoins: 0 };
+  }
+
+  return {
+    data: {
+      ...data,
+      wallet: {
+        ...data.wallet,
+        totalCoins: Math.max(0, data.wallet.totalCoins - DAILY_COMPLETION_COINS),
+        lifetimeCoinsEarned: Math.max(0, data.wallet.lifetimeCoinsEarned - DAILY_COMPLETION_COINS),
+      },
+      dailyRewards: {
+        ...data.dailyRewards,
+        claimedDailyCompletionRewardDate: null,
+      },
+    },
+    clawedBackCoins: DAILY_COMPLETION_COINS,
   };
 }
 
@@ -304,6 +473,32 @@ export function checkDailyCompletion(data: HabitQuestData, dateKey = getTodayDat
   };
 }
 
+function getChallengeProgressValue(
+  challenge: Challenge,
+  data: HabitQuestData,
+) {
+  if (challenge.type === "habit-completions") {
+    return getCompletionsInRange(data.completions, challenge.startsAt, challenge.endsAt).length;
+  }
+
+  if (challenge.type === "streak-days") {
+    return Math.min(
+      getPeriodStreakDays(data.completions, challenge.startsAt, challenge.endsAt),
+      challenge.target,
+    );
+  }
+
+  if (challenge.type === "exp-earned") {
+    return getExpInRange(
+      data.userProgress.expHistory,
+      challenge.startsAt,
+      challenge.endsAt,
+    ).reduce((sum, entry) => sum + entry.amount, 0);
+  }
+
+  return 0;
+}
+
 export function calculateChallengeProgress(
   challenge: Challenge,
   data: HabitQuestData,
@@ -332,28 +527,45 @@ export function calculateChallengeProgress(
       }
     : challenge;
 
-  let progress = 0;
-
-  if (normalizedChallenge.type === "habit-completions") {
-    progress = getCompletionsInRange(data.completions, normalizedChallenge.startsAt, normalizedChallenge.endsAt).length;
-  }
-
-  if (normalizedChallenge.type === "streak-days") {
-    progress = Math.min(data.userProgress.bestStreak, normalizedChallenge.target);
-  }
-
-  if (normalizedChallenge.type === "exp-earned") {
-    progress = getExpInRange(
-      data.userProgress.expHistory,
-      normalizedChallenge.startsAt,
-      normalizedChallenge.endsAt,
-    ).reduce((sum, entry) => sum + entry.amount, 0);
-  }
+  const progress = getChallengeProgressValue(normalizedChallenge, data);
 
   return {
     ...normalizedChallenge,
     progress,
     completed: progress >= normalizedChallenge.target,
+  };
+}
+
+export function reconcileChallenges(
+  challenges: Challenge[],
+  data: HabitQuestData,
+  referenceDate = new Date(),
+) {
+  const autoClaims: Challenge[] = [];
+
+  const nextChallenges = challenges.map((challenge) => {
+    const expectedStartsAt =
+      challenge.period === "weekly"
+        ? getStartOfCurrentWeekKey(referenceDate)
+        : getStartOfCurrentMonthKey(referenceDate);
+    const expectedEndsAt =
+      challenge.period === "weekly"
+        ? getEndOfCurrentWeekKey(referenceDate)
+        : getEndOfCurrentMonthKey(referenceDate);
+
+    const shouldReset =
+      challenge.startsAt !== expectedStartsAt || challenge.endsAt !== expectedEndsAt;
+
+    if (shouldReset && challenge.completed && !challenge.claimed) {
+      autoClaims.push(challenge);
+    }
+
+    return calculateChallengeProgress(challenge, data, referenceDate);
+  });
+
+  return {
+    challenges: nextChallenges,
+    autoClaims,
   };
 }
 
@@ -365,10 +577,11 @@ export function unlockAchievements(data: HabitQuestData) {
       return achievement;
     }
 
+    const bossDefeated = data.weeklyBoss.defeated;
+    const ownsCosmetic = data.shopItems.some((item) => item.owned);
     const weeklyChallengeCompleted = data.challenges.some(
       (challenge) => challenge.period === "weekly" && challenge.completed,
     );
-    const ownsCosmetic = data.shopItems.some((item) => item.owned);
 
     const shouldUnlock =
       (achievement.key === "first-habit-completed" && data.userProgress.totalCompletedHabits >= 1) ||
@@ -380,6 +593,7 @@ export function unlockAchievements(data: HabitQuestData) {
       (achievement.key === "reach-level-5" && data.userProgress.level >= 5) ||
       (achievement.key === "reach-level-10" && data.userProgress.level >= 10) ||
       (achievement.key === "buy-first-cosmetic" && ownsCosmetic) ||
+      (achievement.key === "defeat-weekly-boss" && bossDefeated) ||
       (achievement.key === "complete-weekly-challenge" && weeklyChallengeCompleted);
 
     if (!shouldUnlock) {

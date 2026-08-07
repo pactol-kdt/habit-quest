@@ -54,6 +54,28 @@ export function CosmeticPreview({
     );
   }
 
+  if (item.category === "theme") {
+    const accent = item.themeVars?.["--color-cyan"] ?? "#4dd8ff";
+    const gold = item.themeVars?.["--color-gold"] ?? "#f5c15d";
+    const bg = item.themeVars?.["--color-bg"] ?? "#07111f";
+
+    return (
+      <div
+        className={cn(
+          "relative flex items-center justify-center overflow-hidden rounded-3xl border border-white/10",
+          className,
+        )}
+        style={{
+          background: `linear-gradient(135deg, ${bg}, ${accent}55 55%, ${gold}44)`,
+        }}
+      >
+        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/90">
+          {item.preview}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(

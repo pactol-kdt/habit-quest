@@ -7,6 +7,7 @@ import { PurchaseModal } from "~/components/habitquest/purchase-modal";
 import { ShopItemCard } from "~/components/habitquest/shop-item-card";
 import { cn } from "~/lib/ui/cn";
 import { isFeatureUnlocked } from "~/lib/habitquest/utils";
+import { useEffectiveProgress } from "~/hooks/use-effective-progress";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 import type { ShopCategory, ShopItem } from "~/types/habitquest";
 
@@ -14,6 +15,7 @@ const categoryLabels: Record<ShopCategory, string> = {
   title: "Titles",
   frame: "Profile Frames",
   avatar: "Avatars",
+  theme: "Themes",
 };
 
 export function ShopPage() {
@@ -24,16 +26,24 @@ export function ShopPage() {
     shopItems,
     equippedItems,
     levelUnlocks,
-    userProgress,
     purchaseShopItem,
     equipShopItem,
+    unequipShopItem,
     wallet,
     challenges,
     achievements,
     habits,
     completions,
     dailyRewards,
+    settings,
+    version,
+    rewardSystems,
+    questArcs,
+    seasonPass,
+    weeklyBoss,
+    userProgress: settledProgress,
   } = useHabitQuestStore((state) => state);
+  const { userProgress } = useEffectiveProgress();
 
   const filteredItems = shopItems.filter((item) => item.category === selectedCategory);
 
@@ -45,11 +55,11 @@ export function ShopPage() {
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
               In-App Shop
             </p>
-            <h1 className="section-title mt-2 text-3xl text-white sm:text-4xl md:text-5xl">
+            <h1 className="section-title mt-2 text-2xl text-white sm:text-4xl md:text-5xl">
               Cosmetic armory
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              Spend coins on titles, frames, and avatars. Exclusive items come from challenge rewards.
+              Spend coins on titles, frames, avatars, and themes. Exclusive themes also come from quest chapter rewards.
             </p>
           </div>
           <div className="self-start rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm text-amber-100 lg:self-auto">
@@ -61,28 +71,34 @@ export function ShopPage() {
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
         <ProfilePanel
           data={{
+            version,
             shopItems,
             equippedItems,
             levelUnlocks,
-            userProgress,
+            userProgress: settledProgress,
             wallet,
             habits,
             completions,
             challenges,
             achievements,
             dailyRewards,
+            settings,
+            rewardSystems,
+            questArcs,
+            seasonPass,
+            weeklyBoss,
           }}
         />
 
         <GlassCard className="h-full overflow-hidden">
-          <div className="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0">
+          <div className="scrollbar-none -mx-1 mb-5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0">
             {(Object.keys(categoryLabels) as ShopCategory[]).map((category) => (
               <button
                 key={category}
                 type="button"
                 onClick={() => setSelectedCategory(category)}
                 className={cn(
-                  "min-h-11 shrink-0 rounded-full px-4 py-2 text-sm transition",
+                  "min-h-11 shrink-0 snap-start rounded-full px-4 py-2 text-sm transition",
                   selectedCategory === category
                     ? "bg-white/10 text-white"
                     : "bg-white/5 text-[var(--color-text-muted)] hover:text-white",
@@ -110,7 +126,8 @@ export function ShopPage() {
               const equipped =
                 equippedItems.titleItemId === item.id ||
                 equippedItems.frameItemId === item.id ||
-                equippedItems.avatarItemId === item.id;
+                equippedItems.avatarItemId === item.id ||
+                equippedItems.themeItemId === item.id;
 
               return (
                 <ShopItemCard
@@ -121,6 +138,7 @@ export function ShopPage() {
                   equipped={equipped}
                   onPurchase={setPendingPurchase}
                   onEquip={equipShopItem}
+                  onUnequip={unequipShopItem}
                 />
               );
             })}

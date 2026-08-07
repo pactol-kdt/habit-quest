@@ -26,7 +26,7 @@ export function ExpProgress({
       </div>
       <div className="h-4 overflow-hidden rounded-full bg-white/6 ring-1 ring-white/8">
         <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-300 to-amber-300 shadow-[0_0_20px_rgba(77,216,255,0.35)]"
+          className="hq-fill-accent h-full rounded-full"
           initial={{ width: 0 }}
           animate={{ width: `${Math.max(progressPercent, 6)}%` }}
           transition={{ type: "spring", stiffness: 120, damping: 24 }}

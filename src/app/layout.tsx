@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cinzel, Space_Grotesk } from "next/font/google";
 import { AppShell } from "~/components/habitquest/app-shell";
 import "./globals.css";
@@ -16,6 +16,18 @@ const bodyFont = Space_Grotesk({
 export const metadata: Metadata = {
   title: "HabitQuest",
   description: "A modern RPG-inspired habit tracker built with Next.js.",
+  appleWebApp: {
+    capable: true,
+    title: "HabitQuest",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#07111f",
 };
 
 export default function RootLayout({

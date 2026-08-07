@@ -34,7 +34,7 @@ export function UnlockTracker({ level, levelUnlocks }: UnlockTrackerProps) {
           </div>
           <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/6">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-300 to-amber-300"
+              className="hq-fill-accent h-full rounded-full"
               style={{
                 width: `${Math.min((level / nextUnlock.requiredLevel) * 100, 100)}%`,
               }}

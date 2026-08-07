@@ -8,7 +8,7 @@ interface GlassCardProps {
 
 export function GlassCard({ children, className }: GlassCardProps) {
   return (
-    <section className={cn("glass-panel rounded-3xl p-5 md:p-6", className)}>
+    <section className={cn("glass-panel rounded-[1.5rem] p-4 sm:rounded-3xl sm:p-5 md:p-6", className)}>
       {children}
     </section>
   );

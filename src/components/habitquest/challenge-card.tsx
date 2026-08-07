@@ -62,7 +62,7 @@ export function ChallengeCard({
           <button
             type="button"
             onClick={() => onClaim(challenge.id)}
-            className="rounded-full bg-gradient-to-r from-cyan-400 via-sky-300 to-amber-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:scale-[1.02]"
+            className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:scale-[1.02]"
           >
             Claim reward
           </button>

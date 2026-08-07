@@ -31,7 +31,7 @@ export function HabitFormModal({
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 p-3 backdrop-blur-md sm:items-center sm:p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur-md sm:items-center sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -79,16 +79,13 @@ function HabitFormDialog({
   }
 
   function handleSubmit() {
-    const normalized = values.recurrence === "custom" && !values.customDays.length
-      ? { ...values, customDays: [1, 3, 5] }
-      : values;
-    onSubmit(normalized);
+    onSubmit(values);
     onClose();
   }
 
   return (
     <motion.div
-      className="glass-panel max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-[1.75rem] border border-white/10 p-4 md:rounded-[2rem] md:p-8"
+      className="glass-panel max-h-[min(92dvh,900px)] w-full max-w-2xl overflow-y-auto rounded-t-[1.5rem] border border-white/10 p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-[1.75rem] sm:p-5 md:rounded-[2rem] md:p-8"
       initial={{ y: 20, opacity: 0, scale: 0.98 }}
       animate={{ y: 0, opacity: 1, scale: 1 }}
       exit={{ y: 12, opacity: 0, scale: 0.96 }}
@@ -163,7 +160,23 @@ function HabitFormDialog({
                 <button
                   key={key}
                   type="button"
-                  onClick={() => updateField("recurrence", key as HabitRecurrence)}
+                  onClick={() => {
+                    const recurrence = key as HabitRecurrence;
+                    setValues((current) => ({
+                      ...current,
+                      recurrence,
+                      customDays:
+                        recurrence === "weekly"
+                          ? current.customDays.length === 1
+                            ? current.customDays
+                            : [new Date().getDay()]
+                          : recurrence === "custom"
+                            ? current.customDays.length
+                              ? current.customDays
+                              : [1, 3, 5]
+                            : [],
+                    }));
+                  }}
                   className={cn(
                     "min-h-11 rounded-2xl border px-2 py-3 text-sm transition md:px-3",
                     values.recurrence === key
@@ -178,15 +191,23 @@ function HabitFormDialog({
           </div>
         </div>
 
-        {values.recurrence === "custom" ? (
+        {values.recurrence === "custom" || values.recurrence === "weekly" ? (
           <div className="space-y-3">
-            <p className="text-sm text-[var(--color-text-muted)]">Select weekdays</p>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              {values.recurrence === "weekly" ? "Weekly weekday" : "Select weekdays"}
+            </p>
             <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
               {WEEKDAY_LABELS.map((label, day) => (
                 <button
                   key={label}
                   type="button"
-                  onClick={() => toggleDay(day)}
+                  onClick={() => {
+                    if (values.recurrence === "weekly") {
+                      updateField("customDays", [day]);
+                      return;
+                    }
+                    toggleDay(day);
+                  }}
                   className={cn(
                     "min-h-11 rounded-2xl border px-2 py-3 text-sm transition md:px-3",
                     values.customDays.includes(day)
@@ -213,7 +234,7 @@ function HabitFormDialog({
         <button
           type="button"
           onClick={handleSubmit}
-          className="min-h-12 rounded-full bg-gradient-to-r from-cyan-400 via-sky-300 to-amber-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02]"
+          className="min-h-12 rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02]"
         >
           {habit ? "Save changes" : "Create habit"}
         </button>

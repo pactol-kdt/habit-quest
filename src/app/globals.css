@@ -13,6 +13,7 @@
   --color-pink: #f972b6;
   --color-green: #5ef2b3;
   --shadow-glow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 22px 60px rgba(3, 8, 20, 0.55);
+  --hq-accent-ink: #041018;
 }
 
 @theme inline {
@@ -26,17 +27,57 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
+  min-width: 0;
+  overflow-x: clip;
   background:
-    radial-gradient(circle at top left, rgba(77, 216, 255, 0.16), transparent 28%),
-    radial-gradient(circle at 80% 20%, rgba(249, 114, 182, 0.14), transparent 24%),
-    radial-gradient(circle at bottom right, rgba(245, 193, 93, 0.14), transparent 24%),
-    linear-gradient(135deg, #030712 0%, #07111f 42%, #0b1526 100%);
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--color-cyan) 28%, transparent),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 82% 18%,
+      color-mix(in srgb, var(--color-pink) 22%, transparent),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at bottom right,
+      color-mix(in srgb, var(--color-gold) 20%, transparent),
+      transparent 30%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-bg) 55%, #000) 0%,
+      var(--color-bg) 42%,
+      var(--color-bg-muted) 100%
+    );
+  background-attachment: fixed;
   color: var(--color-text);
   font-family: var(--font-body), sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.35s ease;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  touch-action: manipulation;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 body::before {
@@ -51,14 +92,33 @@ body::before {
   mask-image: radial-gradient(circle at center, black, transparent 80%);
 }
 
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-cyan) 8%, transparent),
+    transparent 28%,
+    color-mix(in srgb, var(--color-pink) 6%, transparent) 100%
+  );
+  opacity: 0.9;
+  transition: background 0.35s ease;
+}
+
 ::selection {
-  background: rgba(77, 216, 255, 0.28);
+  background: color-mix(in srgb, var(--color-cyan) 36%, transparent);
   color: white;
 }
 
 .glass-panel {
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(6, 11, 23, 0.72));
-  border: 1px solid var(--color-border);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-bg-muted) 78%, white 6%),
+    color-mix(in srgb, var(--color-bg) 86%, black)
+  );
+  border: 1px solid color-mix(in srgb, var(--color-cyan) 12%, var(--color-border));
   box-shadow: var(--shadow-glow);
   backdrop-filter: blur(18px);
 }
@@ -72,7 +132,12 @@ body::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, transparent 25%, rgba(255, 255, 255, 0.06), transparent 75%);
+  background: linear-gradient(
+    120deg,
+    transparent 25%,
+    color-mix(in srgb, var(--color-cyan) 14%, transparent),
+    transparent 75%
+  );
   transform: translateX(-120%);
   animation: shimmer 10s linear infinite;
   pointer-events: none;
@@ -88,6 +153,44 @@ body::before {
   background: rgba(8, 15, 29, 0.96);
   border-radius: 16px;
   box-shadow: var(--shadow-glow);
+}
+
+/* Theme-aware primary CTA / fill accents */
+.hq-btn-accent {
+  background: linear-gradient(
+    90deg,
+    var(--color-cyan),
+    color-mix(in srgb, var(--color-cyan) 55%, var(--color-gold)),
+    var(--color-gold)
+  );
+  color: var(--hq-accent-ink);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--color-cyan) 28%, transparent);
+}
+
+.hq-fill-accent {
+  background: linear-gradient(
+    90deg,
+    var(--color-cyan),
+    color-mix(in srgb, var(--color-cyan) 50%, var(--color-gold)),
+    var(--color-gold)
+  );
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-cyan) 35%, transparent);
+}
+
+.hq-text-accent {
+  color: var(--color-cyan);
+}
+
+.hq-chip-accent {
+  border-color: color-mix(in srgb, var(--color-cyan) 35%, transparent);
+  background: color-mix(in srgb, var(--color-cyan) 12%, transparent);
+  color: color-mix(in srgb, var(--color-cyan) 80%, white);
+}
+
+.hq-chip-gold {
+  border-color: color-mix(in srgb, var(--color-gold) 35%, transparent);
+  background: color-mix(in srgb, var(--color-gold) 12%, transparent);
+  color: color-mix(in srgb, var(--color-gold) 78%, white);
 }
 
 @keyframes shimmer {

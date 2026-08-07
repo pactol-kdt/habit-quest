@@ -24,7 +24,7 @@ export function FloatingRewardLayer() {
   }, [dismissFloatingReward, floatingRewards]);
 
   return (
-    <div className="pointer-events-none fixed bottom-8 right-8 z-50 flex flex-col items-end gap-3">
+    <div className="pointer-events-none fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-3 z-50 flex flex-col items-start gap-3 sm:bottom-8 sm:left-auto sm:right-8 sm:items-end lg:bottom-8">
       <AnimatePresence>
         {floatingRewards.map((reward) => (
           <motion.div

@@ -11,6 +11,7 @@ interface ProfilePanelProps {
 export function ProfilePanel({ data }: ProfilePanelProps) {
   const profile = getProfileDisplay(data.shopItems, data.equippedItems);
   const ownedCount = data.shopItems.filter((item) => item.owned).length;
+  const displayName = data.settings.displayName.trim() || "Adventurer";
 
   return (
     <GlassCard className="h-full">
@@ -29,11 +30,10 @@ export function ProfilePanel({ data }: ProfilePanelProps) {
             className="h-20 w-20 border border-white/10 shadow-[0_0_30px_rgba(77,216,255,0.12)]"
           />
           <div>
-            <p className="text-lg font-semibold text-white">
-              {profile.title?.name ?? "Unranked Adventurer"}
-            </p>
+            <p className="text-lg font-semibold text-white">{displayName}</p>
             <p className="text-sm text-[var(--color-text-muted)]">
-              {profile.frame?.name ?? "No frame equipped"} • {profile.avatar?.name ?? "Default avatar"}
+              {profile.title?.name ?? "Unranked"} • {profile.frame?.name ?? "No frame"} •{" "}
+              {profile.avatar?.name ?? "Default avatar"}
             </p>
           </div>
         </div>

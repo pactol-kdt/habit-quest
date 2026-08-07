@@ -5,7 +5,7 @@ import { CosmeticPreview } from "~/components/habitquest/cosmetic-art";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { RARITY_STYLES } from "~/lib/habitquest/constants";
 import { cn } from "~/lib/ui/cn";
-import type { ShopItem } from "~/types/habitquest";
+import type { ShopCategory, ShopItem } from "~/types/habitquest";
 
 interface ShopItemCardProps {
   item: ShopItem;
@@ -14,6 +14,7 @@ interface ShopItemCardProps {
   equipped: boolean;
   onPurchase: (item: ShopItem) => void;
   onEquip: (itemId: string) => void;
+  onUnequip?: (category: ShopCategory) => void;
 }
 
 export function ShopItemCard({
@@ -23,6 +24,7 @@ export function ShopItemCard({
   equipped,
   onPurchase,
   onEquip,
+  onUnequip,
 }: ShopItemCardProps) {
   return (
     <motion.div layout initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
@@ -64,9 +66,13 @@ export function ShopItemCard({
         <div className="mt-5">
           {item.owned ? (
             equipped ? (
-              <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm text-emerald-100">
-                Equipped
-              </span>
+              <button
+                type="button"
+                onClick={() => onUnequip?.(item.category)}
+                className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm text-emerald-100 transition hover:bg-emerald-300/16"
+              >
+                Unequip
+              </button>
             ) : (
               <button
                 type="button"
@@ -84,7 +90,7 @@ export function ShopItemCard({
             <button
               type="button"
               onClick={() => onPurchase(item)}
-              className="rounded-full bg-gradient-to-r from-cyan-400 via-sky-300 to-amber-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:scale-[1.02]"
+              className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:scale-[1.02]"
             >
               Purchase
             </button>

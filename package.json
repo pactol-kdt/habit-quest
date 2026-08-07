@@ -1,26 +1,33 @@
 {
   "name": "frontend",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "npx --yes tsx --test src/lib/habitquest/utils.test.ts"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.45.2",
     "framer-motion": "^12.39.0",
+    "mysql2": "^3.23.2",
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
+    "server-only": "^0.0.1",
     "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",

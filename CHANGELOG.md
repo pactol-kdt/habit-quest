@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.0 - Accounts, Database Sync, and Progression Systems
+
+### Added
+- Added email/password auth with signed sessions, roles (`user` / `admin`), and an auth gate before the app shell.
+- Added MySQL persistence for accounts, catalogs, and normalized per-user progress (Drizzle + server actions).
+- Added focused habit complete/undo server actions with surgical DB writes instead of always pushing a full save blob.
+- Added midnight day-settlement flow so habit EXP, combo, boss, and season progress lock in at day end.
+- Added season pass, boss, leaderboard, guides, habits, settings, and admin catalog routes/pages.
+- Added mobile bottom navigation, pending-progress UI, settlement recap, onboarding, celebrations, and habit reminders.
+- Added theme catalog wiring so equipped themes actually drive app chrome and accent colors.
+- Added local draft merge on hydrate so unsynced clears, undos, purchases, and daily-login claims survive refresh races.
+
+### Changed
+- Moved signed-in progress to database-backed sync with a durable browser cache for race safety.
+- Expanded shop/cosmetics, reward systems, combo handling, and dashboard/mobile layouts around the new progression model.
+- Capped visible reward toasts and improved mobile toast placement above the tab bar.
+
+### Fixed
+- Stopped daily login from granting +1 coin on every refresh by merging `dailyRewards`, flushing the claim to MySQL immediately, and guarding duplicate claims in-session.
+- Fixed stale combo display when `comboDate` was from a prior day.
+- Hardened complete/undo against races with pending UI, rollback on failure, and full-save overwrite protection.
+- Fixed purchases and habit progress being lost on refresh when only a debounced full save was queued.
+
 ## 0.2.1 - Mobile Dashboard and Habit Focus Update
 
 ### Added

@@ -40,7 +40,7 @@ export function DailyRewardCard({
             <div className="text-right">
               <p className="text-lg font-semibold text-amber-100">+{dailyLoginCoins}</p>
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-                {loginClaimed ? "Claimed" : "Pending"}
+                {loginClaimed ? "Claimed" : "Ready"}
               </p>
             </div>
           </div>
@@ -57,13 +57,17 @@ export function DailyRewardCard({
             <div className="text-right">
               <p className="text-lg font-semibold text-amber-100">+{dailyCompletionCoins}</p>
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-                {completionClaimed ? "Claimed" : qualifiesForReward ? "Ready" : "Locked"}
+                {completionClaimed
+                  ? "Locked in"
+                  : qualifiesForReward
+                    ? "Pending lock-in"
+                    : "Locked"}
               </p>
             </div>
           </div>
           <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/6">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-300 to-emerald-300"
+              className="hq-fill-accent h-full rounded-full"
               style={{
                 width: dueCount ? `${Math.min((completedCount / dueCount) * 100, 100)}%` : "0%",
               }}

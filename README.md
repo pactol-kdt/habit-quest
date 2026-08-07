@@ -1,31 +1,58 @@
 # HabitQuest
 
-HabitQuest is a dark-mode RPG habit tracker built with Next.js App Router, TypeScript, Tailwind CSS, Zustand, Framer Motion, Recharts, and browser `localStorage`.
+HabitQuest is a dark-mode RPG habit tracker built with Next.js App Router, TypeScript, Tailwind CSS, Zustand, Framer Motion, Recharts, MySQL, and email/password auth.
 
 ## Run locally
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
 Open `http://localhost:3000`.
+
+Optional env (defaults work for local dev):
+
+- `AUTH_SECRET` — session signing secret (dev fallback exists outside production)
+- `DATABASE_URL` — defaults to `mysql://root@127.0.0.1:3306/habitquest`
+
+```bash
+npm test
+```
+
+Runs focused Node test-runner checks (via `tsx`) for recurrence, challenges, and completion cleanup.
 
 ## Stack
 
 - Next.js App Router
 - TypeScript
 - Tailwind CSS v4
-- Zustand
-- Framer Motion
-- Recharts
-- `localStorage` persistence only
+- Zustand (optimistic client cache)
+- Framer Motion / Recharts
+- MySQL (`habitquest` database) for accounts + cloud saves
+- Signed-in progress is cloud-only (no localStorage write while authenticated)
 
 ## Routes
 
 - `/` dashboard
+- `/habits` all-habits management
 - `/shop` cosmetic shop and inventory
 - `/achievements` achievement ledger
+- `/settings` account sync, profile, reminders, export/import/reset
+
+## Auth & sync
+
+1. HabitQuest requires sign-in — the app shell shows an auth gate until a session exists.
+2. Users have roles: `user` (default) or `admin` (first signup, or `ADMIN_EMAIL`).
+3. Catalogs (shop, achievements, challenges, quests, unlocks, season rewards) live in MySQL `catalog_*` tables and are editable at `/admin`.
+4. Player progress stays in normalized per-user tables; catalogs merge in on load.
+5. Sign out flushes cloud sync and returns you to the auth gate.
+
+Server Actions:
+
+- `src/app/actions/auth.ts` — sign up / sign in / sign out / session
+- `src/app/actions/habitquest-sync.ts` — validate / pull / push / auth boot sync
 
 ## Project structure
 
@@ -33,37 +60,27 @@ Open `http://localhost:3000`.
 src/
   app/
     achievements/page.tsx
+    actions/auth.ts
+    actions/habitquest-sync.ts
+    habits/page.tsx
+    settings/page.tsx
     shop/page.tsx
     globals.css
     layout.tsx
     page.tsx
   components/habitquest/
-    achievement-grid.tsx
-    achievements-page.tsx
-    achievements-panel.tsx
-    analytics-panel.tsx
-    app-shell.tsx
-    challenge-card.tsx
-    daily-reward-card.tsx
-    exp-progress.tsx
-    floating-reward-layer.tsx
-    glass-card.tsx
-    habit-form-modal.tsx
-    habit-list.tsx
-    habit-quest-app.tsx
-    navigation.tsx
-    profile-panel.tsx
-    purchase-modal.tsx
-    reward-toast-layer.tsx
-    shop-item-card.tsx
-    shop-page.tsx
-    stat-card.tsx
-    unlock-tracker.tsx
+    ...
   hooks/
     use-habitquest-hydration.ts
+    use-habitquest-reminders.ts
   lib/
+    auth/
+    db/
     habitquest/
+      cloud-sync.ts
       constants.ts
+      reminders.ts
+      schema.ts
       seed.ts
       storage.ts
       utils.ts
@@ -77,15 +94,11 @@ src/
 
 ## Persistence model
 
-- All persistent game data is stored under one `localStorage` key: `habitquest::save`.
-- The Zustand store hydrates only on the client after mount.
-- The store runs a single reconciliation pass that updates:
-  - daily login coins
-  - daily completion coin rewards
-  - challenge progress
-  - achievement unlocks and rewards
-  - level unlocks
-- If stored data is missing or invalid, the app falls back to seeded data.
+- Guest extract uses `localStorage` key `habitquest::save` once, then deletes it.
+- Signed-in cloud: normalized MySQL tables (`habits`, `habit_completions`, `user_progress`, `wallets`, …).
+- Legacy JSON blobs in `habitquest_saves` are migrated into rows on first pull, then removed.
+- Zustand hydrates on the client after mount, then pulls cloud data when a session cookie exists.
+- Settings still supports JSON export/import/reset for manual backups.
 
 ## Core gamification rules
 
@@ -96,26 +109,12 @@ src/
   - Medium: `25`
   - Hard: `50`
 - Level requirement: `level * 100`
+- Weekly habits are weekday-based (chosen weekday), not “every 7 days from creation”
+- `streak-days` challenges measure consecutive completion days inside the challenge window
 
-## Future backend migration
+## Future hardening
 
-The clean migration path is:
-
-1. Keep the domain types and gameplay logic in `src/lib/habitquest/`.
-2. Replace `storage.ts` with API or Server Action persistence.
-3. Load user data from a database during authenticated app boot.
-4. Keep Zustand as the client cache and optimistic UI layer.
-
-Good first tables are:
-
-- `users`
-- `habits`
-- `habit_completions`
-- `exp_history`
-- `wallets`
-- `shop_items`
-- `owned_cosmetics`
-- `equipped_cosmetics`
-- `achievements`
-- `challenges`
-- `level_unlocks`
+- Split `habitquest_saves` JSON into the normalized SQL tables in `src/lib/habitquest/schema.ts`
+- Point `DATABASE_URL` at a hosted MySQL when you leave local Laragon
+- Replace email/password with OAuth if needed
+- Add a service worker for true push reminders

@@ -9,17 +9,17 @@ export function AchievementsPage() {
   const unlocked = achievements.filter((achievement) => achievement.unlocked).length;
 
   return (
-    <div className="grid gap-6 pt-6">
-      <GlassCard className="rounded-[2rem] p-6 md:p-8">
+    <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
+      <GlassCard className="rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
               Achievements
             </p>
-            <h1 className="section-title mt-2 text-4xl text-white md:text-5xl">
+            <h1 className="section-title mt-2 text-3xl text-white sm:text-4xl md:text-5xl">
               Trophy ledger
             </h1>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--color-text-muted)]">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
               Auto-unlocked milestones reward both coins and EXP. Every unlock is stored locally with the rest of your profile.
             </p>
           </div>
