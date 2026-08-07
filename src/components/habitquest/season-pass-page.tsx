@@ -13,6 +13,7 @@ export function SeasonPassPage() {
     seasonPass: settledSeasonPass,
     levelUnlocks,
     claimSeasonPassLevel,
+    pendingClaimIds,
     hydrated,
   } = useHabitQuestStore((state) => state);
   const { seasonPass, pendingSeasonXp } = useEffectiveProgress();
@@ -47,7 +48,7 @@ export function SeasonPassPage() {
               Season pass
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              Habit clears feed season XP. Today&apos;s XP stays pending — {SETTLEMENT_LOCK_HINT}{" "}
+              Habit clears feed season XP. Today&apos;s XP stays in preview — {SETTLEMENT_LOCK_HINT}{" "}
               Claims use settled tiers only. The pass resets each calendar month.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
@@ -73,7 +74,7 @@ export function SeasonPassPage() {
             <p className="mt-2 text-sm text-[var(--color-text-muted)]">
               {seasonUnlocked
                 ? `Level ${seasonPass.level} · ${formatNumber(seasonPass.xp)} season XP${
-                    pendingSeasonXp > 0 ? ` (${pendingSeasonXp} pending)` : ""
+                    pendingSeasonXp > 0 ? ` (${pendingSeasonXp} preview)` : ""
                   }`
                 : "Unlocks at level 4"}
             </p>
@@ -108,23 +109,27 @@ export function SeasonPassPage() {
 
           {seasonUnlocked && claimableSeason.length ? (
             <div className="mt-5 flex flex-wrap gap-2">
-              {claimableSeason.map((reward) => (
-                <button
-                  key={reward.level}
-                  type="button"
-                  onClick={() => claimSeasonPassLevel(reward.level)}
-                  className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-300/16"
-                >
-                  Claim Lv {reward.level} · {reward.label}
-                </button>
-              ))}
+              {claimableSeason.map((reward) => {
+                const pending = pendingClaimIds.includes(`season:${reward.level}`);
+                return (
+                  <button
+                    key={reward.level}
+                    type="button"
+                    disabled={pending}
+                    onClick={() => claimSeasonPassLevel(reward.level)}
+                    className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-300/16 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {pending ? "Saving…" : `Claim Lv ${reward.level} · ${reward.label}`}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <p className="mt-5 text-sm text-[var(--color-text-muted)]">
               {seasonUnlocked
                 ? pendingSeasonXp > 0 &&
                   seasonPass.level > settledSeasonPass.level
-                  ? `Pending season level ${seasonPass.level} — claim unlocks after lock-in. ${SETTLEMENT_LOCK_HINT}`
+                  ? `Preview season level ${seasonPass.level} — claim unlocks after lock-in. ${SETTLEMENT_LOCK_HINT}`
                   : "No claimable tiers right now — keep clearing habits."
                 : "Level up to unlock the monthly season track."}
             </p>
@@ -141,6 +146,8 @@ export function SeasonPassPage() {
               const reached = seasonPass.level >= reward.level;
               const settledReached = settledSeasonPass.level >= reward.level;
               const claimed = settledSeasonPass.claimedLevels.includes(reward.level);
+              const pending = pendingClaimIds.includes(`season:${reward.level}`);
+              const ready = settledReached && !claimed;
 
               return (
                 <div
@@ -149,7 +156,7 @@ export function SeasonPassPage() {
                     "rounded-3xl border px-4 py-3",
                     claimed
                       ? "border-emerald-300/20 bg-emerald-300/8"
-                      : settledReached
+                      : ready
                         ? "border-cyan-300/20 bg-cyan-300/8"
                         : reached
                           ? "border-amber-300/20 bg-amber-300/8"
@@ -165,15 +172,24 @@ export function SeasonPassPage() {
                         +{reward.coins} coins · +{reward.exp} EXP
                       </p>
                     </div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-                      {claimed
-                        ? "Claimed"
-                        : settledReached
-                          ? "Ready"
+                    {ready ? (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => claimSeasonPassLevel(reward.level)}
+                        className="min-h-10 shrink-0 rounded-full border border-cyan-300/25 bg-cyan-300/15 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {pending ? "Saving…" : "Claim"}
+                      </button>
+                    ) : (
+                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+                        {claimed
+                          ? "Claimed"
                           : reached
-                            ? "Pending"
+                            ? "Preview"
                             : "Locked"}
-                    </p>
+                      </p>
+                    )}
                   </div>
                 </div>
               );

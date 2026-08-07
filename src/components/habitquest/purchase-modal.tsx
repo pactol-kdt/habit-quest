@@ -30,7 +30,7 @@ export function PurchaseModal({ item, onClose, onConfirm }: PurchaseModalProps) 
             </p>
             <h2 className="section-title mt-2 text-2xl text-white sm:text-3xl">{item.name}</h2>
             <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
-              Spend {item.price} coins on this {item.category}. Purchases are saved in your local profile.
+              Spend {item.price} coins on this {item.category}. Purchases save to your account.
             </p>
 
             <div className="mt-6 grid grid-cols-2 gap-3 sm:flex">

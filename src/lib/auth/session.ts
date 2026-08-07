@@ -23,7 +23,7 @@ function getAuthSecret() {
   }
 
   throw new Error(
-    "AUTH_SECRET is missing or too short. Add a 32+ character secret to .env.local.",
+    "AUTH_SECRET is missing or too short. Set a 32+ character secret in .env.production or your host env.",
   );
 }
 

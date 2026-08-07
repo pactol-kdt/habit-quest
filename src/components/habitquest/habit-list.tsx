@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { DIFFICULTY_LABELS } from "~/lib/habitquest/constants";
+import { DIFFICULTY_LABELS, CLEARED_TODAY_LABEL } from "~/lib/habitquest/constants";
 import { cn } from "~/lib/ui/cn";
 import { describeRecurrence, getDifficultyExp } from "~/lib/habitquest/utils";
 import type { Habit } from "~/types/habitquest";
@@ -86,7 +86,7 @@ export function HabitList({
                         : "bg-white/7 text-[var(--color-text-muted)]",
                     )}
                   >
-                    {pendingSync ? "Saving…" : completed ? "Pending clear" : "Active"}
+                    {pendingSync ? "Saving…" : completed ? CLEARED_TODAY_LABEL : "Active"}
                   </span>
                   {showDueBadge ? (
                     <span
@@ -128,7 +128,7 @@ export function HabitList({
                         : "hover:bg-amber-300/16",
                     )}
                   >
-                    {pendingSync ? "Saving…" : "Undo pending"}
+                    {pendingSync ? "Saving…" : "Undo clear"}
                   </button>
                 ) : (
                   <button
@@ -145,7 +145,7 @@ export function HabitList({
                     {pendingSync
                       ? "Saving…"
                       : completed
-                        ? "Pending"
+                        ? CLEARED_TODAY_LABEL
                         : showDueBadge && !dueToday
                           ? "Not due"
                           : "Complete"}

@@ -130,7 +130,7 @@ export function HabitsPage() {
               ? "No habits yet. Create your first ritual to start farming EXP."
               : filter === "due"
                 ? "Nothing is due today. Try All or create a daily habit."
-                : "No pending clears today. Complete a due habit to see it here."
+                : "Nothing cleared today yet. Complete a due habit to see it here."
           }
           emptyActionLabel={filter === "all" || filter === "due" ? "Create habit" : undefined}
           onEmptyAction={

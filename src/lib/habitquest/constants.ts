@@ -61,7 +61,12 @@ export const CRIT_MULTIPLIER = 2;
 export const COMBO_EXP_PER_EXTRA_CLEAR = 5;
 /** Coin payouts when same-day clear count hits these thresholds. */
 export const COMBO_COIN_THRESHOLDS = [3, 5, 8] as const;
-export const SETTLEMENT_LOCK_HINT = "Locks in at local midnight on next open.";
+export const SETTLEMENT_LOCK_HINT = "Banks at local midnight on next open.";
+/** Short label for tonight's reversible progress (not the same as "Saving…"). */
+export const PREVIEW_LABEL = "Preview";
+export const CLEARED_TODAY_LABEL = "Cleared today";
+/** @deprecated use PREVIEW_LABEL */
+export const UNBANKED_LABEL = PREVIEW_LABEL;
 export const SEASON_PASS_XP_PER_LEVEL = 150;
 export const BOSS_DAMAGE: Record<HabitDifficulty, number> = {
   easy: 8,

@@ -1,5 +1,24 @@
 const REMINDER_FIRED_KEY = "habitquest::reminder-fired";
 
+export type ReminderPermission = "granted" | "denied" | "unsupported" | "default";
+
+export function getReminderPermission(): ReminderPermission {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return "unsupported";
+  }
+  if (Notification.permission === "granted") {
+    return "granted";
+  }
+  if (Notification.permission === "denied") {
+    return "denied";
+  }
+  return "default";
+}
+
+export function canFireBrowserReminder() {
+  return getReminderPermission() === "granted";
+}
+
 export async function requestReminderPermission() {
   if (typeof window === "undefined" || !("Notification" in window)) {
     return "unsupported" as const;

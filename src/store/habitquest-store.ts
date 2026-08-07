@@ -2,24 +2,59 @@
 
 import { create } from "zustand";
 import type { AuthUser } from "~/lib/auth/session-types";
+import {
+  claimBossRewardAction,
+  claimChallengeRewardAction,
+  claimQuestArcRewardAction,
+  claimSeasonPassLevelAction,
+  buyStreakFreezeAction,
+  completeOnboardingAction,
+  updateSettingsAction,
+} from "~/app/actions/claims";
+import {
+  createHabitAction,
+  deleteHabitAction,
+  updateHabitAction,
+} from "~/app/actions/habit-crud";
 import { completeHabitAction, uncompleteHabitAction } from "~/app/actions/habits";
+import {
+  equipShopItemAction,
+  purchaseShopItemAction,
+  unequipShopItemAction,
+} from "~/app/actions/shop";
 import {
   bumpCloudSavePayload,
   flushCloudSaveNow,
   scheduleCloudSave,
 } from "~/lib/habitquest/cloud-sync";
 import {
-  BOSS_CLEAR_COINS,
-  BOSS_CLEAR_EXP,
   DAILY_LOGIN_COINS,
   MAX_STREAK_FREEZES,
-  STREAK_FREEZE_COST,
   setLocalPersistenceEnabled,
 } from "~/lib/habitquest/constants";
+import {
+  applyCreateHabit,
+  applyDeleteHabit,
+  applyUpdateHabit,
+} from "~/lib/habitquest/habit-crud-mutations";
 import {
   applyCompleteHabitForToday,
   applyUncompleteHabitForToday,
 } from "~/lib/habitquest/habit-mutations";
+import {
+  applyBuyStreakFreeze,
+  applyClaimBossReward,
+  applyClaimChallengeReward,
+  applyClaimQuestArcReward,
+  applyClaimSeasonPassLevel,
+  applyCompleteOnboarding,
+  applyUpdateSettings,
+} from "~/lib/habitquest/reward-claim-mutations";
+import {
+  applyEquipShopItem,
+  applyPurchaseShopItem,
+  applyUnequipShopItem,
+} from "~/lib/habitquest/shop-mutations";
 import {
   createCelebration,
   createDefaultRewardSystems,
@@ -47,10 +82,7 @@ import {
   getPendingAchievementRewards,
   getTodayDateKey,
   hasClaimedDailyReward,
-  isFeatureUnlocked,
-  normalizeFormValues,
   reconcileChallenges,
-  removeCompletionsFromProgress,
   syncProgress,
   unlockAchievements,
 } from "~/lib/habitquest/utils";
@@ -59,7 +91,6 @@ import type {
   Challenge,
   ExpHistoryEntry,
   FloatingReward,
-  Habit,
   HabitFormValues,
   HabitQuestData,
   RewardToast,
@@ -73,6 +104,8 @@ type HabitQuestStore = HabitQuestData & {
   authChecked: boolean;
   authUser: AuthUser | null;
   pendingHabitIds: string[];
+  pendingShopItemIds: string[];
+  pendingClaimIds: string[];
   rewardToasts: RewardToast[];
   floatingRewards: FloatingReward[];
   celebration: CelebrationEvent | null;
@@ -257,17 +290,6 @@ function appendCoins(
   };
   rewardToasts.push(createToast("coins", "Coins earned", `${label} +${amount} coins`));
   floatingRewards.push(createFloatingReward("coins", amount, label));
-}
-
-function spendCoins(
-  data: HabitQuestData,
-  amount: number,
-) {
-  data.wallet = {
-    ...data.wallet,
-    totalCoins: data.wallet.totalCoins - amount,
-    lifetimeCoinsSpent: data.wallet.lifetimeCoinsSpent + amount,
-  };
 }
 
 function appendExp(
@@ -591,30 +613,14 @@ function mergeTransientState(
 function pushWarningState(state: HabitQuestStore, title: string, description: string) {
   return {
     rewardToasts: [
-      ...state.rewardToasts,
       createToast("warning", title, description),
+      ...state.rewardToasts.filter((toast) => toast.type !== "warning" || toast.title !== title),
     ],
   };
 }
 
-function equippedPatchForCategory(
-  equippedItems: HabitQuestData["equippedItems"],
-  category: ShopCategory,
-  itemId: string | null,
-) {
-  if (category === "title") {
-    return { ...equippedItems, titleItemId: itemId };
-  }
-  if (category === "frame") {
-    return { ...equippedItems, frameItemId: itemId };
-  }
-  if (category === "avatar") {
-    return { ...equippedItems, avatarItemId: itemId };
-  }
-  return { ...equippedItems, themeItemId: itemId };
-}
-
 const habitMutationSeq = new Map<string, number>();
+const shopMutationSeq = new Map<string, number>();
 
 function nextHabitMutationSeq(habitId: string) {
   const next = (habitMutationSeq.get(habitId) ?? 0) + 1;
@@ -626,12 +632,24 @@ function isCurrentHabitMutation(habitId: string, seq: number) {
   return habitMutationSeq.get(habitId) === seq;
 }
 
+function nextShopMutationSeq(key: string) {
+  const next = (shopMutationSeq.get(key) ?? 0) + 1;
+  shopMutationSeq.set(key, next);
+  return next;
+}
+
+function isCurrentShopMutation(key: string, seq: number) {
+  return shopMutationSeq.get(key) === seq;
+}
+
 export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
   ...initialData,
   hydrated: false,
   authChecked: false,
   authUser: null,
   pendingHabitIds: [],
+  pendingShopItemIds: [],
+  pendingClaimIds: [],
   rewardToasts: [],
   floatingRewards: [],
   celebration: null,
@@ -733,112 +751,235 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     });
   },
   createHabit: (rawValues) => {
-    const values = normalizeFormValues(rawValues);
-    if (!values.title) {
+    const state = get();
+    const mutation = applyCreateHabit(projectData(state), rawValues);
+    if (!mutation.ok || !mutation.habit) {
       return;
     }
 
-    const now = new Date().toISOString();
-    const habit: Habit = {
-      id: createId("habit"),
-      title: values.title,
-      description: values.description,
-      difficulty: values.difficulty,
-      recurrence: values.recurrence,
-      customDays:
-        values.recurrence === "custom" || values.recurrence === "weekly"
-          ? values.customDays
-          : [],
-      createdAt: now,
-      updatedAt: now,
-    };
+    const habitId = mutation.habitId;
+    const seq = nextHabitMutationSeq(habitId);
+    const resolution = resolveGameState(mutation.data);
+    const persisted = persistLocalOnly(resolution.data);
+    bumpCloudSavePayload(persisted);
 
-    set((state) => {
-      const resolution = resolveGameState({
-        ...projectData(state),
-        habits: [habit, ...state.habits],
+    set((current) => ({
+      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      pendingHabitIds: [...current.pendingHabitIds, habitId],
+    }));
+
+    void createHabitAction(rawValues, habitId)
+      .then((result) => {
+        if (!isCurrentHabitMutation(habitId, seq)) {
+          return;
+        }
+        if (result.status !== "ok") {
+          const restored = persistLocalOnly({
+            ...projectData(get()),
+            habits: get().habits.filter((entry) => entry.id !== habitId),
+          });
+          bumpCloudSavePayload(restored);
+          set((current) => ({
+            ...current,
+            ...restored,
+            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+            ...pushWarningState(
+              { ...current, ...restored } as HabitQuestStore,
+              "Sync failed",
+              result.status === "unauthenticated"
+                ? "Sign in again to save habits."
+                : result.error,
+            ),
+          }));
+          return;
+        }
+
+        set((current) => ({
+          ...current,
+          pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+          habits: result.habit
+            ? current.habits.map((entry) => (entry.id === habitId ? result.habit! : entry))
+            : current.habits,
+        }));
+      })
+      .catch((error) => {
+        if (!isCurrentHabitMutation(habitId, seq)) {
+          return;
+        }
+        const restored = persistLocalOnly({
+          ...projectData(get()),
+          habits: get().habits.filter((entry) => entry.id !== habitId),
+        });
+        bumpCloudSavePayload(restored);
+        set((current) => ({
+          ...current,
+          ...restored,
+          pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+          ...pushWarningState(
+            { ...current, ...restored } as HabitQuestStore,
+            "Sync failed",
+            error instanceof Error ? error.message : "Network error while creating habit.",
+          ),
+        }));
       });
-      const persisted = persistData(resolution.data);
-      return mergeTransientState(state, { ...resolution, data: persisted });
-    });
   },
   updateHabit: (habitId, rawValues) => {
-    const values = normalizeFormValues(rawValues);
-    if (!values.title) {
+    const state = get();
+    if (state.pendingHabitIds.includes(habitId)) {
       return;
     }
 
-    set((state) => {
-      const resolution = resolveGameState({
-        ...projectData(state),
-        habits: state.habits.map((habit) =>
-          habit.id === habitId
-            ? {
-                ...habit,
-                title: values.title,
-                description: values.description,
-                difficulty: values.difficulty,
-                recurrence: values.recurrence,
-                customDays:
-                  values.recurrence === "custom" || values.recurrence === "weekly"
-                    ? values.customDays
-                    : [],
-                updatedAt: new Date().toISOString(),
-              }
-            : habit,
-        ),
+    const snapshot = projectData(state);
+    const mutation = applyUpdateHabit(snapshot, habitId, rawValues);
+    if (!mutation.ok) {
+      return;
+    }
+
+    const seq = nextHabitMutationSeq(habitId);
+    const resolution = resolveGameState(mutation.data);
+    const persisted = persistLocalOnly(resolution.data);
+    bumpCloudSavePayload(persisted);
+
+    set((current) => ({
+      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      pendingHabitIds: [...current.pendingHabitIds, habitId],
+    }));
+
+    void updateHabitAction(habitId, rawValues)
+      .then((result) => {
+        if (!isCurrentHabitMutation(habitId, seq)) {
+          return;
+        }
+        if (result.status !== "ok") {
+          const rolledBack = persistLocalOnly(snapshot);
+          bumpCloudSavePayload(rolledBack);
+          set((current) => ({
+            ...current,
+            ...rolledBack,
+            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+            ...pushWarningState(
+              { ...current, ...rolledBack } as HabitQuestStore,
+              "Sync failed",
+              result.status === "unauthenticated"
+                ? "Sign in again to save habits."
+                : result.error,
+            ),
+          }));
+          return;
+        }
+
+        set((current) => {
+          const nextData = persistLocalOnly({
+            ...projectData(current),
+            habits: result.habit
+              ? current.habits.map((entry) => (entry.id === habitId ? result.habit! : entry))
+              : current.habits,
+          });
+          bumpCloudSavePayload(nextData);
+          return {
+            ...current,
+            ...nextData,
+            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+          };
+        });
+      })
+      .catch((error) => {
+        if (!isCurrentHabitMutation(habitId, seq)) {
+          return;
+        }
+        const rolledBack = persistLocalOnly(snapshot);
+        bumpCloudSavePayload(rolledBack);
+        set((current) => ({
+          ...current,
+          ...rolledBack,
+          pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+          ...pushWarningState(
+            { ...current, ...rolledBack } as HabitQuestStore,
+            "Sync failed",
+            error instanceof Error ? error.message : "Network error while updating habit.",
+          ),
+        }));
       });
-      const persisted = persistData(resolution.data);
-      return mergeTransientState(state, { ...resolution, data: persisted });
-    });
   },
   deleteHabit: (habitId) => {
-    set((state) => {
-      const habit = state.habits.find((entry) => entry.id === habitId);
-      const removedCompletions = state.completions.filter(
-        (completion) => completion.habitId === habitId,
-      );
-      const titleMap = new Map(
-        state.habits.map((entry) => [entry.id, entry.title] as const),
-      );
-      const settledThrough = state.rewardSystems.progressSettledThroughDate;
-      const settledRemovals = removedCompletions.filter((completion) =>
-        settledThrough ? completion.date <= settledThrough : completion.date < getTodayDateKey(),
-      );
-      const remainingCompletions = state.completions.filter(
-        (completion) => completion.habitId !== habitId,
-      );
+    const state = get();
+    if (state.pendingHabitIds.includes(habitId)) {
+      return;
+    }
 
-      let nextData: HabitQuestData = {
-        ...projectData(state),
-        habits: state.habits.filter((entry) => entry.id !== habitId),
-        completions: remainingCompletions,
-      };
+    const snapshot = projectData(state);
+    const mutation = applyDeleteHabit(snapshot, habitId);
+    if (!mutation.ok) {
+      return;
+    }
 
-      // Only claw settled EXP — today's pending clears never entered totalExp.
-      if (settledRemovals.length) {
-        nextData = removeCompletionsFromProgress(
-          {
+    const seq = nextHabitMutationSeq(habitId);
+    const resolution = resolveGameState(mutation.data);
+    const persisted = persistLocalOnly(resolution.data);
+    bumpCloudSavePayload(persisted);
+
+    set((current) => ({
+      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      pendingHabitIds: [...current.pendingHabitIds, habitId],
+    }));
+
+    void deleteHabitAction(habitId)
+      .then((result) => {
+        if (!isCurrentHabitMutation(habitId, seq)) {
+          return;
+        }
+        if (result.status !== "ok") {
+          const rolledBack = persistLocalOnly(snapshot);
+          bumpCloudSavePayload(rolledBack);
+          set((current) => ({
+            ...current,
+            ...rolledBack,
+            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+            ...pushWarningState(
+              { ...current, ...rolledBack } as HabitQuestStore,
+              "Sync failed",
+              result.status === "unauthenticated"
+                ? "Sign in again to save habits."
+                : result.error,
+            ),
+          }));
+          return;
+        }
+
+        set((current) => {
+          const nextData = persistLocalOnly({
+            ...projectData(current),
+            habits: current.habits.filter((entry) => entry.id !== habitId),
+            completions: current.completions.filter((entry) => entry.habitId !== habitId),
+            userProgress: result.userProgress
+              ? { ...current.userProgress, ...result.userProgress }
+              : current.userProgress,
+          });
+          bumpCloudSavePayload(nextData);
+          return {
+            ...current,
             ...nextData,
-            completions: [...remainingCompletions, ...settledRemovals],
-          },
-          settledRemovals,
-          titleMap,
-        );
-        nextData = {
-          ...nextData,
-          completions: remainingCompletions,
-        };
-      }
-
-      if (habit) {
-        titleMap.delete(habit.id);
-      }
-
-      const resolution = resolveGameState(nextData);
-      const persisted = persistData(resolution.data);
-      return mergeTransientState(state, { ...resolution, data: persisted });
-    });
+            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+          };
+        });
+      })
+      .catch((error) => {
+        if (!isCurrentHabitMutation(habitId, seq)) {
+          return;
+        }
+        const rolledBack = persistLocalOnly(snapshot);
+        bumpCloudSavePayload(rolledBack);
+        set((current) => ({
+          ...current,
+          ...rolledBack,
+          pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+          ...pushWarningState(
+            { ...current, ...rolledBack } as HabitQuestStore,
+            "Sync failed",
+            error instanceof Error ? error.message : "Network error while deleting habit.",
+          ),
+        }));
+      });
   },
   completeHabitForToday: (habitId) => {
     const state = get();
@@ -1051,409 +1192,708 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       });
   },
   claimChallengeReward: (challengeId) => {
-    set((state) => {
-      const challenge = state.challenges.find((entry) => entry.id === challengeId);
-      if (!challenge || !challenge.completed || challenge.claimed) {
-        return state;
+    const state = get();
+    const pendingKey = `challenge:${challengeId}`;
+    if (state.pendingClaimIds.includes(pendingKey)) {
+      return;
+    }
+    const snapshot = projectData(state);
+    const mutation = applyClaimChallengeReward(snapshot, challengeId);
+    if (!mutation.ok) {
+      return;
+    }
+
+    const seq = nextShopMutationSeq(`challenge:${challengeId}`);
+    const resolution = resolveGameState(mutation.data);
+    const persisted = persistLocalOnly(resolution.data);
+    bumpCloudSavePayload(persisted);
+
+    set((current) => ({
+      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      pendingClaimIds: [...current.pendingClaimIds, pendingKey],
+      rewardToasts: [
+        ...current.rewardToasts,
+        ...mutation.rewardToasts,
+        ...resolution.rewardToasts,
+      ],
+      floatingRewards: [
+        ...current.floatingRewards,
+        ...resolution.floatingRewards,
+      ],
+    }));
+
+    void claimChallengeRewardAction(challengeId).then((result) => {
+      if (!isCurrentShopMutation(`challenge:${challengeId}`, seq)) {
+        return;
       }
-
-      const nextData: HabitQuestData = {
-        ...projectData(state),
-        challenges: state.challenges.map((entry) =>
-          entry.id === challengeId
-            ? {
-                ...entry,
-                claimed: true,
-              }
-            : entry,
-        ),
-      };
-
-      const rewardToasts: RewardToast[] = [];
-      const floatingRewards: FloatingReward[] = [];
-      applyChallengeReward(nextData, challenge, rewardToasts, floatingRewards);
-
-      const resolution = resolveGameState(nextData);
-      const persisted = persistData(resolution.data);
-
-      return {
-        ...mergeTransientState(state, { ...resolution, data: persisted }),
-        rewardToasts: [
-          ...state.rewardToasts,
-          ...rewardToasts,
-          ...resolution.rewardToasts,
-        ],
-        floatingRewards: [
-          ...state.floatingRewards,
-          ...floatingRewards,
-          ...resolution.floatingRewards,
-        ],
-      };
+      if (result.status !== "ok") {
+        const rolledBack = persistLocalOnly(snapshot);
+        bumpCloudSavePayload(rolledBack);
+        set((current) => ({
+          ...current,
+          ...rolledBack,
+          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+          ...pushWarningState(
+            { ...current, ...rolledBack } as HabitQuestStore,
+            "Claim failed",
+            result.status === "unauthenticated" ? "Sign in again to claim rewards." : result.error,
+          ),
+        }));
+        return;
+      }
+      set((current) => {
+        const nextData = persistLocalOnly({
+          ...projectData(current),
+          wallet: result.wallet,
+          userProgress: result.userProgress,
+          challenges: result.challenges ?? current.challenges,
+          shopItems: result.shopItems ?? current.shopItems,
+        });
+        bumpCloudSavePayload(nextData);
+        return {
+          ...current,
+          ...nextData,
+          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+        };
+      });
     });
   },
   claimQuestArcReward: (arcId) => {
-    set((state) => {
-      if (!isFeatureUnlocked(state.levelUnlocks, "quest-arcs")) {
+    const state = get();
+    const pendingKey = `quest:${arcId}`;
+    if (state.pendingClaimIds.includes(pendingKey)) {
+      return;
+    }
+    const snapshot = projectData(state);
+    const mutation = applyClaimQuestArcReward(snapshot, arcId);
+    if (!mutation.ok) {
+      set((current) => ({
+        ...current,
+        ...pushWarningState(current, "Claim blocked", mutation.error),
+      }));
+      return;
+    }
+
+    const arc = mutation.data.questArcs.find((entry) => entry.id === arcId);
+    const seq = nextShopMutationSeq(`quest:${arcId}`);
+    const resolution = resolveGameState(mutation.data);
+    const persisted = persistLocalOnly(resolution.data);
+    bumpCloudSavePayload(persisted);
+
+    set((current) => ({
+      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      pendingClaimIds: [...current.pendingClaimIds, pendingKey],
+      rewardToasts: [
+        ...current.rewardToasts,
+        ...mutation.rewardToasts,
+        ...resolution.rewardToasts,
+      ],
+      floatingRewards: [
+        ...current.floatingRewards,
+        ...resolution.floatingRewards,
+      ],
+      celebration: createCelebration(
+        "quest-chapter",
+        arc?.title ?? "Quest chapter",
+        "Chapter complete — rewards claimed.",
+      ),
+    }));
+
+    void claimQuestArcRewardAction(arcId).then((result) => {
+      if (!isCurrentShopMutation(`quest:${arcId}`, seq)) {
+        return;
+      }
+      if (result.status !== "ok") {
+        const rolledBack = persistLocalOnly(snapshot);
+        bumpCloudSavePayload(rolledBack);
+        set((current) => ({
+          ...current,
+          ...rolledBack,
+          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+          ...pushWarningState(
+            { ...current, ...rolledBack } as HabitQuestStore,
+            "Claim failed",
+            result.status === "unauthenticated" ? "Sign in again to claim rewards." : result.error,
+          ),
+        }));
+        return;
+      }
+      set((current) => {
+        const nextData = persistLocalOnly({
+          ...projectData(current),
+          wallet: result.wallet,
+          userProgress: result.userProgress,
+          questArcs: result.questArcs ?? current.questArcs,
+          shopItems: result.shopItems ?? current.shopItems,
+        });
+        bumpCloudSavePayload(nextData);
         return {
-          ...state,
-          ...pushWarningState(state, "Feature locked", "Quest arcs unlock at level 3."),
+          ...current,
+          ...nextData,
+          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
         };
-      }
-
-      const arc = state.questArcs.find((entry) => entry.id === arcId);
-      if (!arc || !arc.completed || arc.claimed) {
-        return state;
-      }
-
-      const nextData: HabitQuestData = {
-        ...projectData(state),
-        questArcs: state.questArcs.map((entry) =>
-          entry.id === arcId ? { ...entry, claimed: true } : entry,
-        ),
-      };
-
-      const rewardToasts: RewardToast[] = [];
-      const floatingRewards: FloatingReward[] = [];
-
-      if (arc.reward.coins > 0) {
-        appendCoins(nextData, arc.reward.coins, arc.title, rewardToasts, floatingRewards);
-      }
-      if (arc.reward.exp > 0) {
-        appendExp(nextData, arc.reward.exp, "quest", arc.title, rewardToasts, floatingRewards);
-      }
-      if (arc.reward.unlockThemeId) {
-        nextData.shopItems = nextData.shopItems.map((item) =>
-          item.id === arc.reward.unlockThemeId ? { ...item, owned: true } : item,
-        );
-        rewardToasts.push(
-          createToast("shop", "Theme unlocked", "A quest theme was added to your inventory."),
-        );
-      }
-
-      const resolution = resolveGameState(nextData);
-      const persisted = persistData(resolution.data);
-
-      return {
-        ...mergeTransientState(state, { ...resolution, data: persisted }),
-        rewardToasts: [
-          ...state.rewardToasts,
-          ...rewardToasts,
-          ...resolution.rewardToasts,
-        ],
-        floatingRewards: [
-          ...state.floatingRewards,
-          ...floatingRewards,
-          ...resolution.floatingRewards,
-        ],
-        celebration: createCelebration(
-          "quest-chapter",
-          arc.title,
-          "Chapter complete — rewards claimed.",
-        ),
-      };
+      });
     });
   },
   claimSeasonPassLevel: (level) => {
-    set((state) => {
-      if (!isFeatureUnlocked(state.levelUnlocks, "season-pass")) {
+    const state = get();
+    const pendingKey = `season:${level}`;
+    if (state.pendingClaimIds.includes(pendingKey)) {
+      return;
+    }
+    const snapshot = projectData(state);
+    const mutation = applyClaimSeasonPassLevel(snapshot, level);
+    if (!mutation.ok) {
+      set((current) => ({
+        ...current,
+        ...pushWarningState(current, "Claim blocked", mutation.error),
+      }));
+      return;
+    }
+
+    const reward = mutation.data.seasonPass.rewards.find((entry) => entry.level === level);
+    const seq = nextShopMutationSeq(`season:${level}`);
+    const resolution = resolveGameState(mutation.data);
+    const persisted = persistLocalOnly(resolution.data);
+    bumpCloudSavePayload(persisted);
+
+    set((current) => ({
+      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      pendingClaimIds: [...current.pendingClaimIds, pendingKey],
+      rewardToasts: [
+        ...current.rewardToasts,
+        ...mutation.rewardToasts,
+        ...resolution.rewardToasts,
+      ],
+      floatingRewards: [
+        ...current.floatingRewards,
+        ...resolution.floatingRewards,
+      ],
+      celebration: createCelebration(
+        "season-level",
+        `Season reward · Lv ${level}`,
+        reward?.label ?? "Season reward claimed.",
+      ),
+    }));
+
+    void claimSeasonPassLevelAction(level).then((result) => {
+      if (!isCurrentShopMutation(`season:${level}`, seq)) {
+        return;
+      }
+      if (result.status !== "ok") {
+        const rolledBack = persistLocalOnly(snapshot);
+        bumpCloudSavePayload(rolledBack);
+        set((current) => ({
+          ...current,
+          ...rolledBack,
+          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+          ...pushWarningState(
+            { ...current, ...rolledBack } as HabitQuestStore,
+            "Claim failed",
+            result.status === "unauthenticated" ? "Sign in again to claim rewards." : result.error,
+          ),
+        }));
+        return;
+      }
+      set((current) => {
+        const nextData = persistLocalOnly({
+          ...projectData(current),
+          wallet: result.wallet,
+          userProgress: result.userProgress,
+          seasonPass: result.seasonPass ?? current.seasonPass,
+        });
+        bumpCloudSavePayload(nextData);
         return {
-          ...state,
-          ...pushWarningState(state, "Feature locked", "Season Pass unlocks at level 4."),
+          ...current,
+          ...nextData,
+          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
         };
-      }
-
-      const reward = state.seasonPass.rewards.find((entry) => entry.level === level);
-      if (!reward || state.seasonPass.level < level || state.seasonPass.claimedLevels.includes(level)) {
-        return state;
-      }
-
-      const nextData: HabitQuestData = {
-        ...projectData(state),
-        seasonPass: {
-          ...state.seasonPass,
-          claimedLevels: [...state.seasonPass.claimedLevels, level],
-        },
-      };
-
-      const rewardToasts: RewardToast[] = [];
-      const floatingRewards: FloatingReward[] = [];
-      if (reward.coins > 0) {
-        appendCoins(nextData, reward.coins, reward.label, rewardToasts, floatingRewards);
-      }
-      if (reward.exp > 0) {
-        appendExp(nextData, reward.exp, "season", reward.label, rewardToasts, floatingRewards);
-      }
-
-      const resolution = resolveGameState(nextData);
-      const persisted = persistData(resolution.data);
-
-      return {
-        ...mergeTransientState(state, { ...resolution, data: persisted }),
-        rewardToasts: [
-          ...state.rewardToasts,
-          ...rewardToasts,
-          ...resolution.rewardToasts,
-        ],
-        floatingRewards: [
-          ...state.floatingRewards,
-          ...floatingRewards,
-          ...resolution.floatingRewards,
-        ],
-        celebration: createCelebration(
-          "season-level",
-          `Season reward · Lv ${level}`,
-          reward.label,
-        ),
-      };
+      });
     });
   },
   claimBossReward: () => {
-    set((state) => {
-      if (!state.weeklyBoss.defeated || state.weeklyBoss.rewardClaimed) {
-        return state;
+    const state = get();
+    const pendingKey = "boss-reward";
+    if (state.pendingClaimIds.includes(pendingKey)) {
+      return;
+    }
+    const snapshot = projectData(state);
+    const mutation = applyClaimBossReward(snapshot);
+    if (!mutation.ok) {
+      return;
+    }
+
+    const seq = nextShopMutationSeq("boss-reward");
+    const resolution = resolveGameState(mutation.data);
+    const persisted = persistLocalOnly(resolution.data);
+    bumpCloudSavePayload(persisted);
+
+    set((current) => ({
+      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      pendingClaimIds: [...current.pendingClaimIds, pendingKey],
+      rewardToasts: [
+        ...current.rewardToasts,
+        ...mutation.rewardToasts,
+        ...resolution.rewardToasts,
+      ],
+      floatingRewards: [
+        ...current.floatingRewards,
+        ...resolution.floatingRewards,
+      ],
+      celebration: createCelebration(
+        "boss-clear",
+        "Boss reward claimed",
+        `${snapshot.weeklyBoss.name} bounty secured.`,
+      ),
+    }));
+
+    void claimBossRewardAction().then((result) => {
+      if (!isCurrentShopMutation("boss-reward", seq)) {
+        return;
       }
-
-      const nextData: HabitQuestData = {
-        ...projectData(state),
-        weeklyBoss: {
-          ...state.weeklyBoss,
-          rewardClaimed: true,
-        },
-      };
-
-      const rewardToasts: RewardToast[] = [];
-      const floatingRewards: FloatingReward[] = [];
-      appendCoins(nextData, BOSS_CLEAR_COINS, `${state.weeklyBoss.name} clear`, rewardToasts, floatingRewards);
-      appendExp(nextData, BOSS_CLEAR_EXP, "boss", `${state.weeklyBoss.name} clear`, rewardToasts, floatingRewards);
-
-      const resolution = resolveGameState(nextData);
-      const persisted = persistData(resolution.data);
-
-      return {
-        ...mergeTransientState(state, { ...resolution, data: persisted }),
-        rewardToasts: [
-          ...state.rewardToasts,
-          ...rewardToasts,
-          ...resolution.rewardToasts,
-        ],
-        floatingRewards: [
-          ...state.floatingRewards,
-          ...floatingRewards,
-          ...resolution.floatingRewards,
-        ],
-        celebration: createCelebration(
-          "boss-clear",
-          "Boss reward claimed",
-          `${state.weeklyBoss.name} bounty secured.`,
-        ),
-      };
+      if (result.status !== "ok") {
+        const rolledBack = persistLocalOnly(snapshot);
+        bumpCloudSavePayload(rolledBack);
+        set((current) => ({
+          ...current,
+          ...rolledBack,
+          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+          ...pushWarningState(
+            { ...current, ...rolledBack } as HabitQuestStore,
+            "Claim failed",
+            result.status === "unauthenticated" ? "Sign in again to claim rewards." : result.error,
+          ),
+        }));
+        return;
+      }
+      set((current) => {
+        const nextData = persistLocalOnly({
+          ...projectData(current),
+          wallet: result.wallet,
+          userProgress: result.userProgress,
+          weeklyBoss: result.weeklyBoss ?? current.weeklyBoss,
+        });
+        bumpCloudSavePayload(nextData);
+        return {
+          ...current,
+          ...nextData,
+          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+        };
+      });
     });
   },
   buyStreakFreeze: () => {
-    set((state) => {
-      if (state.rewardSystems.streakFreezes >= MAX_STREAK_FREEZES) {
-        return {
-          ...state,
-          ...pushWarningState(state, "Freeze cap reached", `You already hold ${MAX_STREAK_FREEZES} freezes.`),
-        };
-      }
+    const state = get();
+    const pendingKey = "streak-freeze";
+    if (state.pendingClaimIds.includes(pendingKey)) {
+      return;
+    }
+    const snapshot = projectData(state);
+    const mutation = applyBuyStreakFreeze(snapshot);
+    if (!mutation.ok) {
+      set((current) => ({
+        ...current,
+        ...pushWarningState(current, "Purchase blocked", mutation.error),
+      }));
+      return;
+    }
 
-      if (state.wallet.totalCoins < STREAK_FREEZE_COST) {
-        return {
-          ...state,
+    const seq = nextShopMutationSeq("streak-freeze");
+    const resolution = resolveGameState(mutation.data);
+    const persisted = persistLocalOnly(resolution.data);
+    bumpCloudSavePayload(persisted);
+
+    set((current) => ({
+      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      pendingClaimIds: [...current.pendingClaimIds, pendingKey],
+      rewardToasts: [
+        ...current.rewardToasts,
+        ...mutation.rewardToasts,
+        ...resolution.rewardToasts,
+      ],
+    }));
+
+    void buyStreakFreezeAction().then((result) => {
+      if (!isCurrentShopMutation("streak-freeze", seq)) {
+        return;
+      }
+      if (result.status !== "ok") {
+        const rolledBack = persistLocalOnly(snapshot);
+        bumpCloudSavePayload(rolledBack);
+        set((current) => ({
+          ...current,
+          ...rolledBack,
+          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
           ...pushWarningState(
-            state,
-            "Not enough coins",
-            `A streak freeze costs ${STREAK_FREEZE_COST} coins.`,
+            { ...current, ...rolledBack } as HabitQuestStore,
+            "Purchase failed",
+            result.status === "unauthenticated" ? "Sign in again to save purchases." : result.error,
           ),
-        };
+        }));
+        return;
       }
-
-      const nextData: HabitQuestData = {
-        ...projectData(state),
-        rewardSystems: {
-          ...state.rewardSystems,
-          streakFreezes: state.rewardSystems.streakFreezes + 1,
-        },
-      };
-      spendCoins(nextData, STREAK_FREEZE_COST);
-
-      const resolution = resolveGameState(nextData);
-      const persisted = persistData(resolution.data);
-      void flushCloudSaveNow(persisted);
-
-      return {
-        ...mergeTransientState(state, { ...resolution, data: persisted }),
-        rewardToasts: [
-          ...state.rewardToasts,
-          createToast("shop", "Streak freeze bought", `Spent ${STREAK_FREEZE_COST} coins.`),
-          ...resolution.rewardToasts,
-        ],
-      };
+      set((current) => {
+        const nextData = persistLocalOnly({
+          ...projectData(current),
+          wallet: result.wallet,
+          rewardSystems: result.rewardSystems ?? current.rewardSystems,
+        });
+        bumpCloudSavePayload(nextData);
+        return {
+          ...current,
+          ...nextData,
+          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+        };
+      });
     });
   },
   purchaseShopItem: (itemId) => {
-    set((state) => {
-      const item = state.shopItems.find((entry) => entry.id === itemId);
-      if (!item) {
-        return state;
-      }
+    const state = get();
+    if (state.pendingShopItemIds.includes(itemId)) {
+      return;
+    }
 
-      if (item.owned) {
-        return {
-          ...state,
-          ...pushWarningState(state, "Already owned", `${item.name} is already in your inventory.`),
-        };
-      }
+    const snapshot = projectData(state);
+    const mutation = applyPurchaseShopItem(snapshot, itemId);
+    if (!mutation.ok) {
+      set((current) => ({
+        ...current,
+        ...pushWarningState(current, 'Purchase blocked', mutation.error),
+      }));
+      return;
+    }
 
-      if (item.exclusive) {
-        return {
-          ...state,
-          ...pushWarningState(state, "Exclusive item", `${item.name} can only be earned through gameplay rewards.`),
-        };
-      }
+    const itemName =
+      state.shopItems.find((entry) => entry.id === itemId)?.name ?? 'Item';
+    const seq = nextShopMutationSeq(itemId);
+    const resolution = resolveGameState(mutation.data);
+    const persisted = persistLocalOnly(resolution.data);
+    bumpCloudSavePayload(persisted);
 
-      if (item.requiredFeature && !isFeatureUnlocked(state.levelUnlocks, item.requiredFeature)) {
-        return {
-          ...state,
-          ...pushWarningState(state, "Feature locked", `${item.name} requires ${item.requiredLevel}.`),
-        };
-      }
+    set((current) => ({
+      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      pendingShopItemIds: [...current.pendingShopItemIds, itemId],
+      rewardToasts: [
+        ...current.rewardToasts,
+        createToast("shop", "Purchase successful", `${itemName} added to inventory.`),
+        ...resolution.rewardToasts,
+      ],
+    }));
 
-      if (state.userProgress.level < item.requiredLevel) {
-        return {
-          ...state,
-          ...pushWarningState(state, "Level too low", `${item.name} unlocks at level ${item.requiredLevel}.`),
-        };
-      }
+    void purchaseShopItemAction(itemId)
+      .then((result) => {
+        if (!isCurrentShopMutation(itemId, seq)) {
+          return;
+        }
 
-      if (state.wallet.totalCoins < item.price) {
-        return {
-          ...state,
-          ...pushWarningState(state, "Not enough coins", `You need ${item.price - state.wallet.totalCoins} more coins for ${item.name}.`),
-        };
-      }
+        if (result.status !== 'ok') {
+          const rolledBack = persistLocalOnly(snapshot);
+          bumpCloudSavePayload(rolledBack);
+          set((current) => ({
+            ...current,
+            ...rolledBack,
+            pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
+            ...pushWarningState(
+              { ...current, ...rolledBack } as HabitQuestStore,
+              'Purchase failed',
+              result.status === 'unauthenticated'
+                ? 'Sign in again to save purchases.'
+                : result.error,
+            ),
+          }));
+          return;
+        }
 
-      const nextData: HabitQuestData = {
-        ...projectData(state),
-        shopItems: state.shopItems.map((entry) =>
-          entry.id === itemId
-            ? {
-                ...entry,
-                owned: true,
-              }
-            : entry,
-        ),
-      };
+        set((current) => {
+          const nextData = persistLocalOnly({
+            ...projectData(current),
+            shopItems: current.shopItems.map((entry) =>
+              entry.id === result.itemId ? { ...entry, owned: true } : entry,
+            ),
+            wallet: result.wallet,
+          });
+          bumpCloudSavePayload(nextData);
 
-      spendCoins(nextData, item.price);
-      const resolution = resolveGameState(nextData);
-      const persisted = persistData(resolution.data);
-      void flushCloudSaveNow(persisted);
-
-      return {
-        ...mergeTransientState(state, { ...resolution, data: persisted }),
-        rewardToasts: [
-          ...state.rewardToasts,
-          createToast("shop", "Purchase successful", `${item.name} added to inventory.`),
-          ...resolution.rewardToasts,
-        ],
-      };
-    });
+          return {
+            ...current,
+            ...nextData,
+            pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
+          };
+        });
+      })
+      .catch((error) => {
+        if (!isCurrentShopMutation(itemId, seq)) {
+          return;
+        }
+        const rolledBack = persistLocalOnly(snapshot);
+        bumpCloudSavePayload(rolledBack);
+        set((current) => ({
+          ...current,
+          ...rolledBack,
+          pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
+          ...pushWarningState(
+            { ...current, ...rolledBack } as HabitQuestStore,
+            'Purchase failed',
+            error instanceof Error ? error.message : 'Network error while purchasing.',
+          ),
+        }));
+      });
   },
   equipShopItem: (itemId) => {
-    set((state) => {
-      const item = state.shopItems.find((entry) => entry.id === itemId);
-      if (!item || !item.owned) {
-        return state;
-      }
+    const state = get();
+    if (state.pendingShopItemIds.includes(itemId)) {
+      return;
+    }
 
-      if (item.requiredFeature && !isFeatureUnlocked(state.levelUnlocks, item.requiredFeature)) {
-        return {
-          ...state,
-          ...pushWarningState(state, "Feature locked", `${item.name} is still locked.`),
-        };
-      }
+    const snapshot = projectData(state);
+    const mutation = applyEquipShopItem(snapshot, itemId);
+    if (!mutation.ok) {
+      set((current) => ({
+        ...current,
+        ...pushWarningState(current, 'Equip blocked', mutation.error),
+      }));
+      return;
+    }
 
-      const equippedItems = equippedPatchForCategory(state.equippedItems, item.category, item.id);
+    const itemName =
+      state.shopItems.find((entry) => entry.id === itemId)?.name ?? 'Item';
+    const seq = nextShopMutationSeq(itemId);
+    const persisted = persistLocalOnly(mutation.data);
+    bumpCloudSavePayload(persisted);
 
-      const persisted = persistData({
-        ...projectData(state),
-        equippedItems,
+    set((current) => ({
+      ...current,
+      ...persisted,
+      pendingShopItemIds: [...current.pendingShopItemIds, itemId],
+      rewardToasts: [
+        ...current.rewardToasts,
+        createToast("shop", "Equipped", `${itemName} is now active.`),
+      ],
+    }));
+
+    void equipShopItemAction(itemId)
+      .then((result) => {
+        if (!isCurrentShopMutation(itemId, seq)) {
+          return;
+        }
+
+        if (result.status !== 'ok') {
+          const rolledBack = persistLocalOnly(snapshot);
+          bumpCloudSavePayload(rolledBack);
+          set((current) => ({
+            ...current,
+            ...rolledBack,
+            pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
+            ...pushWarningState(
+              { ...current, ...rolledBack } as HabitQuestStore,
+              'Equip failed',
+              result.status === 'unauthenticated'
+                ? 'Sign in again to save equipment.'
+                : result.error,
+            ),
+          }));
+          return;
+        }
+
+        set((current) => {
+          const nextData = persistLocalOnly({
+            ...projectData(current),
+            equippedItems: result.equippedItems,
+          });
+          bumpCloudSavePayload(nextData);
+
+          return {
+            ...current,
+            ...nextData,
+            pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
+          };
+        });
+      })
+      .catch((error) => {
+        if (!isCurrentShopMutation(itemId, seq)) {
+          return;
+        }
+        const rolledBack = persistLocalOnly(snapshot);
+        bumpCloudSavePayload(rolledBack);
+        set((current) => ({
+          ...current,
+          ...rolledBack,
+          pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
+          ...pushWarningState(
+            { ...current, ...rolledBack } as HabitQuestStore,
+            'Equip failed',
+            error instanceof Error ? error.message : 'Network error while equipping.',
+          ),
+        }));
       });
-
-      return {
-        ...state,
-        ...persisted,
-        rewardToasts: [
-          ...state.rewardToasts,
-          createToast("shop", "Equipped", `${item.name} is now active.`),
-        ],
-      };
-    });
   },
   unequipShopItem: (category) => {
-    set((state) => {
-      const equippedItems = equippedPatchForCategory(state.equippedItems, category, null);
+    const state = get();
+    const pendingKey = `unequip:${category}`;
+    if (state.pendingShopItemIds.includes(pendingKey)) {
+      return;
+    }
 
-      const persisted = persistData({
-        ...projectData(state),
-        equippedItems,
+    const snapshot = projectData(state);
+    const mutation = applyUnequipShopItem(snapshot, category);
+    if (!mutation.ok) {
+      return;
+    }
+
+    const seq = nextShopMutationSeq(pendingKey);
+    const persisted = persistLocalOnly(mutation.data);
+    bumpCloudSavePayload(persisted);
+
+    set((current) => ({
+      ...current,
+      ...persisted,
+      pendingShopItemIds: [...current.pendingShopItemIds, pendingKey],
+      rewardToasts: [
+        ...current.rewardToasts,
+        createToast("shop", "Unequipped", `${category} slot cleared.`),
+      ],
+    }));
+
+    void unequipShopItemAction(category)
+      .then((result) => {
+        if (!isCurrentShopMutation(pendingKey, seq)) {
+          return;
+        }
+
+        if (result.status !== 'ok') {
+          const rolledBack = persistLocalOnly(snapshot);
+          bumpCloudSavePayload(rolledBack);
+          set((current) => ({
+            ...current,
+            ...rolledBack,
+            pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== pendingKey),
+            ...pushWarningState(
+              { ...current, ...rolledBack } as HabitQuestStore,
+              'Unequip failed',
+              result.status === 'unauthenticated'
+                ? 'Sign in again to save equipment.'
+                : result.error,
+            ),
+          }));
+          return;
+        }
+
+        set((current) => {
+          const nextData = persistLocalOnly({
+            ...projectData(current),
+            equippedItems: result.equippedItems,
+          });
+          bumpCloudSavePayload(nextData);
+
+          return {
+            ...current,
+            ...nextData,
+            pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== pendingKey),
+          };
+        });
+      })
+      .catch((error) => {
+        if (!isCurrentShopMutation(pendingKey, seq)) {
+          return;
+        }
+        const rolledBack = persistLocalOnly(snapshot);
+        bumpCloudSavePayload(rolledBack);
+        set((current) => ({
+          ...current,
+          ...rolledBack,
+          pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== pendingKey),
+          ...pushWarningState(
+            { ...current, ...rolledBack } as HabitQuestStore,
+            'Unequip failed',
+            error instanceof Error ? error.message : 'Network error while unequipping.',
+          ),
+        }));
       });
-
-      return {
-        ...state,
-        ...persisted,
-        rewardToasts: [
-          ...state.rewardToasts,
-          createToast("shop", "Unequipped", `${category} slot cleared.`),
-        ],
-      };
-    });
   },
   updateSettings: (patch) => {
-    set((state) => {
-      const settings: UserSettings = {
-        ...state.settings,
-        ...patch,
-        displayName:
-          patch.displayName !== undefined
-            ? patch.displayName.trim().slice(0, 32)
-            : state.settings.displayName,
-      };
+    const state = get();
+    const snapshot = projectData(state);
+    const mutation = applyUpdateSettings(snapshot, patch);
+    const persisted = persistLocalOnly(mutation.data);
+    bumpCloudSavePayload(persisted);
 
-      const persisted = persistData({
-        ...projectData(state),
-        settings,
+    set((current) => ({
+      ...current,
+      ...persisted,
+    }));
+
+    void updateSettingsAction(patch).then((result) => {
+      if (result.status !== "ok") {
+        const rolledBack = persistLocalOnly(snapshot);
+        bumpCloudSavePayload(rolledBack);
+        set((current) => ({
+          ...current,
+          ...rolledBack,
+          ...pushWarningState(
+            { ...current, ...rolledBack } as HabitQuestStore,
+            "Settings sync failed",
+            result.status === "unauthenticated"
+              ? "Sign in again to save settings."
+              : result.error,
+          ),
+        }));
+        return;
+      }
+      set((current) => {
+        const nextData = persistLocalOnly({
+          ...projectData(current),
+          settings: result.settings,
+        });
+        bumpCloudSavePayload(nextData);
+        return { ...current, ...nextData };
       });
-
-      return {
-        ...state,
-        ...persisted,
-      };
     });
   },
   completeOnboarding: (displayName) => {
-    set((state) => {
-      const settings: UserSettings = {
-        ...state.settings,
-        displayName: displayName.trim().slice(0, 32) || "Adventurer",
-        onboardingCompleted: true,
-      };
+    const state = get();
+    const snapshot = projectData(state);
+    const mutation = applyCompleteOnboarding(snapshot, displayName);
+    const persisted = persistLocalOnly(mutation.data);
+    bumpCloudSavePayload(persisted);
 
-      const persisted = persistData({
-        ...projectData(state),
-        settings,
+    set((current) => ({
+      ...current,
+      ...persisted,
+      rewardToasts: [
+        ...current.rewardToasts,
+        createToast(
+          "unlock",
+          "Welcome aboard",
+          `Quest log ready for ${mutation.settings.displayName}.`,
+        ),
+      ],
+    }));
+
+    void completeOnboardingAction(displayName).then((result) => {
+      if (result.status !== "ok") {
+        const rolledBack = persistLocalOnly(snapshot);
+        bumpCloudSavePayload(rolledBack);
+        set((current) => ({
+          ...current,
+          ...rolledBack,
+          ...pushWarningState(
+            { ...current, ...rolledBack } as HabitQuestStore,
+            "Onboarding sync failed",
+            result.status === "unauthenticated"
+              ? "Sign in again to finish onboarding."
+              : result.error,
+          ),
+        }));
+        return;
+      }
+      set((current) => {
+        const nextData = persistLocalOnly({
+          ...projectData(current),
+          settings: result.settings,
+        });
+        bumpCloudSavePayload(nextData);
+        return { ...current, ...nextData };
       });
-
-      return {
-        ...state,
-        ...persisted,
-        rewardToasts: [
-          ...state.rewardToasts,
-          createToast("unlock", "Welcome aboard", `Quest log ready for ${settings.displayName}.`),
-        ],
-      };
     });
   },
   dismissToast: (toastId) => {

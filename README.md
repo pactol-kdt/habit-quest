@@ -6,22 +6,41 @@ HabitQuest is a dark-mode RPG habit tracker built with Next.js App Router, TypeS
 
 ```bash
 npm install
-cp .env.example .env.local
 npm run dev
 ```
 
+`next dev` loads [`.env.development`](.env.development). Optional overrides go in `.env.development.local` (gitignored).
+
 Open `http://localhost:3000`.
 
-Optional env (defaults work for local dev):
+## Environment
 
-- `AUTH_SECRET` — session signing secret (dev fallback exists outside production)
-- `DATABASE_URL` — defaults to `mysql://root@127.0.0.1:3306/habitquest`
+| File | When loaded | Commit? |
+|------|-------------|---------|
+| `.env.development` | `next dev` | yes (safe local defaults) |
+| `.env.production` | `next build` / `next start` | no — create from example |
+| `.env.production.example` | template only | yes |
+| `.env.local` | always overrides | no |
+
+Variables:
+
+- `AUTH_SECRET` — session signing secret (required in production, 32+ chars recommended)
+- `DATABASE_URL` — MySQL URL (local default: `mysql://root@127.0.0.1:3306/habitquest`)
+- `ADMIN_EMAIL` — optional; that email becomes admin on signup (first account is always admin)
+
+Production setup:
+
+```bash
+cp .env.production.example .env.production
+# edit AUTH_SECRET + DATABASE_URL, then:
+npm run build && npm start
+```
 
 ```bash
 npm test
 ```
 
-Runs focused Node test-runner checks (via `tsx`) for recurrence, challenges, and completion cleanup.
+Runs focused Node test-runner checks (via `tsx`) for recurrence, challenges, completion cleanup, and reminders.
 
 ## Stack
 

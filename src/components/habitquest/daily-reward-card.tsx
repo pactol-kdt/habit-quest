@@ -1,4 +1,5 @@
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { SETTLEMENT_LOCK_HINT } from "~/lib/habitquest/constants";
 
 interface DailyRewardCardProps {
   loginClaimed: boolean;
@@ -26,6 +27,9 @@ export function DailyRewardCard({
           Daily Rewards
         </p>
         <h2 className="section-title mt-2 text-2xl text-white">Coin routine</h2>
+        <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+          Login pays automatically. Perfect-day coins are a preview until tonight&apos;s lock-in.
+        </p>
       </div>
 
       <div className="space-y-3">
@@ -34,13 +38,13 @@ export function DailyRewardCard({
             <div>
               <p className="font-medium text-white">Daily login</p>
               <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                Visit the app once per local day.
+                Auto-granted once when you open the app each local day. No claim button.
               </p>
             </div>
             <div className="text-right">
               <p className="text-lg font-semibold text-amber-100">+{dailyLoginCoins}</p>
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-                {loginClaimed ? "Claimed" : "Ready"}
+                {loginClaimed ? "Paid today" : "Pays on open"}
               </p>
             </div>
           </div>
@@ -51,17 +55,17 @@ export function DailyRewardCard({
             <div>
               <p className="font-medium text-white">Perfect day clear</p>
               <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                Finish all habits due today and clear at least 3 of them.
+                Finish every habit due today (at least 3). {SETTLEMENT_LOCK_HINT}
               </p>
             </div>
             <div className="text-right">
               <p className="text-lg font-semibold text-amber-100">+{dailyCompletionCoins}</p>
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
                 {completionClaimed
-                  ? "Locked in"
+                  ? "Banked"
                   : qualifiesForReward
-                    ? "Pending lock-in"
-                    : "Locked"}
+                    ? "Preview"
+                    : "Not yet"}
               </p>
             </div>
           </div>
@@ -74,7 +78,9 @@ export function DailyRewardCard({
             />
           </div>
           <p className="mt-3 text-sm text-[var(--color-text-muted)]">
-            {completedCount}/{dueCount || 0} due habits completed today.
+            {qualifiesForReward && !completionClaimed
+              ? `Qualified — +${dailyCompletionCoins} coins bank at lock-in.`
+              : `${completedCount}/${dueCount || 0} due habits cleared today.`}
           </p>
         </div>
       </div>

@@ -585,6 +585,350 @@ export async function removeTodayHabitCompletion(
   });
 }
 
+/** Surgical shop purchase — wallet spend + ownership row. */
+export async function persistShopPurchase(
+  database: Database,
+  userId: string,
+  itemId: string,
+  wallet: {
+    totalCoins: number;
+    lifetimeCoinsEarned: number;
+    lifetimeCoinsSpent: number;
+  },
+) {
+  const updatedAt = new Date().toISOString();
+
+  return database.transaction(async (tx) => {
+    await tx
+      .update(wallets)
+      .set({
+        totalCoins: wallet.totalCoins,
+        lifetimeCoinsEarned: wallet.lifetimeCoinsEarned,
+        lifetimeCoinsSpent: wallet.lifetimeCoinsSpent,
+      })
+      .where(eq(wallets.userId, userId));
+
+    await tx.insert(ownedShopItems).values({
+      userId,
+      itemId,
+    });
+
+    await tx
+      .update(saveMeta)
+      .set({ updatedAt, version: SAVE_VERSION })
+      .where(eq(saveMeta.userId, userId));
+
+    return { updatedAt, version: SAVE_VERSION, wallet };
+  });
+}
+
+/** Surgical equip / unequip — only the equipped_cosmetics row. */
+export async function persistEquippedCosmetics(
+  database: Database,
+  userId: string,
+  equippedItems: {
+    titleItemId: string | null;
+    frameItemId: string | null;
+    avatarItemId: string | null;
+    themeItemId: string | null;
+  },
+) {
+  const updatedAt = new Date().toISOString();
+
+  return database.transaction(async (tx) => {
+    await tx
+      .update(equippedCosmetics)
+      .set({
+        titleItemId: equippedItems.titleItemId,
+        frameItemId: equippedItems.frameItemId,
+        avatarItemId: equippedItems.avatarItemId,
+        themeItemId: equippedItems.themeItemId,
+      })
+      .where(eq(equippedCosmetics.userId, userId));
+
+    await tx
+      .update(saveMeta)
+      .set({ updatedAt, version: SAVE_VERSION })
+      .where(eq(saveMeta.userId, userId));
+
+    return { updatedAt, version: SAVE_VERSION, equippedItems };
+  });
+}
+
+async function touchSaveMeta(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx: any,
+  userId: string,
+  updatedAt: string,
+) {
+  await tx
+    .update(saveMeta)
+    .set({ updatedAt, version: SAVE_VERSION })
+    .where(eq(saveMeta.userId, userId));
+}
+
+async function writeWallet(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx: any,
+  userId: string,
+  wallet: {
+    totalCoins: number;
+    lifetimeCoinsEarned: number;
+    lifetimeCoinsSpent: number;
+  },
+) {
+  await tx
+    .update(wallets)
+    .set({
+      totalCoins: wallet.totalCoins,
+      lifetimeCoinsEarned: wallet.lifetimeCoinsEarned,
+      lifetimeCoinsSpent: wallet.lifetimeCoinsSpent,
+    })
+    .where(eq(wallets.userId, userId));
+}
+
+async function writeUserProgress(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx: any,
+  userId: string,
+  progress: {
+    totalExp: number;
+    level: number;
+    currentStreak: number;
+    bestStreak: number;
+    totalCompletedHabits: number;
+    lastCompletedDate: string | null;
+  },
+) {
+  await tx
+    .update(userProgress)
+    .set({
+      totalExp: progress.totalExp,
+      level: progress.level,
+      currentStreak: progress.currentStreak,
+      bestStreak: progress.bestStreak,
+      totalCompletedHabits: progress.totalCompletedHabits,
+      lastCompletedDate: progress.lastCompletedDate,
+    })
+    .where(eq(userProgress.userId, userId));
+}
+
+/** Surgical habit create. */
+export async function persistHabitCreate(
+  database: Database,
+  userId: string,
+  habit: Habit,
+) {
+  const updatedAt = new Date().toISOString();
+  return database.transaction(async (tx) => {
+    await tx.insert(habits).values({
+      id: habit.id,
+      userId,
+      title: habit.title,
+      description: habit.description,
+      difficulty: habit.difficulty,
+      recurrence: habit.recurrence,
+      customDays: habit.customDays,
+      createdAt: habit.createdAt,
+      updatedAt: habit.updatedAt,
+    });
+    await touchSaveMeta(tx, userId, updatedAt);
+    return { updatedAt, version: SAVE_VERSION, habit };
+  });
+}
+
+/** Surgical habit update. */
+export async function persistHabitUpdate(
+  database: Database,
+  userId: string,
+  habit: Habit,
+) {
+  const updatedAt = new Date().toISOString();
+  return database.transaction(async (tx) => {
+    await tx
+      .update(habits)
+      .set({
+        title: habit.title,
+        description: habit.description,
+        difficulty: habit.difficulty,
+        recurrence: habit.recurrence,
+        customDays: habit.customDays,
+        updatedAt: habit.updatedAt,
+      })
+      .where(and(eq(habits.userId, userId), eq(habits.id, habit.id)));
+    await touchSaveMeta(tx, userId, updatedAt);
+    return { updatedAt, version: SAVE_VERSION, habit };
+  });
+}
+
+/** Surgical habit delete + optional settled progress clawback. */
+export async function persistHabitDelete(
+  database: Database,
+  userId: string,
+  habitId: string,
+  progress: {
+    totalExp: number;
+    level: number;
+    currentStreak: number;
+    bestStreak: number;
+    totalCompletedHabits: number;
+    lastCompletedDate: string | null;
+  },
+  removedExpHistoryIds: string[],
+) {
+  const updatedAt = new Date().toISOString();
+  return database.transaction(async (tx) => {
+    await tx
+      .delete(habitCompletions)
+      .where(
+        and(eq(habitCompletions.userId, userId), eq(habitCompletions.habitId, habitId)),
+      );
+    await tx.delete(habits).where(and(eq(habits.userId, userId), eq(habits.id, habitId)));
+
+    if (removedExpHistoryIds.length) {
+      for (const id of removedExpHistoryIds) {
+        await tx.delete(expHistory).where(and(eq(expHistory.userId, userId), eq(expHistory.id, id)));
+      }
+    }
+
+    await writeUserProgress(tx, userId, progress);
+    await touchSaveMeta(tx, userId, updatedAt);
+    return { updatedAt, version: SAVE_VERSION, habitId };
+  });
+}
+
+export async function persistUserSettings(
+  database: Database,
+  userId: string,
+  settings: {
+    displayName: string;
+    onboardingCompleted: boolean;
+    remindersEnabled: boolean;
+    reminderTime: string;
+  },
+) {
+  const updatedAt = new Date().toISOString();
+  return database.transaction(async (tx) => {
+    await tx
+      .update(userSettings)
+      .set({
+        displayName: settings.displayName,
+        onboardingCompleted: settings.onboardingCompleted,
+        remindersEnabled: settings.remindersEnabled,
+        reminderTime: settings.reminderTime,
+      })
+      .where(eq(userSettings.userId, userId));
+    await touchSaveMeta(tx, userId, updatedAt);
+    return { updatedAt, version: SAVE_VERSION, settings };
+  });
+}
+
+type EconomyBundle = {
+  wallet: {
+    totalCoins: number;
+    lifetimeCoinsEarned: number;
+    lifetimeCoinsSpent: number;
+  };
+  userProgress: {
+    totalExp: number;
+    level: number;
+    currentStreak: number;
+    bestStreak: number;
+    totalCompletedHabits: number;
+    lastCompletedDate: string | null;
+    expHistory: ExpHistoryEntry[];
+  };
+  newExpEntryIds: string[];
+  newOwnedItemIds: string[];
+  streakFreezes?: number;
+  challenge?: { challengeKey: string; startsAt: string; claimed: boolean };
+  quest?: { questKey: string; claimed: boolean };
+  seasonClaimedLevels?: number[];
+  bossRewardClaimed?: boolean;
+};
+
+/** Surgical economy write used by claims / streak freeze. */
+export async function persistEconomyClaim(
+  database: Database,
+  userId: string,
+  bundle: EconomyBundle,
+) {
+  const updatedAt = new Date().toISOString();
+  return database.transaction(async (tx) => {
+    await writeWallet(tx, userId, bundle.wallet);
+    await writeUserProgress(tx, userId, bundle.userProgress);
+
+    const newEntries = bundle.userProgress.expHistory.filter((entry) =>
+      bundle.newExpEntryIds.includes(entry.id),
+    );
+    if (newEntries.length) {
+      await tx.insert(expHistory).values(
+        newEntries.map((entry) => ({
+          id: entry.id,
+          userId,
+          date: entry.date,
+          amount: entry.amount,
+          source: entry.source,
+          label: entry.label,
+        })),
+      );
+    }
+
+    for (const itemId of bundle.newOwnedItemIds) {
+      await tx.insert(ownedShopItems).values({ userId, itemId });
+    }
+
+    if (bundle.streakFreezes !== undefined) {
+      await tx
+        .update(rewardSystems)
+        .set({ streakFreezes: bundle.streakFreezes })
+        .where(eq(rewardSystems.userId, userId));
+    }
+
+    if (bundle.challenge) {
+      await tx
+        .update(userChallenges)
+        .set({ claimed: bundle.challenge.claimed })
+        .where(
+          and(
+            eq(userChallenges.userId, userId),
+            eq(userChallenges.challengeKey, bundle.challenge.challengeKey),
+            eq(userChallenges.startsAt, bundle.challenge.startsAt),
+          ),
+        );
+    }
+
+    if (bundle.quest) {
+      await tx
+        .update(userQuestArcs)
+        .set({ claimed: bundle.quest.claimed })
+        .where(
+          and(
+            eq(userQuestArcs.userId, userId),
+            eq(userQuestArcs.questKey, bundle.quest.questKey),
+          ),
+        );
+    }
+
+    if (bundle.seasonClaimedLevels) {
+      await tx
+        .update(seasonPasses)
+        .set({ claimedLevels: bundle.seasonClaimedLevels })
+        .where(eq(seasonPasses.userId, userId));
+    }
+
+    if (bundle.bossRewardClaimed !== undefined) {
+      await tx
+        .update(weeklyBosses)
+        .set({ rewardClaimed: bundle.bossRewardClaimed })
+        .where(eq(weeklyBosses.userId, userId));
+    }
+
+    await touchSaveMeta(tx, userId, updatedAt);
+    return { updatedAt, version: SAVE_VERSION };
+  });
+}
+
 export async function maybeMigrateLegacyBlob(
   database: Database,
   userId: string,

@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.3.1 - Focused Writes, Clarity UX, and Env Setup
+
+### Added
+- Added focused shop purchase / equip / unequip server actions with surgical wallet, ownership, and equipped-cosmetics writes.
+- Added focused habit create / update / delete server actions with surgical habit and progress clawback writes.
+- Added focused settings, onboarding, streak-freeze, and challenge / quest / season / boss claim server actions.
+- Added Home claimable-rewards strip and Progress nav badges for ready payouts.
+- Added dismissible lock-in tip after the first clear of a session.
+- Added `.env.development`, `.env.production.example`, and clearer env docs for local vs production.
+- Added regression tests for focused APIs, daily-login merge, and reminder timing.
+
+### Changed
+- Clarified the three former “pending” meanings: **Saving…** (sync), **Cleared today** (undoable clear), **Preview** (locks in tonight).
+- Aligned coin display to **spendable wallet** everywhere; preview coins stay in Tonight’s lock-in.
+- Clarified Daily Rewards (login auto-pays; perfect-day is preview until lock-in).
+- Made sync-failure toasts sticky and prioritized over reward spam.
+- Simplified onboarding to one welcome → create-habit path.
+- Made Settings honest about tab-only reminders and account-backed backup (optional JSON snapshot + test notification).
+- Reordered Home so the habit board comes before preview/stats chrome.
+- Added Claim buttons on ready season tiers and Saving… states on reward claims.
+
+### Fixed
+- Stopped daily login from granting +1 coin on every refresh by merging `dailyRewards`, flushing the claim to MySQL immediately, and guarding duplicate claims in-session.
+- Hardened reminders (permission-aware ticking, due-fire on enable).
+
 ## 0.3.0 - Accounts, Database Sync, and Progression Systems
 
 ### Added
@@ -18,7 +43,6 @@
 - Capped visible reward toasts and improved mobile toast placement above the tab bar.
 
 ### Fixed
-- Stopped daily login from granting +1 coin on every refresh by merging `dailyRewards`, flushing the claim to MySQL immediately, and guarding duplicate claims in-session.
 - Fixed stale combo display when `comboDate` was from a prior day.
 - Hardened complete/undo against races with pending UI, rollback on failure, and full-save overwrite protection.
 - Fixed purchases and habit progress being lost on refresh when only a debounced full save was queued.

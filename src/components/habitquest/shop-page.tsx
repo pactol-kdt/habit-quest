@@ -29,6 +29,7 @@ export function ShopPage() {
     purchaseShopItem,
     equipShopItem,
     unequipShopItem,
+    pendingShopItemIds,
     wallet,
     challenges,
     achievements,
@@ -63,7 +64,7 @@ export function ShopPage() {
             </p>
           </div>
           <div className="self-start rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm text-amber-100 lg:self-auto">
-            Balance: {wallet.totalCoins} coins
+            Balance: {wallet.totalCoins} spendable
           </div>
         </div>
       </GlassCard>
@@ -128,6 +129,9 @@ export function ShopPage() {
                 equippedItems.frameItemId === item.id ||
                 equippedItems.avatarItemId === item.id ||
                 equippedItems.themeItemId === item.id;
+              const pending =
+                pendingShopItemIds.includes(item.id) ||
+                pendingShopItemIds.includes(`unequip:${item.category}`);
 
               return (
                 <ShopItemCard
@@ -136,6 +140,7 @@ export function ShopPage() {
                   locked={locked}
                   lockReason={lockReason}
                   equipped={equipped}
+                  pending={pending}
                   onPurchase={setPendingPurchase}
                   onEquip={equipShopItem}
                   onUnequip={unequipShopItem}

@@ -28,6 +28,7 @@ export function RewardSystemsPanel() {
     wallet,
     claimQuestArcReward,
     buyStreakFreeze,
+    pendingClaimIds,
     projectSave,
   } = store;
 
@@ -64,7 +65,7 @@ export function RewardSystemsPanel() {
         </p>
         <h2 className="section-title mt-2 text-2xl text-white">Momentum arsenal</h2>
         <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-          Freezes, combos, and quest arcs. Today&apos;s habit progress stays pending —
+          Freezes, combos, and quest arcs. Today&apos;s habit progress stays in preview —
           {` ${SETTLEMENT_LOCK_HINT}`} Boss fight and season pass live in their own menus.
         </p>
       </div>
@@ -85,19 +86,22 @@ export function RewardSystemsPanel() {
               type="button"
               onClick={buyStreakFreeze}
               disabled={
+                pendingClaimIds.includes("streak-freeze") ||
                 rewardSystems.streakFreezes >= MAX_STREAK_FREEZES ||
                 wallet.totalCoins < STREAK_FREEZE_COST
               }
               className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Buy ({STREAK_FREEZE_COST}c)
+              {pendingClaimIds.includes("streak-freeze")
+                ? "Saving…"
+                : `Buy (${STREAK_FREEZE_COST}c)`}
             </button>
           </div>
           <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--color-text-muted)]">
             <span className="rounded-full bg-white/5 px-3 py-1">
               Combo today: {todayCombo}
               {comboPreview.exp > 0
-                ? ` · +${comboPreview.exp} EXP pending (+${COMBO_EXP_PER_EXTRA_CLEAR}/extra clear)`
+                ? ` · +${comboPreview.exp} EXP in preview (+${COMBO_EXP_PER_EXTRA_CLEAR}/extra clear)`
                 : ""}
               {comboPreview.coins > 0 ? ` · +${comboPreview.coins}c at 3/5/8` : ""}
             </span>
@@ -132,10 +136,13 @@ export function RewardSystemsPanel() {
               {activeArc.completed && !activeArc.claimed && settledActive?.id === activeArc.id && settledActive.completed ? (
                 <button
                   type="button"
+                  disabled={pendingClaimIds.includes(`quest:${activeArc.id}`)}
                   onClick={() => claimQuestArcReward(activeArc.id)}
-                  className="mt-3 rounded-full border border-pink-300/20 bg-pink-300/10 px-4 py-2 text-sm text-pink-100 transition hover:bg-pink-300/16"
+                  className="mt-3 rounded-full border border-pink-300/20 bg-pink-300/10 px-4 py-2 text-sm text-pink-100 transition hover:bg-pink-300/16 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Claim chapter reward
+                  {pendingClaimIds.includes(`quest:${activeArc.id}`)
+                    ? "Saving…"
+                    : "Claim chapter reward"}
                 </button>
               ) : activeArc.completed && !activeArc.claimed ? (
                 <p className="mt-3 text-xs text-amber-100/90">

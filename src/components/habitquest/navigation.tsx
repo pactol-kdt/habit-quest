@@ -9,6 +9,7 @@ import { GlassCard } from "~/components/habitquest/glass-card";
 import { cn } from "~/lib/ui/cn";
 import { formatNumber, getProfileDisplay } from "~/lib/habitquest/utils";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
+import { useClaimableRewards } from "~/hooks/use-claimable-rewards";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 type NavLink = {
@@ -61,6 +62,7 @@ type NavMenuProps = {
   open: boolean;
   onToggle: () => void;
   onClose: () => void;
+  badgeCount?: number;
 };
 
 function NavMenu({
@@ -71,6 +73,7 @@ function NavMenu({
   open,
   onToggle,
   onClose,
+  badgeCount = 0,
 }: NavMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const visibleItems = items.filter((item) => !item.adminOnly || isAdmin);
@@ -111,6 +114,11 @@ function NavMenu({
         className={navButtonClass(active, open)}
       >
         {label}
+        {badgeCount > 0 ? (
+          <span className="rounded-full bg-amber-300/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-100">
+            {badgeCount > 9 ? "9+" : badgeCount}
+          </span>
+        ) : null}
         <span
           aria-hidden
           className={cn(
@@ -147,9 +155,11 @@ function NavMenu({
 export function Navigation() {
   const pathname = usePathname();
   const [openMenu, setOpenMenu] = useState<"progress" | "account" | null>(null);
-  const { hydrated, shopItems, equippedItems, settings, authUser } =
+  const { hydrated, shopItems, equippedItems, settings, authUser, wallet } =
     useHabitQuestStore((state) => state);
-  const { userProgress, walletCoins } = useEffectiveProgress();
+  const { userProgress } = useEffectiveProgress();
+  const claimables = useClaimableRewards();
+  const spendableCoins = wallet.totalCoins;
   const profile = getProfileDisplay(shopItems, equippedItems);
   const displayName = settings.displayName.trim() || profile.title?.name || "Unranked Adventurer";
   const isAdmin = authUser?.role === "admin";
@@ -189,6 +199,7 @@ export function Navigation() {
                 items={progressNav}
                 pathname={pathname}
                 isAdmin={isAdmin}
+                badgeCount={claimables.length}
                 open={openMenu === "progress"}
                 onToggle={() =>
                   setOpenMenu((current) => (current === "progress" ? null : "progress"))
@@ -219,14 +230,15 @@ export function Navigation() {
 
           <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-3">
             <motion.div
-              key={walletCoins}
+              key={spendableCoins}
               initial={{ scale: 0.95, opacity: 0.6 }}
               animate={{ scale: 1, opacity: 1 }}
               className="hq-chip-gold rounded-full border px-2.5 py-1.5 text-[11px] sm:px-4 sm:py-2 sm:text-sm"
+              title="Spendable coins (preview rewards lock in tonight)"
             >
-              <span className="sm:hidden">{hydrated ? formatNumber(walletCoins) : "..."}c</span>
+              <span className="sm:hidden">{hydrated ? formatNumber(spendableCoins) : "..."}c</span>
               <span className="hidden sm:inline">
-                Coins: {hydrated ? formatNumber(walletCoins) : "..."}
+                Coins: {hydrated ? formatNumber(spendableCoins) : "..."}
               </span>
             </motion.div>
             <Link

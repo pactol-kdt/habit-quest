@@ -1,13 +1,13 @@
 {
   "name": "frontend",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx --yes tsx --test src/lib/habitquest/utils.test.ts"
+    "test": "npx --yes tsx --test src/lib/habitquest/utils.test.ts src/lib/habitquest/focused-api.test.ts src/lib/habitquest/reminders.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

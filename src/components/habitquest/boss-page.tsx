@@ -7,8 +7,9 @@ import { useEffectiveProgress } from "~/hooks/use-effective-progress";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 export function BossPage() {
-  const { claimBossReward, hydrated } = useHabitQuestStore((state) => state);
+  const { claimBossReward, pendingClaimIds, hydrated } = useHabitQuestStore((state) => state);
   const { weeklyBoss } = useEffectiveProgress();
+  const claimPending = pendingClaimIds.includes("boss-reward");
 
   const bossPercent = weeklyBoss.maxHp
     ? ((weeklyBoss.maxHp - weeklyBoss.effectiveHp) / weeklyBoss.maxHp) * 100
@@ -36,7 +37,7 @@ export function BossPage() {
               Boss fight
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              Habit clears deal damage. Today&apos;s hits stay pending with all other progress so
+              Habit clears deal damage. Today&apos;s hits stay in preview with all other progress so
               undos stay safe — {SETTLEMENT_LOCK_HINT}
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
@@ -88,12 +89,12 @@ export function BossPage() {
 
           {weeklyBoss.pendingDamage > 0 ? (
             <p className="mt-3 text-sm text-amber-100/90">
-              Pending today: {weeklyBoss.pendingDamage} dmg ({SETTLEMENT_LOCK_HINT})
-              {wouldDefeatToday ? " — Pending KO if it sticks." : ""}
+              Preview today: {weeklyBoss.pendingDamage} dmg ({SETTLEMENT_LOCK_HINT})
+              {wouldDefeatToday ? " — Preview KO if it sticks." : ""}
             </p>
           ) : (
             <p className="mt-3 text-sm text-[var(--color-text-muted)]">
-              No pending damage today. Undoing a clear before midnight reverses its hit.
+              No preview damage today. Undoing a clear before midnight reverses its hit.
             </p>
           )}
 
@@ -105,7 +106,7 @@ export function BossPage() {
             <div className="rounded-3xl border border-white/10 bg-white/4 p-4">
               <p className="text-sm text-[var(--color-text-muted)]">Status</p>
               <p className="mt-1 text-2xl font-semibold text-white">
-                {weeklyBoss.defeated ? "Defeated" : wouldDefeatToday ? "Pending KO" : "Alive"}
+                {weeklyBoss.defeated ? "Defeated" : wouldDefeatToday ? "Preview KO" : "Alive"}
               </p>
             </div>
             <div className="col-span-2 rounded-3xl border border-white/10 bg-white/4 p-4 sm:col-span-1">
@@ -120,10 +121,14 @@ export function BossPage() {
             <button
               type="button"
               onClick={claimBossReward}
-              disabled={weeklyBoss.rewardClaimed}
+              disabled={weeklyBoss.rewardClaimed || claimPending}
               className="mt-6 rounded-full border border-amber-300/20 bg-amber-300/10 px-5 py-3 text-sm text-amber-100 transition hover:bg-amber-300/16 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {weeklyBoss.rewardClaimed ? "Reward claimed" : "Claim boss reward"}
+              {weeklyBoss.rewardClaimed
+                ? "Reward claimed"
+                : claimPending
+                  ? "Saving…"
+                  : "Claim boss reward"}
             </button>
           ) : (
             <p className="mt-6 text-sm text-[var(--color-text-muted)]">

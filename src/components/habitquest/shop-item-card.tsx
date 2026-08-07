@@ -12,6 +12,7 @@ interface ShopItemCardProps {
   locked: boolean;
   lockReason: string | null;
   equipped: boolean;
+  pending?: boolean;
   onPurchase: (item: ShopItem) => void;
   onEquip: (itemId: string) => void;
   onUnequip?: (category: ShopCategory) => void;
@@ -22,6 +23,7 @@ export function ShopItemCard({
   locked,
   lockReason,
   equipped,
+  pending = false,
   onPurchase,
   onEquip,
   onUnequip,
@@ -68,18 +70,20 @@ export function ShopItemCard({
             equipped ? (
               <button
                 type="button"
+                disabled={pending}
                 onClick={() => onUnequip?.(item.category)}
-                className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm text-emerald-100 transition hover:bg-emerald-300/16"
+                className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm text-emerald-100 transition hover:bg-emerald-300/16 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Unequip
+                {pending ? "Saving…" : "Unequip"}
               </button>
             ) : (
               <button
                 type="button"
+                disabled={pending}
                 onClick={() => onEquip(item.id)}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Equip
+                {pending ? "Saving…" : "Equip"}
               </button>
             )
           ) : locked ? (
@@ -89,10 +93,11 @@ export function ShopItemCard({
           ) : (
             <button
               type="button"
+              disabled={pending}
               onClick={() => onPurchase(item)}
-              className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:scale-[1.02]"
+              className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Purchase
+              {pending ? "Saving…" : "Purchase"}
             </button>
           )}
         </div>

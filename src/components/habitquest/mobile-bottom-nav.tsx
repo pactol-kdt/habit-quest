@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "~/lib/ui/cn";
+import { useClaimableRewards } from "~/hooks/use-claimable-rewards";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 const tabs = [
@@ -39,6 +40,7 @@ function isMorePath(pathname: string) {
 export function MobileBottomNav() {
   const pathname = usePathname();
   const isAdmin = useHabitQuestStore((state) => state.authUser?.role === "admin");
+  const claimables = useClaimableRewards();
   const [sheet, setSheet] = useState<SheetId>(null);
 
   useEffect(() => {
@@ -140,13 +142,20 @@ export function MobileBottomNav() {
                     setSheet((current) => (current === tab.id ? null : tab.id))
                   }
                   className={cn(
-                    "flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center rounded-2xl px-1 py-1.5 text-[11px] transition",
+                    "relative flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center rounded-2xl px-1 py-1.5 text-[11px] transition",
                     active
                       ? "bg-white/10 text-white"
                       : "text-[var(--color-text-muted)] active:bg-white/5",
                   )}
                 >
-                  {tab.label}
+                  <span className="relative">
+                    {tab.label}
+                    {tab.id === "progress" && claimables.length > 0 ? (
+                      <span className="absolute -right-3 -top-1 rounded-full bg-amber-300/25 px-1 text-[9px] font-semibold text-amber-100">
+                        {claimables.length > 9 ? "9+" : claimables.length}
+                      </span>
+                    ) : null}
+                  </span>
                 </button>
               );
             }

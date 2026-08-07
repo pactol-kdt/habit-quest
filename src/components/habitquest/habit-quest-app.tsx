@@ -12,6 +12,8 @@ import { GlassCard } from "~/components/habitquest/glass-card";
 import { HabitFormModal } from "~/components/habitquest/habit-form-modal";
 import { HabitList } from "~/components/habitquest/habit-list";
 import { PendingProgressCard } from "~/components/habitquest/pending-progress-card";
+import { ClaimableRewardsStrip } from "~/components/habitquest/claimable-rewards-strip";
+import { LockInTipBanner } from "~/components/habitquest/lock-in-tip-banner";
 import { RewardSystemsPanel } from "~/components/habitquest/reward-systems-panel";
 import { UnlockTracker } from "~/components/habitquest/unlock-tracker";
 import { cn } from "~/lib/ui/cn";
@@ -37,7 +39,8 @@ export function HabitQuestApp() {
   const [showMore, setShowMore] = useState(false);
 
   const store = useHabitQuestStore((state) => state);
-  const { userProgress, walletCoins } = useEffectiveProgress();
+  const { userProgress } = useEffectiveProgress();
+  const spendableCoins = store.wallet.totalCoins;
 
   const {
     hydrated,
@@ -55,8 +58,9 @@ export function HabitQuestApp() {
     completeHabitForToday,
     uncompleteHabitForToday,
     claimChallengeReward,
-    projectSave,
     pendingHabitIds,
+    pendingClaimIds,
+    projectSave,
   } = store;
 
   const fullData = useMemo(
@@ -189,7 +193,7 @@ export function HabitQuestApp() {
                 {getMotivationalGreeting(userProgress)}
               </h1>
               <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                Level {userProgress.level} · {formatNumber(walletCoins)} coins · streak{" "}
+                Level {userProgress.level} · {formatNumber(spendableCoins)} coins · streak{" "}
                 {userProgress.currentStreak}d
               </p>
             </div>
@@ -219,7 +223,7 @@ export function HabitQuestApp() {
           </div>
         </GlassCard>
 
-        <PendingProgressCard />
+        <ClaimableRewardsStrip />
 
         <GlassCard className="overflow-hidden rounded-[1.75rem]">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -229,8 +233,8 @@ export function HabitQuestApp() {
               </p>
               <h2 className="section-title mt-2 text-2xl text-white">Daily quests</h2>
               <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                {todayReward.completedCount}/{todayReward.dueHabits.length || 0} due clears pending.
-                Undo stays safe until midnight lock-in.
+                {todayReward.completedCount}/{todayReward.dueHabits.length || 0} due clears today.
+                Undo stays safe until tonight&apos;s lock-in.
               </p>
             </div>
             <div className="rounded-3xl border border-pink-300/20 bg-pink-300/8 px-4 py-3 text-sm text-pink-100">
@@ -258,6 +262,10 @@ export function HabitQuestApp() {
           />
         </GlassCard>
 
+        <LockInTipBanner />
+
+        <PendingProgressCard />
+
         <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <DailyRewardCard
             loginClaimed={todayReward.loginClaimed}
@@ -278,6 +286,7 @@ export function HabitQuestApp() {
                 challenge={weeklyChallenge}
                 locked={!weeklyUnlocked}
                 lockLabel="Unlocks at level 3 with Weekly Challenges."
+                pending={pendingClaimIds.includes(`challenge:${weeklyChallenge.id}`)}
                 onClaim={claimChallengeReward}
               />
             ) : null}
@@ -286,6 +295,7 @@ export function HabitQuestApp() {
                 challenge={monthlyChallenge}
                 locked={!monthlyUnlocked}
                 lockLabel="Unlocks at level 7 with Monthly Challenges."
+                pending={pendingClaimIds.includes(`challenge:${monthlyChallenge.id}`)}
                 onClaim={claimChallengeReward}
               />
             ) : null}

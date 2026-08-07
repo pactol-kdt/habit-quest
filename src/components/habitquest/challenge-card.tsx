@@ -9,6 +9,7 @@ interface ChallengeCardProps {
   challenge: Challenge;
   locked: boolean;
   lockLabel: string | null;
+  pending?: boolean;
   onClaim: (challengeId: string) => void;
 }
 
@@ -16,6 +17,7 @@ export function ChallengeCard({
   challenge,
   locked,
   lockLabel,
+  pending = false,
   onClaim,
 }: ChallengeCardProps) {
   const progressPercent = Math.min((challenge.progress / challenge.target) * 100, 100);
@@ -61,10 +63,11 @@ export function ChallengeCard({
         ) : challenge.completed ? (
           <button
             type="button"
+            disabled={pending}
             onClick={() => onClaim(challenge.id)}
-            className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:scale-[1.02]"
+            className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Claim reward
+            {pending ? "Saving…" : "Claim reward"}
           </button>
         ) : (
           <p className="text-sm text-[var(--color-text-muted)]">
