@@ -243,10 +243,10 @@ export async function getHabitQuestMigrationPlanAction() {
   return {
     version: SAVE_VERSION,
     tables: CLOUD_SYNC_TABLES,
-    activeAdapter: "mysql normalized rows",
+    activeAdapter: "postgres normalized rows",
     steps: [
       "Authenticate via email/password",
-      "Load HabitQuestData from normalized MySQL tables",
+      "Load HabitQuestData from normalized PostgreSQL tables",
       "Hydrate Zustand as the optimistic client cache",
       "Debounced pushHabitQuestSaveAction replaces user rows",
       "Legacy habitquest_saves blobs migrate once into rows",

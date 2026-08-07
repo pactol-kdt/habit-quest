@@ -131,7 +131,7 @@ export function AdminPage() {
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">Admin</p>
         <h1 className="section-title mt-2 text-3xl text-white sm:text-4xl">Catalog & roles</h1>
         <p className="mt-3 max-w-2xl text-sm text-[var(--color-text-muted)]">
-          Manage global shop/achievement catalogs in MySQL and promote users to admin.
+          Manage global shop/achievement catalogs in PostgreSQL and promote users to admin.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           {(["users", "shop", "achievements"] as Tab[]).map((entry) => (

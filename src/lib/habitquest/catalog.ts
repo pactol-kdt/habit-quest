@@ -111,7 +111,7 @@ function createChallenge(
   };
 }
 
-/** Builtin catalog used to seed MySQL and as fallback if DB is empty. */
+/** Builtin catalog used to seed PostgreSQL and as fallback if DB is empty. */
 export function getBuiltinCatalog(): HabitQuestCatalog {
   const season = createSeasonPass();
   return {

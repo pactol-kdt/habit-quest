@@ -50,7 +50,7 @@ const GUIDE_SECTIONS = [
   },
   {
     title: "Account & sync",
-    body: "HabitQuest requires an account. While signed in, cloud MySQL is authoritative and progress syncs automatically.",
+    body: "HabitQuest requires an account. While signed in, cloud PostgreSQL is authoritative and progress syncs automatically.",
   },
 ];
 
