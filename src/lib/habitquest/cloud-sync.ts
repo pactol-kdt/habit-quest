@@ -134,3 +134,50 @@ export async function flushCloudSaveNow(data?: HabitQuestData) {
 
   await flushCloudSave();
 }
+
+/**
+ * Immediately push a payload so focused server actions have a cloud save to mutate.
+ * Use the pre-mutation snapshot for claims/clears so the server can apply the same change.
+ */
+export async function ensureCloudSavePushed(
+  data: HabitQuestData,
+): Promise<{ ok: true; updatedAt: string } | { ok: false; error: string }> {
+  if (!syncEnabled) {
+    return { ok: false, error: "Not signed in." };
+  }
+
+  latestPayload = data;
+  payloadGeneration += 1;
+
+  if (syncTimer) {
+    clearTimeout(syncTimer);
+    syncTimer = null;
+  }
+
+  if (inFlight) {
+    await inFlight;
+  }
+
+  emit("syncing");
+
+  try {
+    const result = await pushHabitQuestSaveAction(data);
+    if (result.status === "ok") {
+      emit("synced");
+      return { ok: true, updatedAt: result.updatedAt };
+    }
+
+    if (result.status === "unauthenticated") {
+      syncEnabled = false;
+      emit("guest");
+      return { ok: false, error: "Sign in again to sync." };
+    }
+
+    emit("error", result.error);
+    return { ok: false, error: result.error };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Cloud sync failed.";
+    emit("error", message);
+    return { ok: false, error: message };
+  }
+}

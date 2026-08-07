@@ -75,7 +75,7 @@ export async function updateSettingsAction(
     const catalog = await loadCatalogFromDb(database);
     const existing = await loadNormalizedSave(database, user.id, catalog);
     if (!existing) {
-      return { status: "error", error: "No cloud save found." };
+      return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
     }
 
     const mutation = applyUpdateSettings(existing.data, patch);
@@ -106,7 +106,7 @@ export async function completeOnboardingAction(
     const catalog = await loadCatalogFromDb(database);
     const existing = await loadNormalizedSave(database, user.id, catalog);
     if (!existing) {
-      return { status: "error", error: "No cloud save found." };
+      return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
     }
 
     const mutation = applyCompleteOnboarding(existing.data, displayName);
@@ -137,7 +137,7 @@ export async function claimChallengeRewardAction(
     const catalog = await loadCatalogFromDb(database);
     const existing = await loadNormalizedSave(database, user.id, catalog);
     if (!existing) {
-      return { status: "error", error: "No cloud save found." };
+      return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
     }
 
     const mutation = applyClaimChallengeReward(existing.data, challengeId);
@@ -186,7 +186,7 @@ export async function claimQuestArcRewardAction(arcId: string): Promise<ClaimAct
     const catalog = await loadCatalogFromDb(database);
     const existing = await loadNormalizedSave(database, user.id, catalog);
     if (!existing) {
-      return { status: "error", error: "No cloud save found." };
+      return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
     }
 
     const mutation = applyClaimQuestArcReward(existing.data, arcId);
@@ -235,7 +235,7 @@ export async function claimSeasonPassLevelAction(level: number): Promise<ClaimAc
     const catalog = await loadCatalogFromDb(database);
     const existing = await loadNormalizedSave(database, user.id, catalog);
     if (!existing) {
-      return { status: "error", error: "No cloud save found." };
+      return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
     }
 
     const mutation = applyClaimSeasonPassLevel(existing.data, level);
@@ -274,7 +274,7 @@ export async function claimBossRewardAction(): Promise<ClaimActionResult> {
     const catalog = await loadCatalogFromDb(database);
     const existing = await loadNormalizedSave(database, user.id, catalog);
     if (!existing) {
-      return { status: "error", error: "No cloud save found." };
+      return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
     }
 
     const mutation = applyClaimBossReward(existing.data);
@@ -313,7 +313,7 @@ export async function buyStreakFreezeAction(): Promise<ClaimActionResult> {
     const catalog = await loadCatalogFromDb(database);
     const existing = await loadNormalizedSave(database, user.id, catalog);
     if (!existing) {
-      return { status: "error", error: "No cloud save found." };
+      return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
     }
 
     const mutation = applyBuyStreakFreeze(existing.data);

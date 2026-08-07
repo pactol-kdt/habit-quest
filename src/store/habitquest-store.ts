@@ -24,6 +24,7 @@ import {
 } from "~/app/actions/shop";
 import {
   bumpCloudSavePayload,
+  ensureCloudSavePushed,
   flushCloudSaveNow,
   scheduleCloudSave,
 } from "~/lib/habitquest/cloud-sync";
@@ -642,6 +643,77 @@ function isCurrentShopMutation(key: string, seq: number) {
   return shopMutationSeq.get(key) === seq;
 }
 
+function rollbackClaimFailure(
+  snapshot: HabitQuestData,
+  pendingKey: string,
+  seqKey: string,
+  seq: number,
+  error: string,
+) {
+  if (!isCurrentShopMutation(seqKey, seq)) {
+    return;
+  }
+  const rolledBack = persistLocalOnly(snapshot);
+  bumpCloudSavePayload(rolledBack);
+  useHabitQuestStore.setState((current) => ({
+    ...current,
+    ...rolledBack,
+    pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+    ...pushWarningState(
+      { ...current, ...rolledBack } as HabitQuestStore,
+      "Claim failed",
+      error,
+    ),
+  }));
+}
+
+async function runClaimAgainstCloud(
+  snapshot: HabitQuestData,
+  pendingKey: string,
+  seqKey: string,
+  seq: number,
+  claim: () => Promise<
+    | { status: "ok"; wallet: HabitQuestData["wallet"]; userProgress: HabitQuestData["userProgress"]; challenges?: HabitQuestData["challenges"]; questArcs?: HabitQuestData["questArcs"]; seasonPass?: HabitQuestData["seasonPass"]; weeklyBoss?: HabitQuestData["weeklyBoss"]; rewardSystems?: HabitQuestData["rewardSystems"]; shopItems?: HabitQuestData["shopItems"] }
+    | { status: "unauthenticated" }
+    | { status: "error"; error: string }
+  >,
+  applyOk: (result: {
+    wallet: HabitQuestData["wallet"];
+    userProgress: HabitQuestData["userProgress"];
+    challenges?: HabitQuestData["challenges"];
+    questArcs?: HabitQuestData["questArcs"];
+    seasonPass?: HabitQuestData["seasonPass"];
+    weeklyBoss?: HabitQuestData["weeklyBoss"];
+    rewardSystems?: HabitQuestData["rewardSystems"];
+    shopItems?: HabitQuestData["shopItems"];
+  }) => void,
+) {
+  const ensured = await ensureCloudSavePushed(snapshot);
+  if (!ensured.ok) {
+    rollbackClaimFailure(snapshot, pendingKey, seqKey, seq, ensured.error);
+    return;
+  }
+
+  const result = await claim();
+  if (!isCurrentShopMutation(seqKey, seq)) {
+    return;
+  }
+  if (result.status !== "ok") {
+    rollbackClaimFailure(
+      snapshot,
+      pendingKey,
+      seqKey,
+      seq,
+      result.status === "unauthenticated"
+        ? "Sign in again to claim rewards."
+        : result.error,
+    );
+    return;
+  }
+
+  applyOk(result);
+}
+
 export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
   ...initialData,
   hydrated: false,
@@ -1203,7 +1275,8 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       return;
     }
 
-    const seq = nextShopMutationSeq(`challenge:${challengeId}`);
+    const seqKey = `challenge:${challengeId}`;
+    const seq = nextShopMutationSeq(seqKey);
     const resolution = resolveGameState(mutation.data);
     const persisted = persistLocalOnly(resolution.data);
     bumpCloudSavePayload(persisted);
@@ -1222,41 +1295,30 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ],
     }));
 
-    void claimChallengeRewardAction(challengeId).then((result) => {
-      if (!isCurrentShopMutation(`challenge:${challengeId}`, seq)) {
-        return;
-      }
-      if (result.status !== "ok") {
-        const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
-        set((current) => ({
-          ...current,
-          ...rolledBack,
-          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
-          ...pushWarningState(
-            { ...current, ...rolledBack } as HabitQuestStore,
-            "Claim failed",
-            result.status === "unauthenticated" ? "Sign in again to claim rewards." : result.error,
-          ),
-        }));
-        return;
-      }
-      set((current) => {
-        const nextData = persistLocalOnly({
-          ...projectData(current),
-          wallet: result.wallet,
-          userProgress: result.userProgress,
-          challenges: result.challenges ?? current.challenges,
-          shopItems: result.shopItems ?? current.shopItems,
+    void runClaimAgainstCloud(
+      snapshot,
+      pendingKey,
+      seqKey,
+      seq,
+      () => claimChallengeRewardAction(challengeId),
+      (result) => {
+        set((current) => {
+          const nextData = persistLocalOnly({
+            ...projectData(current),
+            wallet: result.wallet,
+            userProgress: result.userProgress,
+            challenges: result.challenges ?? current.challenges,
+            shopItems: result.shopItems ?? current.shopItems,
+          });
+          bumpCloudSavePayload(nextData);
+          return {
+            ...current,
+            ...nextData,
+            pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+          };
         });
-        bumpCloudSavePayload(nextData);
-        return {
-          ...current,
-          ...nextData,
-          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
-        };
-      });
-    });
+      },
+    );
   },
   claimQuestArcReward: (arcId) => {
     const state = get();
@@ -1275,7 +1337,8 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     }
 
     const arc = mutation.data.questArcs.find((entry) => entry.id === arcId);
-    const seq = nextShopMutationSeq(`quest:${arcId}`);
+    const seqKey = `quest:${arcId}`;
+    const seq = nextShopMutationSeq(seqKey);
     const resolution = resolveGameState(mutation.data);
     const persisted = persistLocalOnly(resolution.data);
     bumpCloudSavePayload(persisted);
@@ -1299,41 +1362,30 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ),
     }));
 
-    void claimQuestArcRewardAction(arcId).then((result) => {
-      if (!isCurrentShopMutation(`quest:${arcId}`, seq)) {
-        return;
-      }
-      if (result.status !== "ok") {
-        const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
-        set((current) => ({
-          ...current,
-          ...rolledBack,
-          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
-          ...pushWarningState(
-            { ...current, ...rolledBack } as HabitQuestStore,
-            "Claim failed",
-            result.status === "unauthenticated" ? "Sign in again to claim rewards." : result.error,
-          ),
-        }));
-        return;
-      }
-      set((current) => {
-        const nextData = persistLocalOnly({
-          ...projectData(current),
-          wallet: result.wallet,
-          userProgress: result.userProgress,
-          questArcs: result.questArcs ?? current.questArcs,
-          shopItems: result.shopItems ?? current.shopItems,
+    void runClaimAgainstCloud(
+      snapshot,
+      pendingKey,
+      seqKey,
+      seq,
+      () => claimQuestArcRewardAction(arcId),
+      (result) => {
+        set((current) => {
+          const nextData = persistLocalOnly({
+            ...projectData(current),
+            wallet: result.wallet,
+            userProgress: result.userProgress,
+            questArcs: result.questArcs ?? current.questArcs,
+            shopItems: result.shopItems ?? current.shopItems,
+          });
+          bumpCloudSavePayload(nextData);
+          return {
+            ...current,
+            ...nextData,
+            pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+          };
         });
-        bumpCloudSavePayload(nextData);
-        return {
-          ...current,
-          ...nextData,
-          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
-        };
-      });
-    });
+      },
+    );
   },
   claimSeasonPassLevel: (level) => {
     const state = get();
@@ -1352,7 +1404,8 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     }
 
     const reward = mutation.data.seasonPass.rewards.find((entry) => entry.level === level);
-    const seq = nextShopMutationSeq(`season:${level}`);
+    const seqKey = `season:${level}`;
+    const seq = nextShopMutationSeq(seqKey);
     const resolution = resolveGameState(mutation.data);
     const persisted = persistLocalOnly(resolution.data);
     bumpCloudSavePayload(persisted);
@@ -1376,40 +1429,29 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ),
     }));
 
-    void claimSeasonPassLevelAction(level).then((result) => {
-      if (!isCurrentShopMutation(`season:${level}`, seq)) {
-        return;
-      }
-      if (result.status !== "ok") {
-        const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
-        set((current) => ({
-          ...current,
-          ...rolledBack,
-          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
-          ...pushWarningState(
-            { ...current, ...rolledBack } as HabitQuestStore,
-            "Claim failed",
-            result.status === "unauthenticated" ? "Sign in again to claim rewards." : result.error,
-          ),
-        }));
-        return;
-      }
-      set((current) => {
-        const nextData = persistLocalOnly({
-          ...projectData(current),
-          wallet: result.wallet,
-          userProgress: result.userProgress,
-          seasonPass: result.seasonPass ?? current.seasonPass,
+    void runClaimAgainstCloud(
+      snapshot,
+      pendingKey,
+      seqKey,
+      seq,
+      () => claimSeasonPassLevelAction(level),
+      (result) => {
+        set((current) => {
+          const nextData = persistLocalOnly({
+            ...projectData(current),
+            wallet: result.wallet,
+            userProgress: result.userProgress,
+            seasonPass: result.seasonPass ?? current.seasonPass,
+          });
+          bumpCloudSavePayload(nextData);
+          return {
+            ...current,
+            ...nextData,
+            pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+          };
         });
-        bumpCloudSavePayload(nextData);
-        return {
-          ...current,
-          ...nextData,
-          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
-        };
-      });
-    });
+      },
+    );
   },
   claimBossReward: () => {
     const state = get();
@@ -1423,7 +1465,8 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       return;
     }
 
-    const seq = nextShopMutationSeq("boss-reward");
+    const seqKey = "boss-reward";
+    const seq = nextShopMutationSeq(seqKey);
     const resolution = resolveGameState(mutation.data);
     const persisted = persistLocalOnly(resolution.data);
     bumpCloudSavePayload(persisted);
@@ -1447,40 +1490,29 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ),
     }));
 
-    void claimBossRewardAction().then((result) => {
-      if (!isCurrentShopMutation("boss-reward", seq)) {
-        return;
-      }
-      if (result.status !== "ok") {
-        const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
-        set((current) => ({
-          ...current,
-          ...rolledBack,
-          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
-          ...pushWarningState(
-            { ...current, ...rolledBack } as HabitQuestStore,
-            "Claim failed",
-            result.status === "unauthenticated" ? "Sign in again to claim rewards." : result.error,
-          ),
-        }));
-        return;
-      }
-      set((current) => {
-        const nextData = persistLocalOnly({
-          ...projectData(current),
-          wallet: result.wallet,
-          userProgress: result.userProgress,
-          weeklyBoss: result.weeklyBoss ?? current.weeklyBoss,
+    void runClaimAgainstCloud(
+      snapshot,
+      pendingKey,
+      seqKey,
+      seq,
+      () => claimBossRewardAction(),
+      (result) => {
+        set((current) => {
+          const nextData = persistLocalOnly({
+            ...projectData(current),
+            wallet: result.wallet,
+            userProgress: result.userProgress,
+            weeklyBoss: result.weeklyBoss ?? current.weeklyBoss,
+          });
+          bumpCloudSavePayload(nextData);
+          return {
+            ...current,
+            ...nextData,
+            pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+          };
         });
-        bumpCloudSavePayload(nextData);
-        return {
-          ...current,
-          ...nextData,
-          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
-        };
-      });
-    });
+      },
+    );
   },
   buyStreakFreeze: () => {
     const state = get();
@@ -1498,7 +1530,8 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       return;
     }
 
-    const seq = nextShopMutationSeq("streak-freeze");
+    const seqKey = "streak-freeze";
+    const seq = nextShopMutationSeq(seqKey);
     const resolution = resolveGameState(mutation.data);
     const persisted = persistLocalOnly(resolution.data);
     bumpCloudSavePayload(persisted);
@@ -1513,39 +1546,28 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ],
     }));
 
-    void buyStreakFreezeAction().then((result) => {
-      if (!isCurrentShopMutation("streak-freeze", seq)) {
-        return;
-      }
-      if (result.status !== "ok") {
-        const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
-        set((current) => ({
-          ...current,
-          ...rolledBack,
-          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
-          ...pushWarningState(
-            { ...current, ...rolledBack } as HabitQuestStore,
-            "Purchase failed",
-            result.status === "unauthenticated" ? "Sign in again to save purchases." : result.error,
-          ),
-        }));
-        return;
-      }
-      set((current) => {
-        const nextData = persistLocalOnly({
-          ...projectData(current),
-          wallet: result.wallet,
-          rewardSystems: result.rewardSystems ?? current.rewardSystems,
+    void runClaimAgainstCloud(
+      snapshot,
+      pendingKey,
+      seqKey,
+      seq,
+      () => buyStreakFreezeAction(),
+      (result) => {
+        set((current) => {
+          const nextData = persistLocalOnly({
+            ...projectData(current),
+            wallet: result.wallet,
+            rewardSystems: result.rewardSystems ?? current.rewardSystems,
+          });
+          bumpCloudSavePayload(nextData);
+          return {
+            ...current,
+            ...nextData,
+            pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+          };
         });
-        bumpCloudSavePayload(nextData);
-        return {
-          ...current,
-          ...nextData,
-          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
-        };
-      });
-    });
+      },
+    );
   },
   purchaseShopItem: (itemId) => {
     const state = get();
