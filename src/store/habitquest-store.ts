@@ -688,13 +688,21 @@ async function runClaimAgainstCloud(
     shopItems?: HabitQuestData["shopItems"];
   }) => void,
 ) {
-  const ensured = await ensureCloudSavePushed(snapshot);
-  if (!ensured.ok) {
-    rollbackClaimFailure(snapshot, pendingKey, seqKey, seq, ensured.error);
-    return;
+  // Prefer surgical claim first. Full-save push is only a bootstrap for empty accounts —
+  // pushing every claim can fail on Vercel when client local "yesterday" is still UTC "today".
+  let result = await claim();
+  if (
+    result.status === "error" &&
+    /no cloud save/i.test(result.error)
+  ) {
+    const ensured = await ensureCloudSavePushed(snapshot);
+    if (!ensured.ok) {
+      rollbackClaimFailure(snapshot, pendingKey, seqKey, seq, ensured.error);
+      return;
+    }
+    result = await claim();
   }
 
-  const result = await claim();
   if (!isCurrentShopMutation(seqKey, seq)) {
     return;
   }

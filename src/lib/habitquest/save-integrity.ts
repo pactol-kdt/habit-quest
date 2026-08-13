@@ -6,15 +6,6 @@ import {
 import { getLevelState, getTodayDateKey } from "~/lib/habitquest/utils";
 import type { HabitQuestData } from "~/types/habitquest";
 
-function shiftDateKey(dateKey: string, days: number) {
-  const date = new Date(`${dateKey}T12:00:00`);
-  date.setDate(date.getDate() + days);
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 const MAX_STREAK_BONUS = Math.max(0, ...Object.values(STREAK_BONUSES));
 const MAX_SINGLE_SYNC_EXP_DELTA = 50_000;
 const MAX_SINGLE_SYNC_COIN_EARN_DELTA = 10_000;
@@ -75,14 +66,15 @@ export function validateSaveIntegrity(
     return { ok: false, error: "Level does not match total EXP." };
   }
 
-  const yesterday = shiftDateKey(today, -1);
+  // Allow settled-through up to server "today" so client local-yesterday
+  // is accepted when the host clock is still on the previous UTC day.
   if (
     rewardSystems.progressSettledThroughDate &&
-    rewardSystems.progressSettledThroughDate > yesterday
+    rewardSystems.progressSettledThroughDate > today
   ) {
     return {
       ok: false,
-      error: "Progress cannot be settled through today or a future date.",
+      error: "Progress cannot be settled through a future date.",
     };
   }
 
