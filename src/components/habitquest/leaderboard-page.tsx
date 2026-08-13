@@ -5,9 +5,19 @@ import {
   getLevelLeaderboardAction,
   type LevelLeaderboardEntry,
 } from "~/app/actions/leaderboard";
+import { AvatarWithFrame } from "~/components/habitquest/cosmetic-art";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { getBuiltinCatalog } from "~/lib/habitquest/catalog";
 import { cn } from "~/lib/ui/cn";
 import { formatNumber } from "~/lib/habitquest/utils";
+import type { ShopItem } from "~/types/habitquest";
+
+function resolveCosmetic(itemId: string | null): ShopItem | null {
+  if (!itemId) {
+    return null;
+  }
+  return getBuiltinCatalog().shopItems.find((item) => item.id === itemId) ?? null;
+}
 
 function RankBadge({ rank }: { rank: number }) {
   const tone =
@@ -32,6 +42,10 @@ function RankBadge({ rank }: { rank: number }) {
 }
 
 function LeaderboardRow({ entry }: { entry: LevelLeaderboardEntry }) {
+  const avatar = resolveCosmetic(entry.avatarItemId);
+  const frame = resolveCosmetic(entry.frameItemId);
+  const title = resolveCosmetic(entry.titleItemId);
+
   return (
     <div
       className={cn(
@@ -42,6 +56,11 @@ function LeaderboardRow({ entry }: { entry: LevelLeaderboardEntry }) {
       )}
     >
       <RankBadge rank={entry.rank} />
+      <AvatarWithFrame
+        avatar={avatar}
+        frame={frame}
+        className="h-11 w-11 shrink-0 border border-white/10"
+      />
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-white">
           {entry.displayName}
@@ -51,7 +70,8 @@ function LeaderboardRow({ entry }: { entry: LevelLeaderboardEntry }) {
             </span>
           ) : null}
         </p>
-        <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+        <p className="mt-1 truncate text-xs text-[var(--color-text-muted)]">
+          {title?.name ? `${title.name} · ` : ""}
           Streak {entry.currentStreak}d · Best {entry.bestStreak}d
         </p>
       </div>
@@ -96,6 +116,7 @@ export function LeaderboardPage() {
 
   const youOutsideTop =
     you != null && !entries.some((entry) => entry.userId === you.userId);
+  const yourTitle = you ? resolveCosmetic(you.titleItemId) : null;
 
   return (
     <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
@@ -125,14 +146,23 @@ export function LeaderboardPage() {
           <div className="rounded-[1.75rem] border border-cyan-300/20 bg-gradient-to-br from-cyan-400/10 via-sky-300/5 to-transparent p-5">
             <p className="text-xs uppercase tracking-[0.24em] text-cyan-100/80">Your standing</p>
             {you ? (
-              <>
-                <h2 className="mt-2 text-2xl font-semibold text-white md:text-3xl">
-                  Rank #{you.rank}
-                </h2>
-                <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                  Level {you.level} · {formatNumber(you.totalExp)} EXP among {totalPlayers} players
-                </p>
-              </>
+              <div className="mt-3 flex items-center gap-4">
+                <AvatarWithFrame
+                  avatar={resolveCosmetic(you.avatarItemId)}
+                  frame={resolveCosmetic(you.frameItemId)}
+                  className="h-14 w-14 shrink-0 border border-cyan-300/20"
+                />
+                <div>
+                  <h2 className="text-2xl font-semibold text-white md:text-3xl">
+                    Rank #{you.rank}
+                  </h2>
+                  <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                    {yourTitle?.name ? `${yourTitle.name} · ` : ""}
+                    Level {you.level} · {formatNumber(you.totalExp)} EXP among {totalPlayers}{" "}
+                    players
+                  </p>
+                </div>
+              </div>
             ) : (
               <>
                 <h2 className="mt-2 text-2xl font-semibold text-white md:text-3xl">Unranked</h2>

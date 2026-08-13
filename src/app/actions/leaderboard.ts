@@ -3,7 +3,7 @@
 import { and, desc, eq, gt, or, sql } from "drizzle-orm";
 import { getCurrentUser } from "~/lib/auth/session";
 import { ensureDatabase } from "~/lib/db";
-import { userProgress, userSettings, users } from "~/lib/db/schema";
+import { equippedCosmetics, userProgress, userSettings, users } from "~/lib/db/schema";
 
 const LEADERBOARD_LIMIT = 50;
 
@@ -15,6 +15,9 @@ export type LevelLeaderboardEntry = {
   totalExp: number;
   currentStreak: number;
   bestStreak: number;
+  avatarItemId: string | null;
+  frameItemId: string | null;
+  titleItemId: string | null;
   isYou: boolean;
 };
 
@@ -22,6 +25,37 @@ function resolveDisplayName(accountName: string | null | undefined, settingsName
   const account = accountName?.trim() ?? "";
   const settings = settingsName?.trim() ?? "";
   return account || settings || "Adventurer";
+}
+
+function toEntry(
+  row: {
+    userId: string;
+    level: number;
+    totalExp: number;
+    currentStreak: number;
+    bestStreak: number;
+    accountName: string | null;
+    settingsName: string | null;
+    avatarItemId: string | null;
+    frameItemId: string | null;
+    titleItemId: string | null;
+  },
+  rank: number,
+  currentUserId: string,
+): LevelLeaderboardEntry {
+  return {
+    rank,
+    userId: row.userId,
+    displayName: resolveDisplayName(row.accountName, row.settingsName),
+    level: row.level,
+    totalExp: row.totalExp,
+    currentStreak: row.currentStreak,
+    bestStreak: row.bestStreak,
+    avatarItemId: row.avatarItemId,
+    frameItemId: row.frameItemId,
+    titleItemId: row.titleItemId,
+    isYou: row.userId === currentUserId,
+  };
 }
 
 export async function getLevelLeaderboardAction() {
@@ -41,23 +75,20 @@ export async function getLevelLeaderboardAction() {
       bestStreak: userProgress.bestStreak,
       accountName: users.displayName,
       settingsName: userSettings.displayName,
+      avatarItemId: equippedCosmetics.avatarItemId,
+      frameItemId: equippedCosmetics.frameItemId,
+      titleItemId: equippedCosmetics.titleItemId,
     })
     .from(userProgress)
     .innerJoin(users, eq(userProgress.userId, users.id))
     .leftJoin(userSettings, eq(userProgress.userId, userSettings.userId))
+    .leftJoin(equippedCosmetics, eq(userProgress.userId, equippedCosmetics.userId))
     .orderBy(desc(userProgress.level), desc(userProgress.totalExp))
     .limit(LEADERBOARD_LIMIT);
 
-  const entries: LevelLeaderboardEntry[] = rows.map((row, index) => ({
-    rank: index + 1,
-    userId: row.userId,
-    displayName: resolveDisplayName(row.accountName, row.settingsName),
-    level: row.level,
-    totalExp: row.totalExp,
-    currentStreak: row.currentStreak,
-    bestStreak: row.bestStreak,
-    isYou: row.userId === user.id,
-  }));
+  const entries: LevelLeaderboardEntry[] = rows.map((row, index) =>
+    toEntry(row, index + 1, user.id),
+  );
 
   let you = entries.find((entry) => entry.isYou) ?? null;
 
@@ -71,10 +102,14 @@ export async function getLevelLeaderboardAction() {
         bestStreak: userProgress.bestStreak,
         accountName: users.displayName,
         settingsName: userSettings.displayName,
+        avatarItemId: equippedCosmetics.avatarItemId,
+        frameItemId: equippedCosmetics.frameItemId,
+        titleItemId: equippedCosmetics.titleItemId,
       })
       .from(userProgress)
       .innerJoin(users, eq(userProgress.userId, users.id))
       .leftJoin(userSettings, eq(userProgress.userId, userSettings.userId))
+      .leftJoin(equippedCosmetics, eq(userProgress.userId, equippedCosmetics.userId))
       .where(eq(userProgress.userId, user.id))
       .limit(1);
 
@@ -92,16 +127,7 @@ export async function getLevelLeaderboardAction() {
           ),
         );
 
-      you = {
-        rank: (ahead?.count ?? 0) + 1,
-        userId: mine.userId,
-        displayName: resolveDisplayName(mine.accountName, mine.settingsName),
-        level: mine.level,
-        totalExp: mine.totalExp,
-        currentStreak: mine.currentStreak,
-        bestStreak: mine.bestStreak,
-        isYou: true,
-      };
+      you = toEntry(mine, (ahead?.count ?? 0) + 1, user.id);
     }
   }
 

@@ -198,3 +198,16 @@ body::after {
     transform: translateX(120%);
   }
 }
+
+@keyframes hq-boot-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(280%);
+  }
+}
+
+.hq-boot-bar {
+  animation: hq-boot-slide 1.35s ease-in-out infinite;
+}

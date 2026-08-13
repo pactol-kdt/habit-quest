@@ -23,6 +23,25 @@ const THEME_STYLE_KEYS = [
   "--hq-accent-ink",
 ] as const;
 
+function BootLoader({ message = "Loading your quest…" }: { message?: string }) {
+  return (
+    <div className="relative flex min-h-screen items-center justify-center px-4">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.16),_transparent_45%),radial-gradient(circle_at_bottom,_rgba(251,191,36,0.1),_transparent_40%)]" />
+      <div className="glass-panel relative z-10 flex w-full max-w-md flex-col items-center gap-5 rounded-[2rem] px-8 py-12 text-center">
+        <h1 className="section-title text-3xl text-white sm:text-4xl">Habit Quest</h1>
+        <div
+          className="mt-1 h-1.5 w-28 overflow-hidden rounded-full bg-white/10"
+          role="progressbar"
+          aria-label={message}
+        >
+          <div className="hq-boot-bar hq-fill-accent h-full w-2/5 rounded-full" />
+        </div>
+        <p className="text-sm text-[var(--color-text-muted)]">{message}</p>
+      </div>
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   useHabitQuestHydration();
   useHabitQuestReminders();
@@ -58,11 +77,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [equippedItems.themeItemId, shopItems]);
 
   if (!authChecked) {
-    return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="glass-panel h-40 w-full max-w-md animate-pulse rounded-[2rem]" />
-      </div>
-    );
+    return <BootLoader message="Checking your session…" />;
   }
 
   if (!authUser) {
@@ -70,11 +85,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (!hydrated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="glass-panel h-40 w-full max-w-md animate-pulse rounded-[2rem]" />
-      </div>
-    );
+    return <BootLoader message="Loading your quest…" />;
   }
 
   return (
