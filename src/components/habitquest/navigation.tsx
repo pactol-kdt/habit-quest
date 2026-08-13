@@ -175,9 +175,14 @@ export function Navigation() {
           <div className="flex min-w-0 items-center gap-2 lg:gap-6">
             <Link
               href="/"
-              className="section-title shrink-0 text-base text-white sm:text-lg md:text-2xl"
+              className="flex shrink-0 items-center gap-2 text-white sm:gap-2.5"
             >
-              HabitQuest
+              <img
+                src="/brand/habitquest-logo.png"
+                alt=""
+                className="h-8 w-8 rounded-lg border border-white/10 object-cover sm:h-9 sm:w-9 md:h-10 md:w-10"
+              />
+              <span className="section-title text-base sm:text-lg md:text-2xl">HabitQuest</span>
             </Link>
             <nav className="hidden items-center gap-2 lg:flex">
               {primaryNav.map((item) => {

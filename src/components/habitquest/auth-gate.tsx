@@ -79,9 +79,16 @@ export function AuthGate() {
     <div className="relative flex min-h-screen items-center justify-center px-3 py-8 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-10">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_45%),radial-gradient(circle_at_bottom,_rgba(251,191,36,0.12),_transparent_40%)]" />
       <GlassCard className="relative z-10 w-full max-w-md rounded-[1.5rem] p-5 sm:rounded-[2rem] sm:p-6 md:p-8">
-        <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-          HabitQuest
-        </p>
+        <div className="flex items-center gap-3">
+          <img
+            src="/brand/habitquest-logo.png"
+            alt=""
+            className="h-12 w-12 rounded-xl border border-white/10 object-cover"
+          />
+          <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
+            HabitQuest
+          </p>
+        </div>
         <h1 className="section-title mt-2 text-2xl text-white sm:text-3xl md:text-4xl">
           Sign in to continue
         </h1>
