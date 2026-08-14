@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.2 - Background Push Reminders
+
+### Added
+- Added Web Push reminders (service worker + VAPID + stored subscriptions) so daily alerts can fire when HabitQuest is closed.
+- Added `/api/cron/reminders` dispatcher (every 5 minutes via `vercel.json`) with timezone-aware once-per-day gating.
+- Added Settings flow to enable push, send a real push test, and remove the subscription on disable.
+
+### Changed
+- Settings copy now describes push + cron instead of tab-only reminders.
+
 ## 0.3.1 - Focused Writes, Clarity UX, and Env Setup
 
 ### Added

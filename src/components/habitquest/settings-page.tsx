@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  removePushSubscriptionAction,
+  savePushSubscriptionAction,
+  sendTestPushAction,
+} from "~/app/actions/push";
 import { AuthPanel } from "~/components/habitquest/auth-panel";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import {
@@ -12,6 +17,13 @@ import {
   getReminderPermission,
   requestReminderPermission,
 } from "~/lib/habitquest/reminders";
+import {
+  canUseWebPush,
+  getPushClientStatus,
+  getVapidPublicKeyFromEnv,
+  subscribeToHabitQuestPush,
+  unsubscribeFromHabitQuestPush,
+} from "~/lib/push/client";
 import { getDueHabitsForDate, getTodayDateKey } from "~/lib/habitquest/utils";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
@@ -19,14 +31,42 @@ export function SettingsPage() {
   const [permissionNote, setPermissionNote] = useState<string | null>(null);
   const [backupNote, setBackupNote] = useState<string | null>(null);
   const [permission, setPermission] = useState(getReminderPermission());
+  const [pushStatus, setPushStatus] = useState<string>("checking");
+  const [busy, setBusy] = useState(false);
 
   const { hydrated, settings, updateSettings, projectSave, habits } = useHabitQuestStore(
     (state) => state,
   );
+  const [displayNameDraft, setDisplayNameDraft] = useState(settings.displayName);
 
   useEffect(() => {
     setPermission(getReminderPermission());
   }, [settings.remindersEnabled]);
+
+  useEffect(() => {
+    setDisplayNameDraft(settings.displayName);
+  }, [settings.displayName]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getPushClientStatus().then((status) => {
+      if (!cancelled) {
+        setPushStatus(status);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.remindersEnabled, permission]);
+
+  function commitDisplayName() {
+    const next = displayNameDraft.trim().slice(0, 32);
+    setDisplayNameDraft(next);
+    if (next === settings.displayName) {
+      return;
+    }
+    updateSettings({ displayName: next });
+  }
 
   if (!hydrated) {
     return (
@@ -37,43 +77,122 @@ export function SettingsPage() {
   }
 
   async function handleEnableReminders() {
-    const result = await requestReminderPermission();
-    setPermission(getReminderPermission());
-    if (result === "granted") {
+    setBusy(true);
+    setPermissionNote(null);
+    try {
+      const permissionResult = await requestReminderPermission();
+      setPermission(getReminderPermission());
+
+      if (permissionResult === "unsupported") {
+        setPermissionNote("This browser does not support notifications.");
+        return;
+      }
+
+      if (permissionResult !== "granted") {
+        updateSettings({ remindersEnabled: false });
+        setPermissionNote(
+          "Notification permission was denied. You can re-enable it in browser settings.",
+        );
+        return;
+      }
+
       updateSettings({ remindersEnabled: true });
+
+      let pushNote =
+        "Enabled. Background push needs a push-capable browser (Chrome/Edge/Firefox) plus VAPID keys on the server.";
+
+      if (canUseWebPush() && getVapidPublicKeyFromEnv()) {
+        const subscribed = await subscribeToHabitQuestPush();
+        if (subscribed.status === "subscribed" && subscribed.subscription?.endpoint) {
+          const saved = await savePushSubscriptionAction(
+            {
+              endpoint: subscribed.subscription.endpoint,
+              keys: {
+                p256dh: subscribed.subscription.keys?.p256dh,
+                auth: subscribed.subscription.keys?.auth,
+              },
+            },
+            subscribed.timeZone,
+          );
+          if (saved.status === "ok") {
+            setPushStatus("subscribed");
+            pushNote =
+              "Enabled. Push reminders can fire even when HabitQuest is closed (server cron every ~5 min).";
+          } else if (saved.status === "not_configured") {
+            pushNote = `Enabled for this tab. ${saved.error}`;
+          } else if (saved.status === "error") {
+            pushNote = `Enabled for this tab. Push subscribe failed: ${saved.error}`;
+          }
+        } else if (subscribed.status === "push_service_error") {
+          setPushStatus("push_service_error");
+          pushNote = `Enabled for this tab. Push blocked: ${subscribed.error}`;
+        } else if (subscribed.status === "missing-vapid") {
+          pushNote =
+            "Enabled for this tab. Add NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY to enable background push.";
+        } else if (subscribed.status === "unsupported") {
+          pushNote =
+            "Enabled for this tab. This browser cannot register a push service worker.";
+        }
+      }
+
       const dueCount = getDueHabitsForDate(habits, getTodayDateKey()).length;
-      const fired = tryFireDueReminderNow({
+      tryFireDueReminderNow({
         reminderTime: settings.reminderTime,
         displayName: settings.displayName,
         dueCount,
       });
-      setPermissionNote(
-        fired
-          ? "Enabled. A due reminder just fired (or was already sent today). Reminders only run while this tab stays open."
-          : "Enabled. Reminders only fire while this HabitQuest tab stays open — not a background push service.",
-      );
-      return;
+      setPermissionNote(pushNote);
+    } finally {
+      setBusy(false);
     }
-
-    if (result === "unsupported") {
-      setPermissionNote("This browser does not support notifications.");
-      return;
-    }
-
-    updateSettings({ remindersEnabled: false });
-    setPermissionNote(
-      "Notification permission was denied. You can re-enable it in browser settings.",
-    );
   }
 
-  function handleTestReminder() {
-    const dueCount = getDueHabitsForDate(habits, getTodayDateKey()).length;
-    const result = sendTestReminderNow(settings.displayName, dueCount);
-    setPermissionNote(
-      result.ok
-        ? "Test notification sent. If you did not see it, check OS focus/do-not-disturb and that this site is allowed."
-        : result.error,
-    );
+  async function handleDisableReminders() {
+    setBusy(true);
+    try {
+      updateSettings({ remindersEnabled: false });
+      const unsubscribed = await unsubscribeFromHabitQuestPush();
+      await removePushSubscriptionAction(unsubscribed.endpoint);
+      setPushStatus(await getPushClientStatus());
+      setPermissionNote("Reminders disabled and push subscription removed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleTestReminder() {
+    setBusy(true);
+    setPermissionNote(null);
+    try {
+      const pushResult = await sendTestPushAction();
+      if (pushResult.status === "ok" && pushResult.sent > 0) {
+        setPermissionNote(
+          `Push test sent to ${pushResult.sent} device${pushResult.sent === 1 ? "" : "s"}. Check your notification shade — HabitQuest does not need to stay open.`,
+        );
+        return;
+      }
+
+      const dueCount = getDueHabitsForDate(habits, getTodayDateKey()).length;
+      const local = sendTestReminderNow(settings.displayName, dueCount);
+      if (local.ok) {
+        const extra =
+          pushResult.status === "error" || pushResult.status === "not_configured"
+            ? ` (push: ${pushResult.error})`
+            : pushResult.status === "ok"
+              ? " (no saved push subscription — showed a local notification instead)"
+              : "";
+        setPermissionNote(`Local test notification sent.${extra}`);
+        return;
+      }
+
+      setPermissionNote(
+        pushResult.status === "error" || pushResult.status === "not_configured"
+          ? pushResult.error
+          : local.error,
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   function downloadSnapshot() {
@@ -98,6 +217,23 @@ export function SettingsPage() {
       setBackupNote("Could not build a snapshot in this browser.");
     }
   }
+
+  const pushLabel =
+    pushStatus === "subscribed"
+      ? "Push subscribed"
+      : pushStatus === "missing-vapid"
+        ? "Push keys missing"
+        : pushStatus === "unsupported"
+          ? "Push unsupported here"
+          : pushStatus === "denied"
+            ? "Permission denied"
+            : pushStatus === "unsubscribed"
+              ? "Not subscribed to push"
+              : pushStatus === "push_service_error"
+                ? "Push service unreachable"
+                : pushStatus === "default"
+                  ? "Permission not asked"
+                  : "Checking push…";
 
   return (
     <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
@@ -125,8 +261,14 @@ export function SettingsPage() {
           <label className="mt-5 grid gap-2">
             <span className="text-sm text-[var(--color-text-muted)]">Display name</span>
             <input
-              value={settings.displayName}
-              onChange={(event) => updateSettings({ displayName: event.target.value })}
+              value={displayNameDraft}
+              onChange={(event) => setDisplayNameDraft(event.target.value.slice(0, 32))}
+              onBlur={commitDisplayName}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur();
+                }
+              }}
               maxLength={32}
               placeholder="Adventurer"
               className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50"
@@ -137,8 +279,10 @@ export function SettingsPage() {
         <GlassCard>
           <h2 className="section-title text-2xl text-white">Daily reminder</h2>
           <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            Browser notifications only — they fire while this tab is open. Closing HabitQuest or
-            sleeping the laptop means no reminder. True push notifications are not built yet.
+            Enable once to allow OS notifications. HabitQuest registers a push subscription so
+            reminders can arrive on your phone even when the tab is closed. Needs HTTPS (or
+            localhost) and a scheduled cron hit to{" "}
+            <code className="text-cyan-100">/api/cron/reminders</code>.
           </p>
           <label className="mt-5 grid gap-2">
             <span className="text-sm text-[var(--color-text-muted)]">Reminder time</span>
@@ -154,23 +298,25 @@ export function SettingsPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
+              disabled={busy}
               onClick={handleEnableReminders}
-              className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950"
+              className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60"
             >
-              Enable while tab is open
+              Enable push reminders
             </button>
             <button
               type="button"
+              disabled={busy || !canFireBrowserReminder()}
               onClick={handleTestReminder}
-              disabled={!canFireBrowserReminder()}
               className="rounded-full border border-white/10 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               Send test notification
             </button>
             <button
               type="button"
-              onClick={() => updateSettings({ remindersEnabled: false })}
-              className="rounded-full border border-white/10 px-4 py-2 text-sm text-[var(--color-text-muted)] hover:text-white"
+              disabled={busy}
+              onClick={handleDisableReminders}
+              className="rounded-full border border-white/10 px-4 py-2 text-sm text-[var(--color-text-muted)] hover:text-white disabled:opacity-60"
             >
               Disable
             </button>
@@ -179,7 +325,7 @@ export function SettingsPage() {
             Status:{" "}
             {settings.remindersEnabled
               ? permission === "granted"
-                ? "Enabled (tab must stay open)"
+                ? `Enabled · ${pushLabel}`
                 : `Enabled in settings, but browser permission is ${permission}`
               : "Disabled"}
           </p>

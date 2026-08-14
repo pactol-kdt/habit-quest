@@ -153,8 +153,20 @@ const DDL = [
     display_name VARCHAR(64) NOT NULL DEFAULT '',
     onboarding_completed BOOLEAN NOT NULL DEFAULT false,
     reminders_enabled BOOLEAN NOT NULL DEFAULT false,
-    reminder_time VARCHAR(8) NOT NULL DEFAULT '09:00'
+    reminder_time VARCHAR(8) NOT NULL DEFAULT '09:00',
+    reminder_timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
+    last_push_reminder_date VARCHAR(10)
   )`,
+  `CREATE TABLE IF NOT EXISTS push_subscriptions (
+    endpoint TEXT PRIMARY KEY NOT NULL,
+    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    user_agent TEXT,
+    created_at VARCHAR(40) NOT NULL,
+    updated_at VARCHAR(40) NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id)`,
   `CREATE TABLE IF NOT EXISTS equipped_cosmetics (
     user_id VARCHAR(36) PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title_item_id VARCHAR(64),
@@ -352,6 +364,18 @@ async function runMigrations(database: ReturnType<typeof createDrizzle>) {
     ) {
       await client.query(
         `ALTER TABLE reward_systems ADD COLUMN progress_settled_through_date VARCHAR(10)`,
+      );
+    }
+
+    if (!(await columnExists(client, "user_settings", "reminder_timezone"))) {
+      await client.query(
+        `ALTER TABLE user_settings ADD COLUMN reminder_timezone VARCHAR(64) NOT NULL DEFAULT 'UTC'`,
+      );
+    }
+
+    if (!(await columnExists(client, "user_settings", "last_push_reminder_date"))) {
+      await client.query(
+        `ALTER TABLE user_settings ADD COLUMN last_push_reminder_date VARCHAR(10)`,
       );
     }
 

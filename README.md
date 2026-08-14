@@ -26,15 +26,24 @@ Variables:
 
 - `AUTH_SECRET` — session signing secret (required in production, 32+ chars recommended)
 - `DATABASE_URL` — PostgreSQL URL (local default: `postgresql://postgres@127.0.0.1:5432/habitquest`)
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` — Web Push keys (`npx web-push generate-vapid-keys --json`)
+- `CRON_SECRET` — protects `/api/cron/reminders` (required in production; Vercel Cron sends it as Bearer)
 - `ADMIN_EMAIL` — optional; that email becomes admin on signup (first account is always admin)
 
 Production setup:
 
 ```bash
 cp .env.production.example .env.production
-# edit AUTH_SECRET + DATABASE_URL, then:
+# edit AUTH_SECRET + DATABASE_URL + VAPID keys + CRON_SECRET, then:
 npm run build && npm start
 ```
+
+Push reminders:
+
+1. Enable in **Settings → Daily reminder** (grants notification permission + stores a push subscription).
+2. Host must run HTTPS (or localhost for dev).
+3. Cron hits `GET/POST /api/cron/reminders` every few minutes (`vercel.json` schedules `*/5 * * * *`).
+4. Local smoke test: `curl http://localhost:3000/api/cron/reminders`
 
 ```bash
 npm test

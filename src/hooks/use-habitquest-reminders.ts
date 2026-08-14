@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { savePushSubscriptionAction } from "~/app/actions/push";
 import {
   canFireBrowserReminder,
   fireDailyReminder,
@@ -8,6 +9,11 @@ import {
   markReminderFiredToday,
   shouldFireReminder,
 } from "~/lib/habitquest/reminders";
+import {
+  canUseWebPush,
+  getVapidPublicKeyFromEnv,
+  subscribeToHabitQuestPush,
+} from "~/lib/push/client";
 import { getDueHabitsForDate, getTodayDateKey } from "~/lib/habitquest/utils";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
@@ -37,10 +43,46 @@ function tryFireReminder(input: {
 
 export function useHabitQuestReminders() {
   const hydrated = useHabitQuestStore((state) => state.hydrated);
+  const authUser = useHabitQuestStore((state) => state.authUser);
   const remindersEnabled = useHabitQuestStore((state) => state.settings.remindersEnabled);
   const reminderTime = useHabitQuestStore((state) => state.settings.reminderTime);
   const displayName = useHabitQuestStore((state) => state.settings.displayName);
   const habits = useHabitQuestStore((state) => state.habits);
+
+  useEffect(() => {
+    if (!hydrated || !remindersEnabled || !authUser) {
+      return;
+    }
+    if (!canUseWebPush() || !getVapidPublicKeyFromEnv()) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const subscribed = await subscribeToHabitQuestPush();
+        if (cancelled || subscribed.status !== "subscribed" || !subscribed.subscription?.endpoint) {
+          return;
+        }
+        await savePushSubscriptionAction(
+          {
+            endpoint: subscribed.subscription.endpoint,
+            keys: {
+              p256dh: subscribed.subscription.keys?.p256dh,
+              auth: subscribed.subscription.keys?.auth,
+            },
+          },
+          subscribed.timeZone,
+        );
+      } catch {
+        // Push is best-effort — never crash the app shell if FCM/push service fails.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser, hydrated, remindersEnabled]);
 
   useEffect(() => {
     if (!hydrated || !remindersEnabled) {

@@ -1,0 +1,23 @@
+{
+  "name": "HabitQuest",
+  "short_name": "HabitQuest",
+  "description": "RPG-inspired habit tracker — clear habits, earn EXP, beat the week.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "icons": [
+    {
+      "src": "/brand/habitquest-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/habitquest-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

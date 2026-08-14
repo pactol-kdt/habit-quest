@@ -16,6 +16,7 @@ const bodyFont = Space_Grotesk({
 export const metadata: Metadata = {
   title: "HabitQuest",
   description: "A modern RPG-inspired habit tracker built with Next.js.",
+  manifest: "/manifest.webmanifest",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
