@@ -5,6 +5,7 @@ import { getCurrentUser } from "~/lib/auth/session";
 import { ensureDatabase } from "~/lib/db";
 import { pushSubscriptions, userSettings } from "~/lib/db/schema";
 import { sendTestPushToUser } from "~/lib/push/reminders-dispatch";
+import { FIXED_REMINDER_LOCAL_TIME } from "~/lib/push/timezone";
 import { getVapidPublicKey, isWebPushConfigured } from "~/lib/push/web-push";
 
 type PushActionOk = { status: "ok" };
@@ -99,7 +100,10 @@ export async function savePushSubscriptionAction(
 
     await database
       .update(userSettings)
-      .set({ reminderTimezone: tz })
+      .set({
+        reminderTimezone: tz,
+        reminderTime: FIXED_REMINDER_LOCAL_TIME,
+      })
       .where(eq(userSettings.userId, user.id));
 
     return { status: "ok" };

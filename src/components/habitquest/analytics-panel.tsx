@@ -40,7 +40,7 @@ export function AnalyticsPanel({
           <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
             Analytics
           </p>
-          <h2 className="section-title mt-2 text-2xl text-white">Quest telemetry</h2>
+          <h2 className="section-title mt-2 text-2xl text-white">Journey chronicle</h2>
         </div>
         <div className="grid grid-cols-3 gap-3 text-sm text-[var(--color-text-muted)]">
           <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">

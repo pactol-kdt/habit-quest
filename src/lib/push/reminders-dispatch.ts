@@ -9,23 +9,27 @@ import {
   userSettings,
 } from "~/lib/db/schema";
 import { getDueHabitsForDate } from "~/lib/habitquest/utils";
+import { buildDailyReminderCopy } from "~/lib/habitquest/reminder-copy";
+import { describeStackFormula } from "~/lib/habitquest/habit-loop";
 import {
+  FIXED_REMINDER_LOCAL_TIME,
   getDateKeyInTimeZone,
-  shouldFireReminderInTimeZone,
+  isWithinReminderHourInTimeZone,
 } from "~/lib/push/timezone";
 import { isWebPushConfigured, sendWebPush, type PushPayload } from "~/lib/push/web-push";
 import type { Habit, HabitDifficulty, HabitRecurrence } from "~/types/habitquest";
 
 type Database = typeof db;
 
-function buildReminderPayload(displayName: string, dueCount: number): PushPayload {
-  const name = displayName.trim() || "Adventurer";
+function buildReminderPayload(
+  displayName: string,
+  dueCount: number,
+  stackHint?: string | null,
+): PushPayload {
+  const { title, body } = buildDailyReminderCopy(displayName, dueCount, stackHint);
   return {
-    title: "HabitQuest reminder",
-    body:
-      dueCount > 0
-        ? `${name}, you have ${dueCount} habit${dueCount === 1 ? "" : "s"} due today.`
-        : `${name}, check HabitQuest and keep your streak alive.`,
+    title,
+    body,
     tag: "habitquest-daily-reminder",
     url: "/",
   };
@@ -40,12 +44,19 @@ async function loadHabitsForUser(database: Database, userId: string): Promise<Ha
     difficulty: row.difficulty as HabitDifficulty,
     recurrence: row.recurrence as HabitRecurrence,
     customDays: Array.isArray(row.customDays) ? row.customDays : [],
+    stackAfter: row.stackAfter ?? "",
+    stackAfterHabitId: row.stackAfterHabitId ?? null,
+    cueTime: row.cueTime ?? null,
+    cueContext: row.cueContext ?? "",
+    identityWhy: row.identityWhy ?? "",
+    desiredFeeling: row.desiredFeeling ?? "",
+    tinyVersion: row.tinyVersion ?? "",
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }));
 }
 
-async function countIncompleteDueHabits(
+async function loadIncompleteDueHabits(
   database: Database,
   userId: string,
   dateKey: string,
@@ -53,7 +64,7 @@ async function countIncompleteDueHabits(
   const userHabits = await loadHabitsForUser(database, userId);
   const due = getDueHabitsForDate(userHabits, dateKey);
   if (!due.length) {
-    return 0;
+    return [] as Habit[];
   }
 
   const completed = await database
@@ -71,7 +82,18 @@ async function countIncompleteDueHabits(
     );
 
   const done = new Set(completed.map((row) => row.habitId));
-  return due.filter((habit) => !done.has(habit.id)).length;
+  return due.filter((habit) => !done.has(habit.id));
+}
+
+function stackHintForHabits(habits: Habit[], allHabits: Habit[]) {
+  if (!habits.length) {
+    return null;
+  }
+  return (
+    describeStackFormula(habits[0]!, allHabits) ??
+    habits.find((habit) => habit.stackAfter.trim())?.stackAfter ??
+    null
+  );
 }
 
 export async function sendPushToUser(
@@ -137,8 +159,17 @@ export async function sendTestPushToUser(
         .limit(1)
     )[0]?.reminderTimezone || "UTC",
   );
-  const dueCount = await countIncompleteDueHabits(database, userId, dateKey);
-  return sendPushToUser(database, userId, buildReminderPayload(displayName, dueCount));
+  const incomplete = await loadIncompleteDueHabits(database, userId, dateKey);
+  const allHabits = await loadHabitsForUser(database, userId);
+  return sendPushToUser(
+    database,
+    userId,
+    buildReminderPayload(
+      displayName,
+      incomplete.length,
+      stackHintForHabits(incomplete, allHabits),
+    ),
+  );
 }
 
 export async function dispatchDuePushReminders(database: Database, now = new Date()) {
@@ -150,7 +181,6 @@ export async function dispatchDuePushReminders(database: Database, now = new Dat
     .select({
       userId: userSettings.userId,
       displayName: userSettings.displayName,
-      reminderTime: userSettings.reminderTime,
       reminderTimezone: userSettings.reminderTimezone,
       lastPushReminderDate: userSettings.lastPushReminderDate,
     })
@@ -170,7 +200,8 @@ export async function dispatchDuePushReminders(database: Database, now = new Dat
       continue;
     }
 
-    if (!shouldFireReminderInTimeZone(user.reminderTime, timeZone, now)) {
+    // Fixed 08:00 local — only send during that hour so hourly UTC crons map cleanly.
+    if (!isWithinReminderHourInTimeZone(FIXED_REMINDER_LOCAL_TIME, timeZone, now)) {
       skipped += 1;
       continue;
     }
@@ -186,11 +217,16 @@ export async function dispatchDuePushReminders(database: Database, now = new Dat
       continue;
     }
 
-    const dueCount = await countIncompleteDueHabits(database, user.userId, dateKey);
+    const incomplete = await loadIncompleteDueHabits(database, user.userId, dateKey);
+    const allHabits = await loadHabitsForUser(database, user.userId);
     const result = await sendPushToUser(
       database,
       user.userId,
-      buildReminderPayload(user.displayName, dueCount),
+      buildReminderPayload(
+        user.displayName,
+        incomplete.length,
+        stackHintForHabits(incomplete, allHabits),
+      ),
     );
 
     if (result.sent > 0) {

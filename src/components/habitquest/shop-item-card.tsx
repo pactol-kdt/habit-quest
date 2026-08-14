@@ -74,7 +74,7 @@ export function ShopItemCard({
                 onClick={() => onUnequip?.(item.category)}
                 className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm text-emerald-100 transition hover:bg-emerald-300/16 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {pending ? "Saving…" : "Unequip"}
+                {pending ? "Unequipping…" : "Unequip"}
               </button>
             ) : (
               <button
@@ -83,7 +83,7 @@ export function ShopItemCard({
                 onClick={() => onEquip(item.id)}
                 className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {pending ? "Saving…" : "Equip"}
+                {pending ? "Equipping…" : "Equip"}
               </button>
             )
           ) : locked ? (
@@ -97,7 +97,7 @@ export function ShopItemCard({
               onClick={() => onPurchase(item)}
               className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {pending ? "Saving…" : "Purchase"}
+              {pending ? "Purchasing…" : "Purchase"}
             </button>
           )}
         </div>

@@ -17,10 +17,11 @@ export function AchievementsPage() {
               Achievements
             </p>
             <h1 className="section-title mt-2 text-3xl text-white sm:text-4xl md:text-5xl">
-              Trophy ledger
+              Marks of the journey
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              Auto-unlocked milestones reward both coins and EXP. Every unlock is stored locally with the rest of your profile.
+              Milestones open on their own and gift coins and EXP. Each mark stays with your
+              traveler profile.
             </p>
           </div>
           <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white">

@@ -101,6 +101,13 @@ const DDL = [
     difficulty VARCHAR(16) NOT NULL,
     recurrence VARCHAR(16) NOT NULL,
     custom_days JSONB NOT NULL,
+    stack_after TEXT NOT NULL DEFAULT '',
+    stack_after_habit_id VARCHAR(64),
+    cue_time VARCHAR(8),
+    cue_context TEXT NOT NULL DEFAULT '',
+    identity_why TEXT NOT NULL DEFAULT '',
+    desired_feeling TEXT NOT NULL DEFAULT '',
+    tiny_version TEXT NOT NULL DEFAULT '',
     created_at VARCHAR(40) NOT NULL,
     updated_at VARCHAR(40) NOT NULL
   )`,
@@ -153,7 +160,7 @@ const DDL = [
     display_name VARCHAR(64) NOT NULL DEFAULT '',
     onboarding_completed BOOLEAN NOT NULL DEFAULT false,
     reminders_enabled BOOLEAN NOT NULL DEFAULT false,
-    reminder_time VARCHAR(8) NOT NULL DEFAULT '09:00',
+    reminder_time VARCHAR(8) NOT NULL DEFAULT '08:00',
     reminder_timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
     last_push_reminder_date VARCHAR(10)
   )`,
@@ -377,6 +384,21 @@ async function runMigrations(database: ReturnType<typeof createDrizzle>) {
       await client.query(
         `ALTER TABLE user_settings ADD COLUMN last_push_reminder_date VARCHAR(10)`,
       );
+    }
+
+    const habitLoopColumns: Array<[string, string]> = [
+      ["stack_after", "TEXT NOT NULL DEFAULT ''"],
+      ["stack_after_habit_id", "VARCHAR(64)"],
+      ["cue_time", "VARCHAR(8)"],
+      ["cue_context", "TEXT NOT NULL DEFAULT ''"],
+      ["identity_why", "TEXT NOT NULL DEFAULT ''"],
+      ["desired_feeling", "TEXT NOT NULL DEFAULT ''"],
+      ["tiny_version", "TEXT NOT NULL DEFAULT ''"],
+    ];
+    for (const [column, definition] of habitLoopColumns) {
+      if (!(await columnExists(client, "habits", column))) {
+        await client.query(`ALTER TABLE habits ADD COLUMN ${column} ${definition}`);
+      }
     }
 
     // Deduplicate then enforce one clear per habit per day.

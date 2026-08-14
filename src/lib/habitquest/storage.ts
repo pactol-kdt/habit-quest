@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, SAVE_VERSION, STORAGE_KEY } from "~/lib/habitquest/constants";
+import { normalizeHabitRecord } from "~/lib/habitquest/habit-loop";
 import type { HabitQuestCatalog } from "~/lib/habitquest/catalog";
 import { createSeedData } from "~/lib/habitquest/seed";
 import { getTodayDateKey } from "~/lib/habitquest/utils";
@@ -211,7 +212,9 @@ export function normalizeHabitQuestData(
 
   return {
     version: SAVE_VERSION,
-    habits: parsed.habits ?? fallback.habits,
+    habits: (parsed.habits ?? fallback.habits).map((habit) =>
+      normalizeHabitRecord(habit as Parameters<typeof normalizeHabitRecord>[0]),
+    ),
     completions: parsed.completions ?? fallback.completions,
     achievements: mergeAchievements(parsed.achievements, fallback.achievements),
     challenges: mergeChallenges(parsed.challenges, fallback.challenges),
@@ -377,12 +380,18 @@ export function mergeCloudSaveWithLocalDraft(
 
   let addedCompletions = localHasExtraCompletions || localRemovedTodayClear;
 
+  // Cloud owns habit membership. Re-adding local-only IDs resurrected habits after
+  // surgical deletes whenever a stale browser draft was merged on boot/sync.
   const habitById = new Map(cloud.habits.map((habit) => [habit.id, habit]));
-  let addedHabits = false;
-  for (const habit of local.habits) {
-    if (!habitById.has(habit.id)) {
-      habitById.set(habit.id, habit);
-      addedHabits = true;
+  let habitsChanged = false;
+  for (const localHabit of local.habits) {
+    const cloudHabit = habitById.get(localHabit.id);
+    if (!cloudHabit) {
+      continue;
+    }
+    if (localHabit.updatedAt > cloudHabit.updatedAt) {
+      habitById.set(localHabit.id, localHabit);
+      habitsChanged = true;
     }
   }
 
@@ -405,7 +414,7 @@ export function mergeCloudSaveWithLocalDraft(
 
   if (
     !addedCompletions &&
-    !addedHabits &&
+    !habitsChanged &&
     !addedOwned &&
     !localSpentMore &&
     !localDailyAhead

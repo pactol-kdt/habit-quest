@@ -6,6 +6,7 @@ import { OnboardingModal } from "~/components/habitquest/onboarding-modal";
 import { FloatingRewardLayer } from "~/components/habitquest/floating-reward-layer";
 import { MobileBottomNav } from "~/components/habitquest/mobile-bottom-nav";
 import { Navigation } from "~/components/habitquest/navigation";
+import { NotificationPermissionPrompt } from "~/components/habitquest/notification-permission-prompt";
 import { RewardToastLayer } from "~/components/habitquest/reward-toast-layer";
 import { SettlementRecapModal } from "~/components/habitquest/settlement-recap-modal";
 import { useHabitQuestHydration } from "~/hooks/use-habitquest-hydration";
@@ -23,7 +24,7 @@ const THEME_STYLE_KEYS = [
   "--hq-accent-ink",
 ] as const;
 
-function BootLoader({ message = "Loading your quest…" }: { message?: string }) {
+function BootLoader({ message = "Gathering your path…" }: { message?: string }) {
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.16),_transparent_45%),radial-gradient(circle_at_bottom,_rgba(251,191,36,0.1),_transparent_40%)]" />
@@ -82,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [equippedItems.themeItemId, shopItems]);
 
   if (!authChecked) {
-    return <BootLoader message="Checking your session…" />;
+    return <BootLoader message="Recognizing your traveler…" />;
   }
 
   if (!authUser) {
@@ -90,7 +91,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (!hydrated) {
-    return <BootLoader message="Loading your quest…" />;
+    return <BootLoader message="Gathering your path…" />;
   }
 
   return (
@@ -100,6 +101,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <FloatingRewardLayer />
       <CelebrationOverlay />
       <OnboardingModal />
+      <NotificationPermissionPrompt />
       <SettlementRecapModal />
       <div className="mx-auto w-full max-w-7xl px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-6 md:pt-8 lg:pb-10">
         {children}

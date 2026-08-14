@@ -1,4 +1,5 @@
 import { getComboRewards, hitComboCoinMilestone } from "~/lib/habitquest/combo";
+import { describeCraving, describeStackFormula } from "~/lib/habitquest/habit-loop";
 import {
   applyCritMultiplier,
   createCelebration,
@@ -117,6 +118,8 @@ export function applyCompleteHabitForToday(
     comboPreview.exp > 0 ? `+${comboPreview.exp} combo EXP pending` : null,
   ].filter(Boolean);
 
+  const craving = describeCraving(habit);
+  const stackLine = describeStackFormula(habit, data.habits);
   const rewardToasts: RewardToast[] = [
     createToast(
       "unlock",
@@ -124,6 +127,17 @@ export function applyCompleteHabitForToday(
       `${habit.title} logged — ${pendingBits.join(" · ")}. Locks in at midnight.`,
     ),
   ];
+  if (craving) {
+    rewardToasts.unshift(
+      createToast(
+        "achievement",
+        craving,
+        stackLine
+          ? `Loop closed: ${stackLine}`
+          : habit.identityWhy.trim() || "Trigger → response → reward. Nice.",
+      ),
+    );
+  }
   let celebration: CelebrationEvent | null = null;
 
   if (hitComboCoinMilestone(previousCombo, nextCombo)) {

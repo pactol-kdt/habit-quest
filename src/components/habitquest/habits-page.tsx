@@ -10,6 +10,7 @@ import {
   getTodayDateKey,
   hasCompletionForDate,
 } from "~/lib/habitquest/utils";
+import { sortHabitsByLoop } from "~/lib/habitquest/habit-loop";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 import type { Habit } from "~/types/habitquest";
 
@@ -30,6 +31,7 @@ export function HabitsPage() {
     completeHabitForToday,
     uncompleteHabitForToday,
     pendingHabitIds,
+    pendingHabitActions,
   } = useHabitQuestStore((state) => state);
 
   const today = getTodayDateKey();
@@ -48,14 +50,14 @@ export function HabitsPage() {
 
   const visibleHabits = useMemo(() => {
     if (filter === "due") {
-      return dueHabits;
+      return sortHabitsByLoop(dueHabits, { completedIds: completedHabitIds });
     }
 
     if (filter === "completed") {
-      return habits.filter((habit) => completedHabitIds.has(habit.id));
+      return sortHabitsByLoop(habits.filter((habit) => completedHabitIds.has(habit.id)));
     }
 
-    return habits;
+    return sortHabitsByLoop(habits, { completedIds: completedHabitIds });
   }, [completedHabitIds, dueHabits, filter, habits]);
 
   if (!hydrated) {
@@ -78,7 +80,8 @@ export function HabitsPage() {
               All habits
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base">
-              Manage every ritual, not just today&apos;s due board. Delete cleans completions so stats stay honest.
+              Build loops with stacking triggers — after something you already do, attach the next
+              step. Removing a habit also clears its history so your story stays true.
             </p>
           </div>
           <button
@@ -89,7 +92,7 @@ export function HabitsPage() {
             }}
             className="min-h-12 w-full rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] sm:w-auto lg:self-auto"
           >
-            Create habit
+            Stack a habit
           </button>
         </div>
       </GlassCard>
@@ -121,18 +124,20 @@ export function HabitsPage() {
 
         <HabitList
           habits={visibleHabits}
+          allHabits={habits}
           completedHabitIds={completedHabitIds}
           pendingHabitIds={pendingHabitIds}
+          pendingHabitActions={pendingHabitActions}
           showDueBadge
           dueHabitIds={dueHabitIds}
           emptyMessage={
             filter === "all"
-              ? "No habits yet. Create your first ritual to start farming EXP."
+              ? "No habits yet. Stack your first loop and begin gathering EXP."
               : filter === "due"
-                ? "Nothing is due today. Try All or create a daily habit."
+                ? "Nothing is due today. Browse All, or stack a daily habit."
                 : "Nothing cleared today yet. Complete a due habit to see it here."
           }
-          emptyActionLabel={filter === "all" || filter === "due" ? "Create habit" : undefined}
+          emptyActionLabel={filter === "all" || filter === "due" ? "Stack a habit" : undefined}
           onEmptyAction={
             filter === "all" || filter === "due"
               ? () => {
@@ -154,6 +159,7 @@ export function HabitsPage() {
       <HabitFormModal
         open={modalOpen}
         habit={editingHabit}
+        habits={habits}
         onClose={() => setModalOpen(false)}
         onSubmit={(values) => {
           if (editingHabit) {

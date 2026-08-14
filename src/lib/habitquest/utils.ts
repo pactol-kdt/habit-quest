@@ -8,6 +8,11 @@ import {
   UNLOCK_LABELS,
   WEEKDAY_LABELS,
 } from "~/lib/habitquest/constants";
+import {
+  defaultHabitLoopFields,
+  normalizeHabitLoopFormFields,
+  sortHabitsByLoop,
+} from "~/lib/habitquest/habit-loop";
 import type {
   Achievement,
   Challenge,
@@ -163,7 +168,7 @@ export function isHabitDueOnDate(habit: Habit, date: string) {
 }
 
 export function getDueHabitsForDate(habits: Habit[], date: string) {
-  return habits.filter((habit) => isHabitDueOnDate(habit, date));
+  return sortHabitsByLoop(habits.filter((habit) => isHabitDueOnDate(habit, date)));
 }
 
 export function describeRecurrence(habit: Habit) {
@@ -269,10 +274,20 @@ export function normalizeFormValues(values: HabitFormValues): HabitFormValues {
   const title = values.title.trim();
   const description = values.description.trim();
   const customDays = [...values.customDays].sort((left, right) => left - right);
+  const loopFields = normalizeHabitLoopFormFields({
+    stackAfter: values.stackAfter ?? "",
+    stackAfterHabitId: values.stackAfterHabitId ?? null,
+    cueTime: values.cueTime ?? null,
+    cueContext: values.cueContext ?? "",
+    identityWhy: values.identityWhy ?? "",
+    desiredFeeling: values.desiredFeeling ?? "",
+    tinyVersion: values.tinyVersion ?? "",
+  });
 
   if (values.recurrence === "weekly") {
     return {
       ...values,
+      ...loopFields,
       title,
       description,
       customDays: customDays.length ? [customDays[0]!] : [new Date().getDay()],
@@ -282,6 +297,7 @@ export function normalizeFormValues(values: HabitFormValues): HabitFormValues {
   if (values.recurrence === "custom") {
     return {
       ...values,
+      ...loopFields,
       title,
       description,
       customDays: customDays.length ? customDays : [1, 3, 5],
@@ -290,9 +306,21 @@ export function normalizeFormValues(values: HabitFormValues): HabitFormValues {
 
   return {
     ...values,
+    ...loopFields,
     title,
     description,
     customDays: [],
+  };
+}
+
+export function emptyHabitFormValues(): HabitFormValues {
+  return {
+    title: "",
+    description: "",
+    difficulty: "easy",
+    recurrence: "daily",
+    customDays: [],
+    ...defaultHabitLoopFields(),
   };
 }
 
@@ -700,17 +728,17 @@ export function getCompletionRate(data: HabitQuestData) {
 export function getMotivationalGreeting(progress: UserProgress) {
   const hour = new Date().getHours();
   const prefix =
-    hour < 12 ? "Dawn patrol" : hour < 18 ? "Quest update" : "Night grind";
+    hour < 12 ? "Rise, adventurer" : hour < 18 ? "Steady path" : "Quiet vigil";
 
   if (progress.currentStreak >= 7) {
-    return `${prefix}, legend. Your ${progress.currentStreak}-day streak is carrying serious momentum.`;
+    return `${prefix}. Your ${progress.currentStreak}-day streak walks beside you.`;
   }
 
   if (progress.level >= 5) {
-    return `${prefix}, champion. Your unlock tree is opening up. Keep pushing.`;
+    return `${prefix}. New paths are opening — take the next habit gently.`;
   }
 
-  return `${prefix}. Stack clean clears today, secure coins, and keep your run alive.`;
+  return `${prefix}. Clear what you can today; one habit keeps the journey warm.`;
 }
 
 export function getProfileDisplay(

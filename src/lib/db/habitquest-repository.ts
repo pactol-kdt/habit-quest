@@ -112,6 +112,13 @@ export async function loadNormalizedSave(
         difficulty: row.difficulty as Habit["difficulty"],
         recurrence: row.recurrence as Habit["recurrence"],
         customDays: Array.isArray(row.customDays) ? row.customDays : [],
+        stackAfter: row.stackAfter ?? "",
+        stackAfterHabitId: row.stackAfterHabitId ?? null,
+        cueTime: row.cueTime ?? null,
+        cueContext: row.cueContext ?? "",
+        identityWhy: row.identityWhy ?? "",
+        desiredFeeling: row.desiredFeeling ?? "",
+        tinyVersion: row.tinyVersion ?? "",
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
       }),
@@ -273,7 +280,21 @@ export async function replaceNormalizedSave(
   const updatedAt = new Date().toISOString();
   const normalized = normalizeHabitQuestData(data);
 
-  await database.delete(habits).where(eq(habits.userId, userId));
+  // Habit membership is owned by surgical create/update/delete APIs.
+  // Full saves must not delete-all + reinsert — stale client snapshots were
+  // resurrecting habits after successful deletes (e.g. complete → bump payload).
+  const existingHabitRows = await database
+    .select({ id: habits.id })
+    .from(habits)
+    .where(eq(habits.userId, userId));
+  const existingHabitIds = new Set(existingHabitRows.map((row) => row.id));
+  const existingMeta = await database
+    .select({ userId: saveMeta.userId })
+    .from(saveMeta)
+    .where(eq(saveMeta.userId, userId))
+    .limit(1);
+  const isInitialCloudSeed = existingHabitIds.size === 0 && existingMeta.length === 0;
+
   await database.delete(habitCompletions).where(eq(habitCompletions.userId, userId));
   await database.delete(expHistory).where(eq(expHistory.userId, userId));
   await database.delete(ownedShopItems).where(eq(ownedShopItems.userId, userId));
@@ -291,20 +312,55 @@ export async function replaceNormalizedSave(
   await database.delete(weeklyBosses).where(eq(weeklyBosses.userId, userId));
   await database.delete(saveMeta).where(eq(saveMeta.userId, userId));
 
-  if (normalized.habits.length) {
-    await database.insert(habits).values(
-      normalized.habits.map((habit) => ({
-        id: habit.id,
-        userId,
-        title: habit.title,
-        description: habit.description,
-        difficulty: habit.difficulty,
-        recurrence: habit.recurrence,
-        customDays: habit.customDays,
-        createdAt: habit.createdAt,
-        updatedAt: habit.updatedAt,
-      })),
-    );
+  if (isInitialCloudSeed) {
+    // First cloud save / legacy migration — seed habit rows once.
+    if (normalized.habits.length) {
+      await database.insert(habits).values(
+        normalized.habits.map((habit) => ({
+          id: habit.id,
+          userId,
+          title: habit.title,
+          description: habit.description,
+          difficulty: habit.difficulty,
+          recurrence: habit.recurrence,
+          customDays: habit.customDays,
+          stackAfter: habit.stackAfter,
+          stackAfterHabitId: habit.stackAfterHabitId,
+          cueTime: habit.cueTime,
+          cueContext: habit.cueContext,
+          identityWhy: habit.identityWhy,
+          desiredFeeling: habit.desiredFeeling,
+          tinyVersion: habit.tinyVersion,
+          createdAt: habit.createdAt,
+          updatedAt: habit.updatedAt,
+        })),
+      );
+    }
+  } else {
+    for (const habit of normalized.habits) {
+      if (!existingHabitIds.has(habit.id)) {
+        // Skip — deleted surgically, or not created via habit API yet.
+        continue;
+      }
+      await database
+        .update(habits)
+        .set({
+          title: habit.title,
+          description: habit.description,
+          difficulty: habit.difficulty,
+          recurrence: habit.recurrence,
+          customDays: habit.customDays,
+          stackAfter: habit.stackAfter,
+          stackAfterHabitId: habit.stackAfterHabitId,
+          cueTime: habit.cueTime,
+          cueContext: habit.cueContext,
+          identityWhy: habit.identityWhy,
+          desiredFeeling: habit.desiredFeeling,
+          tinyVersion: habit.tinyVersion,
+          updatedAt: habit.updatedAt,
+        })
+        .where(and(eq(habits.userId, userId), eq(habits.id, habit.id)));
+    }
   }
 
   if (normalized.completions.length) {
@@ -729,6 +785,13 @@ export async function persistHabitCreate(
       difficulty: habit.difficulty,
       recurrence: habit.recurrence,
       customDays: habit.customDays,
+      stackAfter: habit.stackAfter,
+      stackAfterHabitId: habit.stackAfterHabitId,
+      cueTime: habit.cueTime,
+      cueContext: habit.cueContext,
+      identityWhy: habit.identityWhy,
+      desiredFeeling: habit.desiredFeeling,
+      tinyVersion: habit.tinyVersion,
       createdAt: habit.createdAt,
       updatedAt: habit.updatedAt,
     });
@@ -753,6 +816,13 @@ export async function persistHabitUpdate(
         difficulty: habit.difficulty,
         recurrence: habit.recurrence,
         customDays: habit.customDays,
+        stackAfter: habit.stackAfter,
+        stackAfterHabitId: habit.stackAfterHabitId,
+        cueTime: habit.cueTime,
+        cueContext: habit.cueContext,
+        identityWhy: habit.identityWhy,
+        desiredFeeling: habit.desiredFeeling,
+        tinyVersion: habit.tinyVersion,
         updatedAt: habit.updatedAt,
       })
       .where(and(eq(habits.userId, userId), eq(habits.id, habit.id)));
@@ -782,6 +852,12 @@ export async function persistHabitDelete(
       .delete(habitCompletions)
       .where(
         and(eq(habitCompletions.userId, userId), eq(habitCompletions.habitId, habitId)),
+      );
+    await tx
+      .update(habits)
+      .set({ stackAfterHabitId: null })
+      .where(
+        and(eq(habits.userId, userId), eq(habits.stackAfterHabitId, habitId)),
       );
     await tx.delete(habits).where(and(eq(habits.userId, userId), eq(habits.id, habitId)));
 

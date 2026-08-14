@@ -26,9 +26,10 @@ export function DailyRewardCard({
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
           Daily Rewards
         </p>
-        <h2 className="section-title mt-2 text-2xl text-white">Coin routine</h2>
+        <h2 className="section-title mt-2 text-2xl text-white">Daily coin blessings</h2>
         <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-          Login pays automatically. Perfect-day coins are a preview until tonight&apos;s lock-in.
+          Login gifts arrive on their own. Perfect-day coins wait in preview until tonight&apos;s
+          lock-in.
         </p>
       </div>
 

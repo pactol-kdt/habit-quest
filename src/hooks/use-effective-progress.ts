@@ -14,7 +14,11 @@ import {
 } from "~/lib/habitquest/day-settlement";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
-/** Preview settled + today's pending habit progress for UI. */
+/**
+ * Settled level / EXP / coins for UI gates.
+ * Pending habit EXP, combo, comeback, season XP, and boss damage stay in the
+ * lock-in preview until midnight.
+ */
 export function useEffectiveProgress() {
   const store = useHabitQuestStore((state) => state);
 

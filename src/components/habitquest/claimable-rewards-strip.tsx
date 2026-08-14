@@ -50,13 +50,13 @@ export function ClaimableRewardsStrip() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.28em] text-amber-100/80">
-            Ready to claim
+            Gifts waiting
           </p>
           <h2 className="section-title mt-2 text-2xl text-white">
             {claimables.length} reward{claimables.length === 1 ? "" : "s"} waiting
           </h2>
           <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            These are banked rewards — claim them now so they don&apos;t get missed.
+            These blessings are already banked — claim them when you are ready.
           </p>
         </div>
         <span className="self-start rounded-full border border-amber-300/30 bg-amber-300/15 px-3 py-1 text-xs uppercase tracking-[0.18em] text-amber-100">
@@ -95,7 +95,7 @@ export function ClaimableRewardsStrip() {
                 }
                 className="min-h-11 shrink-0 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {pending ? "Saving…" : "Claim"}
+                {pending ? "Claiming…" : "Claim"}
               </button>
             </div>
           );

@@ -91,6 +91,13 @@ CREATE TABLE habits (
   difficulty varchar(16) NOT NULL,
   recurrence varchar(16) NOT NULL,
   custom_days jsonb NOT NULL,
+  stack_after text NOT NULL DEFAULT '',
+  stack_after_habit_id varchar(64),
+  cue_time varchar(8),
+  cue_context text NOT NULL DEFAULT '',
+  identity_why text NOT NULL DEFAULT '',
+  desired_feeling text NOT NULL DEFAULT '',
+  tiny_version text NOT NULL DEFAULT '',
   created_at varchar(40) NOT NULL,
   updated_at varchar(40) NOT NULL
 );

@@ -29,6 +29,13 @@ create table if not exists habits (
   difficulty text not null,
   recurrence text not null,
   custom_days integer[] not null default '{}',
+  stack_after text not null default '',
+  stack_after_habit_id text,
+  cue_time text,
+  cue_context text not null default '',
+  identity_why text not null default '',
+  desired_feeling text not null default '',
+  tiny_version text not null default '',
   created_at timestamptz not null,
   updated_at timestamptz not null
 );

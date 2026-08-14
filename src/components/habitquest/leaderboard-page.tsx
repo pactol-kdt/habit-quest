@@ -127,10 +127,10 @@ export function LeaderboardPage() {
               Global ranks
             </p>
             <h1 className="section-title mt-2 text-2xl text-white sm:text-4xl md:text-5xl">
-              Level leaderboard
+              Hall of travelers
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              Adventurers ranked by account level, then total EXP. Rankings update when progress
+              Adventurers ranked by account level, then total EXP. The hall refreshes when progress
               syncs to the cloud.
             </p>
             <button

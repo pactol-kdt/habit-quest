@@ -44,7 +44,7 @@ export function PendingProgressCard() {
           <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--color-text-muted)]">
             {hasPreview
               ? `Not spendable yet. ${SETTLEMENT_LOCK_HINT}`
-              : "Clear habits to preview EXP, coins, season XP, and boss damage here."}{" "}
+              : "Clear habits to glimpse EXP, coins, season XP, and boss damage here."}{" "}
             <Link href="/guides" className="hq-text-accent underline-offset-2 hover:underline">
               Learn more
             </Link>

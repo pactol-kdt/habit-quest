@@ -3,11 +3,11 @@
   "version": "0.3.2",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --hostname 0.0.0.0 --port 3001",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx --yes tsx --test src/lib/habitquest/utils.test.ts src/lib/habitquest/focused-api.test.ts src/lib/habitquest/reminders.test.ts"
+    "test": "npx --yes tsx --test src/lib/habitquest/utils.test.ts src/lib/habitquest/focused-api.test.ts src/lib/habitquest/reminders.test.ts src/lib/habitquest/habit-loop.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

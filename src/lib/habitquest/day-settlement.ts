@@ -96,22 +96,26 @@ export function getPendingComboPreview(data: HabitQuestData, today = getTodayDat
   return getComboRewards(getPendingCompletions(data, today).length);
 }
 
+/**
+ * Player level / EXP stay settled until midnight lock-in.
+ * Pending habit EXP is preview-only via getPendingHabitExp — not applied here.
+ */
 export function getEffectiveUserProgress(
   data: HabitQuestData,
   today = getTodayDateKey(),
 ): UserProgress {
-  const pendingExp = getPendingHabitExp(data, today);
-  const pendingComeback = getPendingComebackPreview(data, today);
-  const pendingCombo = getPendingComboPreview(data, today);
+  const through = data.rewardSystems.progressSettledThroughDate;
+  const settledCompletions = through
+    ? data.completions.filter((completion) => completion.date <= through)
+    : data.completions.filter((completion) => completion.date < today);
   const shields = getActiveShieldDates(data.rewardSystems);
 
   return syncProgress(
     data.userProgress,
-    data.completions,
+    settledCompletions,
     {
-      totalCompletedHabits: data.completions.length,
-      totalExp:
-        data.userProgress.totalExp + pendingExp + pendingComeback.exp + pendingCombo.exp,
+      totalCompletedHabits: settledCompletions.length,
+      totalExp: data.userProgress.totalExp,
       expHistory: data.userProgress.expHistory,
     },
     shields,
@@ -140,12 +144,9 @@ export function getEffectiveWeeklyBoss(
   };
 }
 
-export function getEffectiveWalletCoins(data: HabitQuestData, today = getTodayDateKey()) {
-  return (
-    data.wallet.totalCoins +
-    getPendingComebackPreview(data, today).coins +
-    getPendingComboPreview(data, today).coins
-  );
+/** Spendable coins only — combo/comeback coins bank at midnight. */
+export function getEffectiveWalletCoins(data: HabitQuestData, _today = getTodayDateKey()) {
+  return data.wallet.totalCoins;
 }
 
 export function getEffectiveQuestArcs(data: HabitQuestData, today = getTodayDateKey()) {

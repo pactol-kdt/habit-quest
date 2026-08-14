@@ -90,17 +90,16 @@ export function AuthGate() {
           </p>
         </div>
         <h1 className="section-title mt-2 text-2xl text-white sm:text-3xl md:text-4xl">
-          Sign in to continue
+          {mode === "signup" ? "Begin your journey" : "Welcome back, adventurer"}
         </h1>
         <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
-          An account is required. Progress syncs to your HabitQuest save so you can pick up on
-          another device.
+          Your habits travel with your account — pick up the path on any device.
         </p>
 
         {canExtract ? (
           <p className="mt-5 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm text-cyan-50">
-            Guest progress was found in this browser. Signing in extracts it into your account,
-            then deletes the localStorage copy.
+            Local progress waits in this browser. Sign in and we&apos;ll gather it into your
+            account, then clear the local copy.
           </p>
         ) : null}
 
@@ -153,7 +152,13 @@ export function AuthGate() {
             disabled={pending}
             className="min-h-12 rounded-full hq-btn-accent px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-60"
           >
-            {pending ? "Working…" : mode === "signup" ? "Create account" : "Sign in"}
+            {pending
+              ? mode === "signup"
+                ? "Creating account…"
+                : "Signing in…"
+              : mode === "signup"
+                ? "Create account"
+                : "Sign in"}
           </button>
         </form>
 

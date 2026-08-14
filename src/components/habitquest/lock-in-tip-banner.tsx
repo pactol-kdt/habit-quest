@@ -40,9 +40,9 @@ export function LockInTipBanner() {
         <div>
           <p className="text-xs uppercase tracking-[0.22em] text-cyan-100/80">After a clear</p>
           <p className="mt-1 text-sm leading-6 text-cyan-50">
-            That clear is saved, but EXP / season XP / boss damage stay in{" "}
+            That habit is remembered, but EXP / season XP / boss damage stay in{" "}
             <span className="font-semibold">Preview</span> until lock-in.{" "}
-            {SETTLEMENT_LOCK_HINT} You can still undo today.
+            {SETTLEMENT_LOCK_HINT} You may still undo today.
           </p>
         </div>
         <button
@@ -57,7 +57,7 @@ export function LockInTipBanner() {
           }}
           className="min-h-10 shrink-0 rounded-full border border-cyan-200/20 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-300/10"
         >
-          Got it
+          Understood
         </button>
       </div>
     </div>

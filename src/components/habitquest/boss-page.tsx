@@ -37,15 +37,15 @@ export function BossPage() {
               Boss fight
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              Habit clears deal damage. Today&apos;s hits stay in preview with all other progress so
-              undos stay safe — {SETTLEMENT_LOCK_HINT}
+              Clearing habits deals damage. Today&apos;s hits stay in preview with the rest of your
+              progress so undos stay kind — {SETTLEMENT_LOCK_HINT}
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Link
                 href="/"
                 className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
               >
-                Clear habits
+                Walk the path
               </Link>
               <Link
                 href="/habits"
@@ -94,7 +94,7 @@ export function BossPage() {
             </p>
           ) : (
             <p className="mt-3 text-sm text-[var(--color-text-muted)]">
-              No preview damage today. Undoing a clear before midnight reverses its hit.
+              No preview damage today. An undo before midnight gently takes the hit back.
             </p>
           )}
 
@@ -127,14 +127,14 @@ export function BossPage() {
               {weeklyBoss.rewardClaimed
                 ? "Reward claimed"
                 : claimPending
-                  ? "Saving…"
+                  ? "Claiming…"
                   : "Claim boss reward"}
             </button>
           ) : (
             <p className="mt-6 text-sm text-[var(--color-text-muted)]">
               {wouldDefeatToday
                 ? `Today's clears would finish the boss. Claim unlocks after lock-in. ${SETTLEMENT_LOCK_HINT}`
-                : "Complete habits on the dashboard to chip away at the boss HP bar."}
+                : "Clear habits on the dashboard to soften the boss's strength."}
             </p>
           )}
         </GlassCard>

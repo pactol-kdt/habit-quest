@@ -1,3 +1,6 @@
+/** Fixed daily reminder: 08:00 in each user's local timezone. */
+export const FIXED_REMINDER_LOCAL_TIME = "08:00";
+
 export function getDateKeyInTimeZone(timeZone: string, now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: timeZone || "UTC",
@@ -35,19 +38,42 @@ export function getClockMinutesInTimeZone(timeZone: string, now = new Date()) {
   return hours * 60 + minutes;
 }
 
+function parseReminderMinutes(reminderTime: string) {
+  const [hoursRaw, minutesRaw] = reminderTime.split(":");
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+  return hours * 60 + minutes;
+}
+
+/** True once local time has reached the reminder minute (tab catch-up). */
 export function shouldFireReminderInTimeZone(
   reminderTime: string,
   timeZone: string,
   now = new Date(),
 ) {
-  const [hoursRaw, minutesRaw] = reminderTime.split(":");
-  const hours = Number(hoursRaw);
-  const minutes = Number(minutesRaw);
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+  const targetMinutes = parseReminderMinutes(reminderTime);
+  if (targetMinutes === null) {
     return false;
   }
+  return getClockMinutesInTimeZone(timeZone, now) >= targetMinutes;
+}
 
+/**
+ * True only during the reminder's local hour (e.g. 08:00–08:59).
+ * Used by hourly Vercel crons so each timezone fires near 8am, not all day.
+ */
+export function isWithinReminderHourInTimeZone(
+  reminderTime: string,
+  timeZone: string,
+  now = new Date(),
+) {
+  const targetMinutes = parseReminderMinutes(reminderTime);
+  if (targetMinutes === null) {
+    return false;
+  }
   const currentMinutes = getClockMinutesInTimeZone(timeZone, now);
-  const targetMinutes = hours * 60 + minutes;
-  return currentMinutes >= targetMinutes;
+  return currentMinutes >= targetMinutes && currentMinutes < targetMinutes + 60;
 }

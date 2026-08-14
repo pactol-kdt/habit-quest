@@ -100,11 +100,19 @@ import type {
   UserSettings,
 } from "~/types/habitquest";
 
+export type HabitPendingAction =
+  | "complete"
+  | "uncomplete"
+  | "delete"
+  | "create"
+  | "update";
+
 type HabitQuestStore = HabitQuestData & {
   hydrated: boolean;
   authChecked: boolean;
   authUser: AuthUser | null;
   pendingHabitIds: string[];
+  pendingHabitActions: Record<string, HabitPendingAction>;
   pendingShopItemIds: string[];
   pendingClaimIds: string[];
   rewardToasts: RewardToast[];
@@ -232,6 +240,22 @@ function persistData(nextData: HabitQuestData) {
 function persistLocalOnly(nextData: HabitQuestData) {
   saveHabitQuestData(nextData);
   return nextData;
+}
+
+/**
+ * Habit membership lives in the store + surgical APIs. Stale mutation snapshots
+ * must not resurrect deleted habits (or drop concurrent creates) when a later
+ * complete / undo / purchase reapplies `mutation.data`.
+ */
+function withLiveHabitMembership(
+  data: HabitQuestData,
+  options?: { excludeHabitId?: string },
+): HabitQuestData {
+  let habits = useHabitQuestStore.getState().habits;
+  if (options?.excludeHabitId) {
+    habits = habits.filter((habit) => habit.id !== options.excludeHabitId);
+  }
+  return { ...data, habits };
 }
 
 function projectData(state: HabitQuestStore): HabitQuestData {
@@ -623,6 +647,33 @@ function pushWarningState(state: HabitQuestStore, title: string, description: st
 const habitMutationSeq = new Map<string, number>();
 const shopMutationSeq = new Map<string, number>();
 
+function withHabitPending(
+  current: Pick<HabitQuestStore, "pendingHabitIds" | "pendingHabitActions">,
+  habitId: string,
+  action: HabitPendingAction,
+) {
+  return {
+    pendingHabitIds: current.pendingHabitIds.includes(habitId)
+      ? current.pendingHabitIds
+      : [...current.pendingHabitIds, habitId],
+    pendingHabitActions: {
+      ...current.pendingHabitActions,
+      [habitId]: action,
+    },
+  };
+}
+
+function withoutHabitPending(
+  current: Pick<HabitQuestStore, "pendingHabitIds" | "pendingHabitActions">,
+  habitId: string,
+) {
+  const { [habitId]: _removed, ...pendingHabitActions } = current.pendingHabitActions;
+  return {
+    pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+    pendingHabitActions,
+  };
+}
+
 function nextHabitMutationSeq(habitId: string) {
   const next = (habitMutationSeq.get(habitId) ?? 0) + 1;
   habitMutationSeq.set(habitId, next);
@@ -728,6 +779,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
   authChecked: false,
   authUser: null,
   pendingHabitIds: [],
+  pendingHabitActions: {},
   pendingShopItemIds: [],
   pendingClaimIds: [],
   rewardToasts: [],
@@ -834,6 +886,14 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const state = get();
     const mutation = applyCreateHabit(projectData(state), rawValues);
     if (!mutation.ok || !mutation.habit) {
+      set((current) => ({
+        ...current,
+        ...pushWarningState(
+          current,
+          "Couldn’t create habit",
+          mutation.ok ? "Missing habit." : mutation.error,
+        ),
+      }));
       return;
     }
 
@@ -845,7 +905,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
 
     set((current) => ({
       ...mergeTransientState(current, { ...resolution, data: persisted }),
-      pendingHabitIds: [...current.pendingHabitIds, habitId],
+      ...withHabitPending(current, habitId, "create"),
     }));
 
     void createHabitAction(rawValues, habitId)
@@ -862,7 +922,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           set((current) => ({
             ...current,
             ...restored,
-            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+            ...withoutHabitPending(current, habitId),
             ...pushWarningState(
               { ...current, ...restored } as HabitQuestStore,
               "Sync failed",
@@ -876,7 +936,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
 
         set((current) => ({
           ...current,
-          pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+          ...withoutHabitPending(current, habitId),
           habits: result.habit
             ? current.habits.map((entry) => (entry.id === habitId ? result.habit! : entry))
             : current.habits,
@@ -894,7 +954,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         set((current) => ({
           ...current,
           ...restored,
-          pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+          ...withoutHabitPending(current, habitId),
           ...pushWarningState(
             { ...current, ...restored } as HabitQuestStore,
             "Sync failed",
@@ -912,6 +972,10 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const snapshot = projectData(state);
     const mutation = applyUpdateHabit(snapshot, habitId, rawValues);
     if (!mutation.ok) {
+      set((current) => ({
+        ...current,
+        ...pushWarningState(current, "Couldn’t update habit", mutation.error),
+      }));
       return;
     }
 
@@ -922,7 +986,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
 
     set((current) => ({
       ...mergeTransientState(current, { ...resolution, data: persisted }),
-      pendingHabitIds: [...current.pendingHabitIds, habitId],
+      ...withHabitPending(current, habitId, "update"),
     }));
 
     void updateHabitAction(habitId, rawValues)
@@ -936,7 +1000,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           set((current) => ({
             ...current,
             ...rolledBack,
-            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+            ...withoutHabitPending(current, habitId),
             ...pushWarningState(
               { ...current, ...rolledBack } as HabitQuestStore,
               "Sync failed",
@@ -959,7 +1023,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           return {
             ...current,
             ...nextData,
-            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+            ...withoutHabitPending(current, habitId),
           };
         });
       })
@@ -972,7 +1036,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         set((current) => ({
           ...current,
           ...rolledBack,
-          pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+          ...withoutHabitPending(current, habitId),
           ...pushWarningState(
             { ...current, ...rolledBack } as HabitQuestStore,
             "Sync failed",
@@ -990,17 +1054,17 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const snapshot = projectData(state);
     const mutation = applyDeleteHabit(snapshot, habitId);
     if (!mutation.ok) {
+      set((current) => ({
+        ...current,
+        ...pushWarningState(current, "Couldn’t delete habit", mutation.error),
+      }));
       return;
     }
 
     const seq = nextHabitMutationSeq(habitId);
-    const resolution = resolveGameState(mutation.data);
-    const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
-
     set((current) => ({
-      ...mergeTransientState(current, { ...resolution, data: persisted }),
-      pendingHabitIds: [...current.pendingHabitIds, habitId],
+      ...current,
+      ...withHabitPending(current, habitId, "delete"),
     }));
 
     void deleteHabitAction(habitId)
@@ -1009,15 +1073,12 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           return;
         }
         if (result.status !== "ok") {
-          const rolledBack = persistLocalOnly(snapshot);
-          bumpCloudSavePayload(rolledBack);
           set((current) => ({
             ...current,
-            ...rolledBack,
-            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+            ...withoutHabitPending(current, habitId),
             ...pushWarningState(
-              { ...current, ...rolledBack } as HabitQuestStore,
-              "Sync failed",
+              current,
+              "Delete failed",
               result.status === "unauthenticated"
                 ? "Sign in again to save habits."
                 : result.error,
@@ -1026,36 +1087,30 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           return;
         }
 
-        set((current) => {
-          const nextData = persistLocalOnly({
-            ...projectData(current),
-            habits: current.habits.filter((entry) => entry.id !== habitId),
-            completions: current.completions.filter((entry) => entry.habitId !== habitId),
-            userProgress: result.userProgress
-              ? { ...current.userProgress, ...result.userProgress }
-              : current.userProgress,
-          });
-          bumpCloudSavePayload(nextData);
-          return {
-            ...current,
-            ...nextData,
-            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
-          };
-        });
+        const resolution = resolveGameState(
+          withLiveHabitMembership(mutation.data, { excludeHabitId: habitId }),
+        );
+        const persisted = persistLocalOnly(resolution.data);
+        bumpCloudSavePayload(persisted);
+        scheduleCloudSave(persisted);
+        set((current) => ({
+          ...mergeTransientState(current, { ...resolution, data: persisted }),
+          ...withoutHabitPending(current, habitId),
+          userProgress: result.userProgress
+            ? { ...persisted.userProgress, ...result.userProgress }
+            : persisted.userProgress,
+        }));
       })
       .catch((error) => {
         if (!isCurrentHabitMutation(habitId, seq)) {
           return;
         }
-        const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
         set((current) => ({
           ...current,
-          ...rolledBack,
-          pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+          ...withoutHabitPending(current, habitId),
           ...pushWarningState(
-            { ...current, ...rolledBack } as HabitQuestStore,
-            "Sync failed",
+            current,
+            "Delete failed",
             error instanceof Error ? error.message : "Network error while deleting habit.",
           ),
         }));
@@ -1075,23 +1130,9 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     }
 
     const seq = nextHabitMutationSeq(habitId);
-    const resolution = resolveGameState(mutation.data);
-    const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
-
     set((current) => ({
-      ...mergeTransientState(current, { ...resolution, data: persisted }),
-      pendingHabitIds: [...current.pendingHabitIds, habitId],
-      rewardToasts: [
-        ...current.rewardToasts,
-        ...mutation.rewardToasts,
-        ...resolution.rewardToasts,
-      ],
-      floatingRewards: [
-        ...current.floatingRewards,
-        ...resolution.floatingRewards,
-      ],
-      celebration: mutation.celebration ?? resolution.celebration,
+      ...current,
+      ...withHabitPending(current, habitId, "complete"),
     }));
 
     void completeHabitAction(habitId, today)
@@ -1101,15 +1142,12 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         }
 
         if (result.status !== "ok") {
-          const rolledBack = persistLocalOnly(snapshot);
-          bumpCloudSavePayload(rolledBack);
           set((current) => ({
             ...current,
-            ...rolledBack,
-            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+            ...withoutHabitPending(current, habitId),
             ...pushWarningState(
-              { ...current, ...rolledBack } as HabitQuestStore,
-              "Sync failed",
+              current,
+              "Complete failed",
               result.status === "unauthenticated"
                 ? "Sign in again to save habit clears."
                 : result.error,
@@ -1118,57 +1156,62 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           return;
         }
 
-        set((current) => {
-          const completions = result.completion
-            ? [
-                result.completion,
-                ...current.completions.filter(
-                  (entry) =>
-                    !(entry.habitId === result.habitId && entry.date === result.date),
-                ),
-              ]
-            : current.completions.filter(
+        const completions = result.completion
+          ? [
+              result.completion,
+              ...mutation.data.completions.filter(
                 (entry) =>
                   !(entry.habitId === result.habitId && entry.date === result.date),
-              );
+              ),
+            ]
+          : mutation.data.completions.filter(
+              (entry) =>
+                !(entry.habitId === result.habitId && entry.date === result.date),
+            );
 
-          const rewardSystems = reconcileTodayCombo(
+        const withServerCompletion = withLiveHabitMembership({
+          ...mutation.data,
+          completions,
+          rewardSystems: reconcileTodayCombo(
             {
-              ...current.rewardSystems,
+              ...mutation.data.rewardSystems,
               todayCombo: result.rewardSystems.todayCombo,
               comboDate: result.rewardSystems.comboDate,
             },
             completions,
             result.date,
-          );
-
-          const nextData = persistLocalOnly({
-            ...projectData(current),
-            completions,
-            rewardSystems,
-          });
-          bumpCloudSavePayload(nextData);
-
-          return {
-            ...current,
-            ...nextData,
-            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
-          };
+          ),
         });
+
+        const resolution = resolveGameState(withServerCompletion);
+        const persisted = persistLocalOnly(resolution.data);
+        bumpCloudSavePayload(persisted);
+
+        set((current) => ({
+          ...mergeTransientState(current, { ...resolution, data: persisted }),
+          ...withoutHabitPending(current, habitId),
+          rewardToasts: [
+            ...current.rewardToasts,
+            ...mutation.rewardToasts,
+            ...resolution.rewardToasts,
+          ],
+          floatingRewards: [
+            ...current.floatingRewards,
+            ...resolution.floatingRewards,
+          ],
+          celebration: mutation.celebration ?? resolution.celebration,
+        }));
       })
       .catch((error) => {
         if (!isCurrentHabitMutation(habitId, seq)) {
           return;
         }
-        const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
         set((current) => ({
           ...current,
-          ...rolledBack,
-          pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+          ...withoutHabitPending(current, habitId),
           ...pushWarningState(
-            { ...current, ...rolledBack } as HabitQuestStore,
-            "Sync failed",
+            current,
+            "Complete failed",
             error instanceof Error ? error.message : "Network error while saving clear.",
           ),
         }));
@@ -1188,18 +1231,9 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     }
 
     const seq = nextHabitMutationSeq(habitId);
-    const resolution = resolveGameState(mutation.data);
-    const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
-
     set((current) => ({
-      ...mergeTransientState(current, { ...resolution, data: persisted }),
-      pendingHabitIds: [...current.pendingHabitIds, habitId],
-      rewardToasts: [
-        ...current.rewardToasts,
-        ...mutation.rewardToasts,
-        ...resolution.rewardToasts,
-      ],
+      ...current,
+      ...withHabitPending(current, habitId, "uncomplete"),
     }));
 
     void uncompleteHabitAction(habitId, today)
@@ -1209,15 +1243,12 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         }
 
         if (result.status !== "ok") {
-          const rolledBack = persistLocalOnly(snapshot);
-          bumpCloudSavePayload(rolledBack);
           set((current) => ({
             ...current,
-            ...rolledBack,
-            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+            ...withoutHabitPending(current, habitId),
             ...pushWarningState(
-              { ...current, ...rolledBack } as HabitQuestStore,
-              "Sync failed",
+              current,
+              "Undo failed",
               result.status === "unauthenticated"
                 ? "Sign in again to sync habit undos."
                 : result.error,
@@ -1226,46 +1257,42 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           return;
         }
 
-        set((current) => {
-          const completions = current.completions.filter(
-            (entry) => !(entry.habitId === result.habitId && entry.date === result.date),
-          );
-          const rewardSystems = reconcileTodayCombo(
+        const withServerCombo = withLiveHabitMembership({
+          ...mutation.data,
+          rewardSystems: reconcileTodayCombo(
             {
-              ...current.rewardSystems,
+              ...mutation.data.rewardSystems,
               todayCombo: result.rewardSystems.todayCombo,
               comboDate: result.rewardSystems.comboDate,
             },
-            completions,
+            mutation.data.completions,
             result.date,
-          );
-          const nextData = persistLocalOnly({
-            ...projectData(current),
-            completions,
-            rewardSystems,
-          });
-          bumpCloudSavePayload(nextData);
-
-          return {
-            ...current,
-            ...nextData,
-            pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
-          };
+          ),
         });
+        const resolution = resolveGameState(withServerCombo);
+        const persisted = persistLocalOnly(resolution.data);
+        bumpCloudSavePayload(persisted);
+
+        set((current) => ({
+          ...mergeTransientState(current, { ...resolution, data: persisted }),
+          ...withoutHabitPending(current, habitId),
+          rewardToasts: [
+            ...current.rewardToasts,
+            ...mutation.rewardToasts,
+            ...resolution.rewardToasts,
+          ],
+        }));
       })
       .catch((error) => {
         if (!isCurrentHabitMutation(habitId, seq)) {
           return;
         }
-        const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
         set((current) => ({
           ...current,
-          ...rolledBack,
-          pendingHabitIds: current.pendingHabitIds.filter((id) => id !== habitId),
+          ...withoutHabitPending(current, habitId),
           ...pushWarningState(
-            { ...current, ...rolledBack } as HabitQuestStore,
-            "Sync failed",
+            current,
+            "Undo failed",
             error instanceof Error ? error.message : "Network error while undoing clear.",
           ),
         }));
@@ -1285,7 +1312,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
 
     const seqKey = `challenge:${challengeId}`;
     const seq = nextShopMutationSeq(seqKey);
-    const resolution = resolveGameState(mutation.data);
+    const resolution = resolveGameState(withLiveHabitMembership(mutation.data));
     const persisted = persistLocalOnly(resolution.data);
     bumpCloudSavePayload(persisted);
 
@@ -1540,18 +1567,9 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
 
     const seqKey = "streak-freeze";
     const seq = nextShopMutationSeq(seqKey);
-    const resolution = resolveGameState(mutation.data);
-    const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
-
     set((current) => ({
-      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      ...current,
       pendingClaimIds: [...current.pendingClaimIds, pendingKey],
-      rewardToasts: [
-        ...current.rewardToasts,
-        ...mutation.rewardToasts,
-        ...resolution.rewardToasts,
-      ],
     }));
 
     void runClaimAgainstCloud(
@@ -1561,19 +1579,24 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       seq,
       () => buyStreakFreezeAction(),
       (result) => {
-        set((current) => {
-          const nextData = persistLocalOnly({
-            ...projectData(current),
+        const resolution = resolveGameState(
+          withLiveHabitMembership({
+            ...mutation.data,
             wallet: result.wallet,
-            rewardSystems: result.rewardSystems ?? current.rewardSystems,
-          });
-          bumpCloudSavePayload(nextData);
-          return {
-            ...current,
-            ...nextData,
-            pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
-          };
-        });
+            rewardSystems: result.rewardSystems ?? mutation.data.rewardSystems,
+          }),
+        );
+        const persisted = persistLocalOnly(resolution.data);
+        bumpCloudSavePayload(persisted);
+        set((current) => ({
+          ...mergeTransientState(current, { ...resolution, data: persisted }),
+          pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+          rewardToasts: [
+            ...current.rewardToasts,
+            ...mutation.rewardToasts,
+            ...resolution.rewardToasts,
+          ],
+        }));
       },
     );
   },
@@ -1588,26 +1611,17 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     if (!mutation.ok) {
       set((current) => ({
         ...current,
-        ...pushWarningState(current, 'Purchase blocked', mutation.error),
+        ...pushWarningState(current, "Purchase blocked", mutation.error),
       }));
       return;
     }
 
     const itemName =
-      state.shopItems.find((entry) => entry.id === itemId)?.name ?? 'Item';
+      state.shopItems.find((entry) => entry.id === itemId)?.name ?? "Item";
     const seq = nextShopMutationSeq(itemId);
-    const resolution = resolveGameState(mutation.data);
-    const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
-
     set((current) => ({
-      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      ...current,
       pendingShopItemIds: [...current.pendingShopItemIds, itemId],
-      rewardToasts: [
-        ...current.rewardToasts,
-        createToast("shop", "Purchase successful", `${itemName} added to inventory.`),
-        ...resolution.rewardToasts,
-      ],
     }));
 
     void purchaseShopItemAction(itemId)
@@ -1616,55 +1630,54 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           return;
         }
 
-        if (result.status !== 'ok') {
-          const rolledBack = persistLocalOnly(snapshot);
-          bumpCloudSavePayload(rolledBack);
+        if (result.status !== "ok") {
           set((current) => ({
             ...current,
-            ...rolledBack,
             pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
             ...pushWarningState(
-              { ...current, ...rolledBack } as HabitQuestStore,
-              'Purchase failed',
-              result.status === 'unauthenticated'
-                ? 'Sign in again to save purchases.'
+              current,
+              "Purchase failed",
+              result.status === "unauthenticated"
+                ? "Sign in again to save purchases."
                 : result.error,
             ),
           }));
           return;
         }
 
-        set((current) => {
-          const nextData = persistLocalOnly({
-            ...projectData(current),
-            shopItems: current.shopItems.map((entry) =>
+        const resolution = resolveGameState(
+          withLiveHabitMembership({
+            ...mutation.data,
+            shopItems: mutation.data.shopItems.map((entry) =>
               entry.id === result.itemId ? { ...entry, owned: true } : entry,
             ),
             wallet: result.wallet,
-          });
-          bumpCloudSavePayload(nextData);
+          }),
+        );
+        const persisted = persistLocalOnly(resolution.data);
+        bumpCloudSavePayload(persisted);
 
-          return {
-            ...current,
-            ...nextData,
-            pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
-          };
-        });
+        set((current) => ({
+          ...mergeTransientState(current, { ...resolution, data: persisted }),
+          pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
+          rewardToasts: [
+            ...current.rewardToasts,
+            createToast("shop", "Purchase successful", `${itemName} added to inventory.`),
+            ...resolution.rewardToasts,
+          ],
+        }));
       })
       .catch((error) => {
         if (!isCurrentShopMutation(itemId, seq)) {
           return;
         }
-        const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
         set((current) => ({
           ...current,
-          ...rolledBack,
           pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
           ...pushWarningState(
-            { ...current, ...rolledBack } as HabitQuestStore,
-            'Purchase failed',
-            error instanceof Error ? error.message : 'Network error while purchasing.',
+            current,
+            "Purchase failed",
+            error instanceof Error ? error.message : "Network error while purchasing.",
           ),
         }));
       });
@@ -1680,25 +1693,17 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     if (!mutation.ok) {
       set((current) => ({
         ...current,
-        ...pushWarningState(current, 'Equip blocked', mutation.error),
+        ...pushWarningState(current, "Equip blocked", mutation.error),
       }));
       return;
     }
 
     const itemName =
-      state.shopItems.find((entry) => entry.id === itemId)?.name ?? 'Item';
+      state.shopItems.find((entry) => entry.id === itemId)?.name ?? "Item";
     const seq = nextShopMutationSeq(itemId);
-    const persisted = persistLocalOnly(mutation.data);
-    bumpCloudSavePayload(persisted);
-
     set((current) => ({
       ...current,
-      ...persisted,
       pendingShopItemIds: [...current.pendingShopItemIds, itemId],
-      rewardToasts: [
-        ...current.rewardToasts,
-        createToast("shop", "Equipped", `${itemName} is now active.`),
-      ],
     }));
 
     void equipShopItemAction(itemId)
@@ -1707,52 +1712,50 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           return;
         }
 
-        if (result.status !== 'ok') {
-          const rolledBack = persistLocalOnly(snapshot);
-          bumpCloudSavePayload(rolledBack);
+        if (result.status !== "ok") {
           set((current) => ({
             ...current,
-            ...rolledBack,
             pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
             ...pushWarningState(
-              { ...current, ...rolledBack } as HabitQuestStore,
-              'Equip failed',
-              result.status === 'unauthenticated'
-                ? 'Sign in again to save equipment.'
+              current,
+              "Equip failed",
+              result.status === "unauthenticated"
+                ? "Sign in again to save equipment."
                 : result.error,
             ),
           }));
           return;
         }
 
-        set((current) => {
-          const nextData = persistLocalOnly({
-            ...projectData(current),
+        const persisted = persistLocalOnly(
+          withLiveHabitMembership({
+            ...mutation.data,
             equippedItems: result.equippedItems,
-          });
-          bumpCloudSavePayload(nextData);
+          }),
+        );
+        bumpCloudSavePayload(persisted);
 
-          return {
-            ...current,
-            ...nextData,
-            pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
-          };
-        });
+        set((current) => ({
+          ...current,
+          ...persisted,
+          pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
+          rewardToasts: [
+            ...current.rewardToasts,
+            createToast("shop", "Equipped", `${itemName} is now active.`),
+          ],
+        }));
       })
       .catch((error) => {
         if (!isCurrentShopMutation(itemId, seq)) {
           return;
         }
-        const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
         set((current) => ({
           ...current,
-          ...rolledBack,
           pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
           ...pushWarningState(
-            { ...current, ...rolledBack } as HabitQuestStore,
-            'Equip failed',
-            error instanceof Error ? error.message : 'Network error while equipping.',
+            current,
+            "Equip failed",
+            error instanceof Error ? error.message : "Network error while equipping.",
           ),
         }));
       });
@@ -1767,21 +1770,17 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const snapshot = projectData(state);
     const mutation = applyUnequipShopItem(snapshot, category);
     if (!mutation.ok) {
+      set((current) => ({
+        ...current,
+        ...pushWarningState(current, "Unequip blocked", mutation.error),
+      }));
       return;
     }
 
     const seq = nextShopMutationSeq(pendingKey);
-    const persisted = persistLocalOnly(mutation.data);
-    bumpCloudSavePayload(persisted);
-
     set((current) => ({
       ...current,
-      ...persisted,
       pendingShopItemIds: [...current.pendingShopItemIds, pendingKey],
-      rewardToasts: [
-        ...current.rewardToasts,
-        createToast("shop", "Unequipped", `${category} slot cleared.`),
-      ],
     }));
 
     void unequipShopItemAction(category)
@@ -1790,52 +1789,50 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           return;
         }
 
-        if (result.status !== 'ok') {
-          const rolledBack = persistLocalOnly(snapshot);
-          bumpCloudSavePayload(rolledBack);
+        if (result.status !== "ok") {
           set((current) => ({
             ...current,
-            ...rolledBack,
             pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== pendingKey),
             ...pushWarningState(
-              { ...current, ...rolledBack } as HabitQuestStore,
-              'Unequip failed',
-              result.status === 'unauthenticated'
-                ? 'Sign in again to save equipment.'
+              current,
+              "Unequip failed",
+              result.status === "unauthenticated"
+                ? "Sign in again to save equipment."
                 : result.error,
             ),
           }));
           return;
         }
 
-        set((current) => {
-          const nextData = persistLocalOnly({
-            ...projectData(current),
+        const persisted = persistLocalOnly(
+          withLiveHabitMembership({
+            ...mutation.data,
             equippedItems: result.equippedItems,
-          });
-          bumpCloudSavePayload(nextData);
+          }),
+        );
+        bumpCloudSavePayload(persisted);
 
-          return {
-            ...current,
-            ...nextData,
-            pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== pendingKey),
-          };
-        });
+        set((current) => ({
+          ...current,
+          ...persisted,
+          pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== pendingKey),
+          rewardToasts: [
+            ...current.rewardToasts,
+            createToast("shop", "Unequipped", `${category} slot cleared.`),
+          ],
+        }));
       })
       .catch((error) => {
         if (!isCurrentShopMutation(pendingKey, seq)) {
           return;
         }
-        const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
         set((current) => ({
           ...current,
-          ...rolledBack,
           pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== pendingKey),
           ...pushWarningState(
-            { ...current, ...rolledBack } as HabitQuestStore,
-            'Unequip failed',
-            error instanceof Error ? error.message : 'Network error while unequipping.',
+            current,
+            "Unequip failed",
+            error instanceof Error ? error.message : "Network error while unequipping.",
           ),
         }));
       });
@@ -1844,7 +1841,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const state = get();
     const snapshot = projectData(state);
     const mutation = applyUpdateSettings(snapshot, patch);
-    const persisted = persistLocalOnly(mutation.data);
+    const persisted = persistLocalOnly(withLiveHabitMembership(mutation.data));
     bumpCloudSavePayload(persisted);
 
     set((current) => ({
@@ -1883,7 +1880,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const state = get();
     const snapshot = projectData(state);
     const mutation = applyCompleteOnboarding(snapshot, displayName);
-    const persisted = persistLocalOnly(mutation.data);
+    const persisted = persistLocalOnly(withLiveHabitMembership(mutation.data));
     bumpCloudSavePayload(persisted);
 
     set((current) => ({
@@ -1893,8 +1890,8 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         ...current.rewardToasts,
         createToast(
           "unlock",
-          "Welcome aboard",
-          `Quest log ready for ${mutation.settings.displayName}.`,
+          "Welcome, traveler",
+          `The path opens for ${mutation.settings.displayName}.`,
         ),
       ],
     }));

@@ -18,7 +18,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   displayName: "",
   onboardingCompleted: false,
   remindersEnabled: false,
-  reminderTime: "09:00",
+  reminderTime: "08:00",
 };
 
 export const DIFFICULTY_EXP: Record<HabitDifficulty, number> = {

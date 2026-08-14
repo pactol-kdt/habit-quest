@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-`next dev` loads [`.env.development`](.env.development). Optional overrides go in `.env.development.local` (gitignored).
+`next dev` loads [`.env.local`](.env.local) (gitignored). Copy from [`.env.example`](.env.example) if you don’t have one yet.
 
 Open `http://localhost:3000`.
 
@@ -17,10 +17,10 @@ Open `http://localhost:3000`.
 
 | File | When loaded | Commit? |
 |------|-------------|---------|
-| `.env.development` | `next dev` | yes (safe local defaults) |
+| `.env.local` | always (overrides) | no |
 | `.env.production` | `next build` / `next start` | no — create from example |
 | `.env.production.example` | template only | yes |
-| `.env.local` | always overrides | no |
+| `.env.example` | template only | yes |
 
 Variables:
 
@@ -40,10 +40,16 @@ npm run build && npm start
 
 Push reminders:
 
-1. Enable in **Settings → Daily reminder** (grants notification permission + stores a push subscription).
-2. Host must run HTTPS (or localhost for dev).
-3. Cron hits `GET/POST /api/cron/reminders` every few minutes (`vercel.json` schedules `*/5 * * * *`).
+1. Enable in **Settings → Daily reminder** (grants notification permission + stores a push subscription + timezone).
+2. HabitQuest sends one push around **08:00 local time** (fixed — no time picker).
+3. Host must run HTTPS (or localhost for dev).
 4. Local smoke test: `curl http://localhost:3000/api/cron/reminders`
+
+**Vercel Cron (Hobby-safe)**
+
+`vercel.json` registers **24 daily crons** (`0 0 * * *` … `0 23 * * *`) — one per UTC hour. Each expression runs once per day (Hobby-compatible). When an hour fires, the server notifies users whose **local** clock is in the 08:00–08:59 window.
+
+Hobby timing can drift up to ~59 minutes within that UTC hour.
 
 ```bash
 npm test

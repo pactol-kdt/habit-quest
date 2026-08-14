@@ -76,10 +76,12 @@ export function SettlementRecapModal() {
             onClick={(event) => event.stopPropagation()}
           >
             <p className="text-xs uppercase tracking-[0.28em] text-cyan-200">Lock-in</p>
-            <h2 className="section-title mt-3 text-2xl text-white sm:text-3xl">Yesterday locked in</h2>
+            <h2 className="section-title mt-3 text-2xl text-white sm:text-3xl">
+              Yesterday found its rest
+            </h2>
             <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
-              Progress through {settlementRecap.throughDate} is now permanent. Claims for boss,
-              season, and quests use this settled state.
+              Progress through {settlementRecap.throughDate} is now part of your lasting path.
+              Boss, season, and habit chapter claims use this settled state.
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-3">

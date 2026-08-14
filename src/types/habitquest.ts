@@ -30,6 +30,20 @@ export interface Habit {
   difficulty: HabitDifficulty;
   recurrence: HabitRecurrence;
   customDays: number[];
+  /** Free-text anchor: "After I pour coffee…" */
+  stackAfter: string;
+  /** Optional: stack after clearing another habit today. */
+  stackAfterHabitId: string | null;
+  /** Local trigger time `HH:mm`, or null for no timed trigger. */
+  cueTime: string | null;
+  /** Place / context trigger (desk, gym, kitchen…). */
+  cueContext: string;
+  /** Identity motivation: "I'm someone who…" / why it matters. */
+  identityWhy: string;
+  /** Feeling you want after the response — the motivation pull. */
+  desiredFeeling: string;
+  /** Bare minimum version when resistance is high. */
+  tinyVersion: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -263,6 +277,13 @@ export interface HabitFormValues {
   difficulty: HabitDifficulty;
   recurrence: HabitRecurrence;
   customDays: number[];
+  stackAfter: string;
+  stackAfterHabitId: string | null;
+  cueTime: string | null;
+  cueContext: string;
+  identityWhy: string;
+  desiredFeeling: string;
+  tinyVersion: string;
 }
 
 export interface RewardToast {

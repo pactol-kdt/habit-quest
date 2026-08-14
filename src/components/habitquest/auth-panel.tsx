@@ -55,7 +55,7 @@ export function AuthPanel() {
     <GlassCard>
       <h2 className="section-title text-2xl text-white">Account & sync</h2>
       <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-        You must stay signed in to use HabitQuest. Progress syncs to your account database save.
+        Stay signed in so your journey can travel with you. Progress rests safely in your account.
       </p>
 
       <div className="mt-5 space-y-4">
@@ -66,7 +66,7 @@ export function AuthPanel() {
             {syncStatus === "synced"
               ? "Up to date"
               : syncStatus === "syncing"
-                ? "Saving…"
+                ? "Syncing…"
                 : syncStatus === "error"
                   ? `Error${syncMessage ? `: ${syncMessage}` : ""}`
                   : "Ready"}
@@ -79,7 +79,7 @@ export function AuthPanel() {
           onClick={onSignOut}
           className="rounded-full border border-white/10 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white disabled:opacity-60"
         >
-          Sign out
+          {pending ? "Signing out…" : "Sign out"}
         </button>
       </div>
 

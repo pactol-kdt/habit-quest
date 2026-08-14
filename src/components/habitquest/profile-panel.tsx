@@ -19,7 +19,8 @@ export function ProfilePanel({ data }: ProfilePanelProps) {
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
           Profile
         </p>
-        <h2 className="section-title mt-2 text-2xl text-white">Identity loadout</h2>
+        <h2 className="section-title mt-2 text-2xl text-white">Your presence</h2>
+
       </div>
 
       <div className="rounded-[2rem] border border-white/10 bg-white/4 p-5">

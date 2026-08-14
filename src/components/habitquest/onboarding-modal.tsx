@@ -10,6 +10,7 @@ export function OnboardingModal() {
   const onboardingCompleted = useHabitQuestStore((state) => state.settings.onboardingCompleted);
   const completeOnboarding = useHabitQuestStore((state) => state.completeOnboarding);
   const createHabit = useHabitQuestStore((state) => state.createHabit);
+  const habits = useHabitQuestStore((state) => state.habits);
   const [displayName, setDisplayName] = useState("");
   const [habitModalOpen, setHabitModalOpen] = useState(false);
 
@@ -43,12 +44,29 @@ export function OnboardingModal() {
             >
               <p className="text-xs uppercase tracking-[0.28em] text-cyan-200">Welcome</p>
               <h2 className="section-title mt-3 text-2xl text-white sm:text-3xl">
-                Start your HabitQuest
+                Design your loop
               </h2>
               <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
-                Clear habits to earn EXP and coins. Today&apos;s progress is a preview — it locks in
-                at midnight so undos stay safe.
+                Habits stick when you stack them: after something you already do, attach the next
+                step. Trigger sparks motivation, you respond, then reward — EXP and coins bank at
+                midnight so undos stay safe.
               </p>
+              <ul className="mt-4 space-y-2 text-sm text-[var(--color-text-muted)]">
+                <li>
+                  <span className="text-cyan-200">Trigger</span> — after coffee, at your desk, at
+                  7:30
+                </li>
+                <li>
+                  <span className="text-amber-200">Motivation</span> — the feeling or identity you
+                  want
+                </li>
+                <li>
+                  <span className="text-white">Response</span> — the bare minimum you can always do
+                </li>
+                <li>
+                  <span className="text-pink-200">Reward</span> — that feeling, plus quest loot
+                </li>
+              </ul>
 
               <label className="mt-6 grid gap-2">
                 <span className="text-sm text-[var(--color-text-muted)]">Display name</span>
@@ -67,14 +85,14 @@ export function OnboardingModal() {
                   onClick={() => finishAndCreate(displayName.trim() || "Adventurer")}
                   className="min-h-12 rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950"
                 >
-                  Create first habit
+                  Stack first habit
                 </button>
                 <button
                   type="button"
                   onClick={() => finishWithoutHabit(displayName.trim() || "Adventurer")}
                   className="min-h-12 rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] hover:text-white"
                 >
-                  Start on the board
+                  Start on the path
                 </button>
               </div>
             </motion.div>
@@ -85,6 +103,7 @@ export function OnboardingModal() {
       <HabitFormModal
         open={habitModalOpen}
         habit={null}
+        habits={habits}
         onClose={() => setHabitModalOpen(false)}
         onSubmit={(values) => {
           createHabit(values);

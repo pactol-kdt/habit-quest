@@ -48,15 +48,15 @@ export function SeasonPassPage() {
               Season pass
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              Habit clears feed season XP. Today&apos;s XP stays in preview — {SETTLEMENT_LOCK_HINT}{" "}
-              Claims use settled tiers only. The pass resets each calendar month.
+              Clearing habits feeds season XP. Today&apos;s XP stays in preview — {SETTLEMENT_LOCK_HINT}{" "}
+              Claims use settled tiers only. The pass renews each calendar month.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Link
                 href="/"
                 className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
               >
-                Earn XP on dashboard
+                Walk the dashboard
               </Link>
             </div>
           </div>
@@ -119,7 +119,7 @@ export function SeasonPassPage() {
                     onClick={() => claimSeasonPassLevel(reward.level)}
                     className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-300/16 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {pending ? "Saving…" : `Claim Lv ${reward.level} · ${reward.label}`}
+                    {pending ? "Claiming…" : `Claim Lv ${reward.level} · ${reward.label}`}
                   </button>
                 );
               })}
@@ -130,8 +130,8 @@ export function SeasonPassPage() {
                 ? pendingSeasonXp > 0 &&
                   seasonPass.level > settledSeasonPass.level
                   ? `Preview season level ${seasonPass.level} — claim unlocks after lock-in. ${SETTLEMENT_LOCK_HINT}`
-                  : "No claimable tiers right now — keep clearing habits."
-                : "Level up to unlock the monthly season track."}
+                  : "No claimable tiers right now — keep clearing habits along the path."
+                : "Rise a little further to open the monthly season track."}
             </p>
           )}
         </GlassCard>
@@ -179,7 +179,7 @@ export function SeasonPassPage() {
                         onClick={() => claimSeasonPassLevel(reward.level)}
                         className="min-h-10 shrink-0 rounded-full border border-cyan-300/25 bg-cyan-300/15 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {pending ? "Saving…" : "Claim"}
+                        {pending ? "Claiming…" : "Claim"}
                       </button>
                     ) : (
                       <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">

@@ -57,10 +57,11 @@ export function ShopPage() {
               In-App Shop
             </p>
             <h1 className="section-title mt-2 text-2xl text-white sm:text-4xl md:text-5xl">
-              Cosmetic armory
+              Traveler&apos;s wardrobe
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              Spend coins on titles, frames, avatars, and themes. Exclusive themes also come from quest chapter rewards.
+              Spend coins on titles, frames, avatars, and themes. Some themes also bloom from habit
+              chapter rewards.
             </p>
           </div>
           <div className="self-start rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm text-amber-100 lg:self-auto">

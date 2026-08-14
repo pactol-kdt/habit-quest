@@ -11,8 +11,8 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("push", (event) => {
   /** @type {{ title?: string; body?: string; tag?: string; url?: string }} */
   let payload = {
-    title: "HabitQuest reminder",
-    body: "Check HabitQuest and keep your streak alive.",
+    title: "Rise, adventurer",
+    body: "The path is open. One step keeps the streak.",
     tag: "habitquest-daily-reminder",
     url: "/",
   };
@@ -34,7 +34,7 @@ self.addEventListener("push", (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title || "HabitQuest reminder", {
+    self.registration.showNotification(payload.title || "Rise, adventurer", {
       body: payload.body,
       tag: payload.tag || "habitquest-daily-reminder",
       icon: "/brand/habitquest-logo.png",

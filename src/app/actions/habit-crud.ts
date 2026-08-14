@@ -35,18 +35,38 @@ export type HabitCrudActionResult =
   | { status: "unauthenticated" }
   | { status: "error"; error: string };
 
-function isFormValues(value: unknown): value is HabitFormValues {
+function coerceFormValues(value: unknown): HabitFormValues | null {
   if (!value || typeof value !== "object") {
-    return false;
+    return null;
   }
-  const form = value as HabitFormValues;
-  return (
-    typeof form.title === "string" &&
-    typeof form.description === "string" &&
-    typeof form.difficulty === "string" &&
-    typeof form.recurrence === "string" &&
-    Array.isArray(form.customDays)
-  );
+  const form = value as Partial<HabitFormValues>;
+  if (
+    typeof form.title !== "string" ||
+    typeof form.description !== "string" ||
+    typeof form.difficulty !== "string" ||
+    typeof form.recurrence !== "string" ||
+    !Array.isArray(form.customDays)
+  ) {
+    return null;
+  }
+
+  return {
+    title: form.title,
+    description: form.description,
+    difficulty: form.difficulty as HabitFormValues["difficulty"],
+    recurrence: form.recurrence as HabitFormValues["recurrence"],
+    customDays: form.customDays.filter((day): day is number => typeof day === "number"),
+    stackAfter: typeof form.stackAfter === "string" ? form.stackAfter : "",
+    stackAfterHabitId:
+      typeof form.stackAfterHabitId === "string" && form.stackAfterHabitId
+        ? form.stackAfterHabitId
+        : null,
+    cueTime: typeof form.cueTime === "string" && form.cueTime ? form.cueTime : null,
+    cueContext: typeof form.cueContext === "string" ? form.cueContext : "",
+    identityWhy: typeof form.identityWhy === "string" ? form.identityWhy : "",
+    desiredFeeling: typeof form.desiredFeeling === "string" ? form.desiredFeeling : "",
+    tinyVersion: typeof form.tinyVersion === "string" ? form.tinyVersion : "",
+  };
 }
 
 export async function createHabitAction(
@@ -54,7 +74,8 @@ export async function createHabitAction(
   habitId?: string,
 ): Promise<HabitCrudActionResult> {
   try {
-    if (!isFormValues(values)) {
+    const formValues = coerceFormValues(values);
+    if (!formValues) {
       return { status: "error", error: "Invalid habit form values." };
     }
 
@@ -70,7 +91,7 @@ export async function createHabitAction(
       return { status: "error", error: "No cloud save found." };
     }
 
-    const mutation = applyCreateHabit(existing.data, values, habitId);
+    const mutation = applyCreateHabit(existing.data, formValues, habitId);
     if (!mutation.ok || !mutation.habit) {
       return { status: "error", error: mutation.ok ? "Missing habit." : mutation.error };
     }
@@ -95,7 +116,8 @@ export async function updateHabitAction(
   values: HabitFormValues,
 ): Promise<HabitCrudActionResult> {
   try {
-    if (!habitId || !isFormValues(values)) {
+    const formValues = coerceFormValues(values);
+    if (!habitId || !formValues) {
       return { status: "error", error: "Invalid habit update." };
     }
 
@@ -111,7 +133,7 @@ export async function updateHabitAction(
       return { status: "error", error: "No cloud save found." };
     }
 
-    const mutation = applyUpdateHabit(existing.data, habitId, values);
+    const mutation = applyUpdateHabit(existing.data, habitId, formValues);
     if (!mutation.ok || !mutation.habit) {
       return { status: "error", error: mutation.ok ? "Missing habit." : mutation.error };
     }

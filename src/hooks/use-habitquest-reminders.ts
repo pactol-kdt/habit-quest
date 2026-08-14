@@ -5,49 +5,84 @@ import { savePushSubscriptionAction } from "~/app/actions/push";
 import {
   canFireBrowserReminder,
   fireDailyReminder,
+  fireHabitCueReminder,
+  hasHabitReminderFiredToday,
   hasReminderFiredToday,
+  markHabitReminderFiredToday,
   markReminderFiredToday,
+  resolveDigestReminderTime,
   shouldFireReminder,
 } from "~/lib/habitquest/reminders";
+import { describeStackFormula } from "~/lib/habitquest/habit-loop";
 import {
   canUseWebPush,
   getVapidPublicKeyFromEnv,
   subscribeToHabitQuestPush,
 } from "~/lib/push/client";
-import { getDueHabitsForDate, getTodayDateKey } from "~/lib/habitquest/utils";
+import { getDueHabitsForDate, getTodayDateKey, hasCompletionForDate } from "~/lib/habitquest/utils";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
-function tryFireReminder(input: {
-  reminderTime: string;
+function tryFireReminders(input: {
   displayName: string;
-  dueCount: number;
+  habits: ReturnType<typeof useHabitQuestStore.getState>["habits"];
+  completions: ReturnType<typeof useHabitQuestStore.getState>["completions"];
 }) {
   if (!canFireBrowserReminder()) {
     return false;
   }
 
   const today = getTodayDateKey();
-  if (hasReminderFiredToday(today)) {
-    return false;
-  }
-  if (!shouldFireReminder(input.reminderTime)) {
+  const dueHabits = getDueHabitsForDate(input.habits, today);
+  const incomplete = dueHabits.filter(
+    (habit) => !hasCompletionForDate(input.completions, habit.id, today),
+  );
+  if (!incomplete.length) {
     return false;
   }
 
-  const fired = fireDailyReminder(input.displayName, input.dueCount);
-  if (fired) {
-    markReminderFiredToday(today);
+  let firedAny = false;
+
+  for (const habit of incomplete) {
+    if (!habit.cueTime) {
+      continue;
+    }
+    if (hasHabitReminderFiredToday(today, habit.id)) {
+      continue;
+    }
+    if (!shouldFireReminder(habit.cueTime)) {
+      continue;
+    }
+    if (fireHabitCueReminder(input.displayName, habit, input.habits)) {
+      markHabitReminderFiredToday(today, habit.id);
+      firedAny = true;
+    }
   }
-  return fired;
+
+  if (!hasReminderFiredToday(today)) {
+    const digestTime = resolveDigestReminderTime(incomplete);
+    if (shouldFireReminder(digestTime)) {
+      const stackHint =
+        describeStackFormula(incomplete[0]!, input.habits) ??
+        incomplete.find((habit) => habit.stackAfter.trim())?.stackAfter ??
+        null;
+      const fired = fireDailyReminder(input.displayName, incomplete.length, stackHint);
+      if (fired) {
+        markReminderFiredToday(today);
+        firedAny = true;
+      }
+    }
+  }
+
+  return firedAny;
 }
 
 export function useHabitQuestReminders() {
   const hydrated = useHabitQuestStore((state) => state.hydrated);
   const authUser = useHabitQuestStore((state) => state.authUser);
   const remindersEnabled = useHabitQuestStore((state) => state.settings.remindersEnabled);
-  const reminderTime = useHabitQuestStore((state) => state.settings.reminderTime);
   const displayName = useHabitQuestStore((state) => state.settings.displayName);
   const habits = useHabitQuestStore((state) => state.habits);
+  const completions = useHabitQuestStore((state) => state.completions);
 
   useEffect(() => {
     if (!hydrated || !remindersEnabled || !authUser) {
@@ -90,15 +125,13 @@ export function useHabitQuestReminders() {
     }
 
     function tick() {
-      const today = getTodayDateKey();
-      const dueCount = getDueHabitsForDate(habits, today).length;
-      tryFireReminder({ reminderTime, displayName, dueCount });
+      tryFireReminders({ displayName, habits, completions });
     }
 
     tick();
     const intervalId = window.setInterval(tick, 30_000);
     return () => window.clearInterval(intervalId);
-  }, [displayName, habits, hydrated, reminderTime, remindersEnabled]);
+  }, [completions, displayName, habits, hydrated, remindersEnabled]);
 }
 
 /** Used by Settings "Send test" — bypasses once-per-day gate. */
@@ -106,7 +139,7 @@ export function sendTestReminderNow(displayName: string, dueCount: number) {
   if (!canFireBrowserReminder()) {
     return { ok: false as const, error: "Browser notification permission is not granted." };
   }
-  const fired = fireDailyReminder(displayName, dueCount);
+  const fired = fireDailyReminder(displayName, dueCount, "After coffee, I will stretch");
   if (!fired) {
     return {
       ok: false as const,
@@ -117,9 +150,14 @@ export function sendTestReminderNow(displayName: string, dueCount: number) {
 }
 
 export function tryFireDueReminderNow(input: {
-  reminderTime: string;
+  reminderTime?: string;
   displayName: string;
   dueCount: number;
 }) {
-  return tryFireReminder(input);
+  const state = useHabitQuestStore.getState();
+  return tryFireReminders({
+    displayName: input.displayName,
+    habits: state.habits,
+    completions: state.completions,
+  });
 }

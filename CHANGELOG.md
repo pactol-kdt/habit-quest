@@ -4,11 +4,12 @@
 
 ### Added
 - Added Web Push reminders (service worker + VAPID + stored subscriptions) so daily alerts can fire when HabitQuest is closed.
-- Added `/api/cron/reminders` dispatcher (every 5 minutes via `vercel.json`) with timezone-aware once-per-day gating.
+- Added `/api/cron/reminders` dispatcher with timezone-aware once-per-day gating.
 - Added Settings flow to enable push, send a real push test, and remove the subscription on disable.
 
 ### Changed
 - Settings copy now describes push + cron instead of tab-only reminders.
+- Reminders are fixed at **08:00 local time**; Vercel uses 24 Hobby-safe daily crons (one per UTC hour) and only notifies during that local hour.
 
 ## 0.3.1 - Focused Writes, Clarity UX, and Env Setup
 

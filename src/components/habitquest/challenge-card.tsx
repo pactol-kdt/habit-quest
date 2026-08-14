@@ -67,7 +67,7 @@ export function ChallengeCard({
             onClick={() => onClaim(challenge.id)}
             className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {pending ? "Saving…" : "Claim reward"}
+            {pending ? "Claiming…" : "Claim reward"}
           </button>
         ) : (
           <p className="text-sm text-[var(--color-text-muted)]">

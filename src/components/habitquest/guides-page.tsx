@@ -5,6 +5,18 @@ import { GlassCard } from "~/components/habitquest/glass-card";
 
 const GUIDE_SECTIONS = [
   {
+    title: "The habit loop",
+    body: "Every lasting habit is trigger → motivation → response → reward. HabitQuest lets you design the loop: stack a trigger onto something you already do, name the motivation (identity or feeling), set a bare minimum response, then enjoy the intrinsic win plus pending EXP that banks at midnight.",
+  },
+  {
+    title: "Habit stacking",
+    body: "Chains only: After habit 1 → habit 2 → habit 3. Each habit can have one next step. Free-text triggers (“after coffee”) still work anytime; linked stacks unlock a single Next glow when the previous clear lands.",
+  },
+  {
+    title: "Triggers & reminders",
+    body: "Optional trigger time and place sit on each habit. In-tab reminders fire at each due habit’s trigger (falling back to 08:00). Push still sends a morning digest; stack language shows up in the copy when you have stacked habits due.",
+  },
+  {
     title: "Streaks & freezes",
     body: "Complete at least one habit each local day to keep your streak. Freezes auto-spend when you miss exactly one day and return the next morning. Earn freezes at 7/14/30-day milestones, or buy one for 20 coins (max 2 held).",
   },
@@ -62,10 +74,10 @@ export function GuidesPage() {
           Field Guide
         </p>
         <h1 className="section-title mt-2 text-2xl text-white sm:text-4xl md:text-5xl">
-          Tips & tricks
+          Lore & counsel
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-          A quick briefing on HabitQuest reward systems — streaks, bosses, seasons, and more.
+          Soft guidance for HabitQuest — stacking, loops, streaks, bosses, and the rest of the path.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link

@@ -1,3 +1,4 @@
+import { clearBrokenStackLinks, canLinkStackAfter, wouldCreateStackCycle } from "~/lib/habitquest/habit-loop";
 import {
   createId,
   getTodayDateKey,
@@ -31,7 +32,48 @@ function buildHabitFields(values: HabitFormValues) {
       normalized.recurrence === "custom" || normalized.recurrence === "weekly"
         ? normalized.customDays
         : [],
+    stackAfter: normalized.stackAfter,
+    stackAfterHabitId: normalized.stackAfterHabitId,
+    cueTime: normalized.cueTime,
+    cueContext: normalized.cueContext,
+    identityWhy: normalized.identityWhy,
+    desiredFeeling: normalized.desiredFeeling,
+    tinyVersion: normalized.tinyVersion,
   };
+}
+
+function resolveChainStackLink(
+  habits: Habit[],
+  habitId: string,
+  stackAfterHabitId: string | null,
+): { ok: true; stackAfterHabitId: string | null } | { ok: false; error: string } {
+  if (!stackAfterHabitId) {
+    return { ok: true, stackAfterHabitId: null };
+  }
+
+  if (!habits.some((entry) => entry.id === stackAfterHabitId)) {
+    return { ok: true, stackAfterHabitId: null };
+  }
+
+  if (stackAfterHabitId === habitId) {
+    return { ok: true, stackAfterHabitId: null };
+  }
+
+  if (!canLinkStackAfter(habits, stackAfterHabitId, habitId)) {
+    return {
+      ok: false,
+      error: "Chains are one step at a time — that habit already has a next habit.",
+    };
+  }
+
+  if (wouldCreateStackCycle(habits, habitId, stackAfterHabitId)) {
+    return {
+      ok: false,
+      error: "That stack would loop. Pick an earlier habit in the chain.",
+    };
+  }
+
+  return { ok: true, stackAfterHabitId };
 }
 
 export function applyCreateHabit(
@@ -44,10 +86,16 @@ export function applyCreateHabit(
     return { ok: false, error: "Title is required." };
   }
 
+  const link = resolveChainStackLink(data.habits, habitId, fields.stackAfterHabitId);
+  if (!link.ok) {
+    return { ok: false, error: link.error };
+  }
+
   const now = new Date().toISOString();
   const habit: Habit = {
     id: habitId,
     ...fields,
+    stackAfterHabitId: link.stackAfterHabitId,
     createdAt: now,
     updatedAt: now,
   };
@@ -79,9 +127,15 @@ export function applyUpdateHabit(
     return { ok: false, error: "Habit not found." };
   }
 
+  const link = resolveChainStackLink(data.habits, habitId, fields.stackAfterHabitId);
+  if (!link.ok) {
+    return { ok: false, error: link.error };
+  }
+
   const habit: Habit = {
     ...existing,
     ...fields,
+    stackAfterHabitId: link.stackAfterHabitId,
     updatedAt: new Date().toISOString(),
   };
 
@@ -121,7 +175,10 @@ export function applyDeleteHabit(
 
   let nextData: HabitQuestData = {
     ...data,
-    habits: data.habits.filter((entry) => entry.id !== habitId),
+    habits: clearBrokenStackLinks(
+      data.habits.filter((entry) => entry.id !== habitId),
+      habitId,
+    ),
     completions: remainingCompletions,
   };
 

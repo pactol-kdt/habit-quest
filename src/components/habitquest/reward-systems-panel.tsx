@@ -63,10 +63,10 @@ export function RewardSystemsPanel() {
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
           Reward Systems
         </p>
-        <h2 className="section-title mt-2 text-2xl text-white">Momentum arsenal</h2>
+        <h2 className="section-title mt-2 text-2xl text-white">Companions of momentum</h2>
         <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-          Freezes, combos, and quest arcs. Today&apos;s habit progress stays in preview —
-          {` ${SETTLEMENT_LOCK_HINT}`} Boss fight and season pass live in their own menus.
+          Freezes, combos, and habit arcs. Today&apos;s habit progress stays in preview —
+          {` ${SETTLEMENT_LOCK_HINT}`} Boss fight and season pass live in their own halls.
         </p>
       </div>
 
@@ -93,7 +93,7 @@ export function RewardSystemsPanel() {
               className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
               {pendingClaimIds.includes("streak-freeze")
-                ? "Saving…"
+                ? "Buying…"
                 : `Buy (${STREAK_FREEZE_COST}c)`}
             </button>
           </div>
@@ -141,7 +141,7 @@ export function RewardSystemsPanel() {
                   className="mt-3 rounded-full border border-pink-300/20 bg-pink-300/10 px-4 py-2 text-sm text-pink-100 transition hover:bg-pink-300/16 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {pendingClaimIds.includes(`quest:${activeArc.id}`)
-                    ? "Saving…"
+                    ? "Claiming…"
                     : "Claim chapter reward"}
                 </button>
               ) : activeArc.completed && !activeArc.claimed ? (

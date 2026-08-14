@@ -58,6 +58,13 @@ export const habits = pgTable("habits", {
   difficulty: varchar("difficulty", { length: 16 }).notNull(),
   recurrence: varchar("recurrence", { length: 16 }).notNull(),
   customDays: jsonb("custom_days").$type<number[]>().notNull(),
+  stackAfter: text("stack_after").notNull().default(""),
+  stackAfterHabitId: varchar("stack_after_habit_id", { length: 64 }),
+  cueTime: varchar("cue_time", { length: 8 }),
+  cueContext: text("cue_context").notNull().default(""),
+  identityWhy: text("identity_why").notNull().default(""),
+  desiredFeeling: text("desired_feeling").notNull().default(""),
+  tinyVersion: text("tiny_version").notNull().default(""),
   createdAt: varchar("created_at", { length: 40 }).notNull(),
   updatedAt: varchar("updated_at", { length: 40 }).notNull(),
 });
@@ -135,7 +142,7 @@ export const userSettings = pgTable("user_settings", {
   displayName: varchar("display_name", { length: 64 }).notNull().default(""),
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   remindersEnabled: boolean("reminders_enabled").notNull().default(false),
-  reminderTime: varchar("reminder_time", { length: 8 }).notNull().default("09:00"),
+  reminderTime: varchar("reminder_time", { length: 8 }).notNull().default("08:00"),
   reminderTimezone: varchar("reminder_timezone", { length: 64 }).notNull().default("UTC"),
   lastPushReminderDate: varchar("last_push_reminder_date", { length: 10 }),
 });
