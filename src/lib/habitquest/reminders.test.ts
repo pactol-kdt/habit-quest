@@ -4,6 +4,7 @@ import { shouldFireReminder } from "./reminders.ts";
 import {
   getClockMinutesInTimeZone,
   getDateKeyInTimeZone,
+  isWithinPushHourUtc,
   isWithinReminderHourInTimeZone,
   shouldFireReminderInTimeZone,
 } from "../push/timezone.ts";
@@ -47,5 +48,14 @@ describe("timezone reminder helpers", () => {
     const afterHour = new Date("2026-08-14T09:00:00.000Z");
     assert.equal(isWithinReminderHourInTimeZone("08:00", "UTC", inHour), true);
     assert.equal(isWithinReminderHourInTimeZone("08:00", "UTC", afterHour), false);
+  });
+
+  it("matches the UTC midnight push window", () => {
+    const before = new Date("2026-08-13T23:59:00.000Z");
+    const inHour = new Date("2026-08-14T00:30:00.000Z");
+    const afterHour = new Date("2026-08-14T01:00:00.000Z");
+    assert.equal(isWithinPushHourUtc(before), false);
+    assert.equal(isWithinPushHourUtc(inHour), true);
+    assert.equal(isWithinPushHourUtc(afterHour), false);
   });
 });

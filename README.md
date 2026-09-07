@@ -41,13 +41,13 @@ npm run build && npm start
 Push reminders:
 
 1. Enable in **Settings → Daily reminder** (grants notification permission + stores a push subscription + timezone).
-2. HabitQuest sends one push around **08:00 local time** (fixed — no time picker).
+2. HabitQuest sends one push around **00:00 UTC** (fixed — no time picker). That is 08:00 in UTC+8.
 3. Host must run HTTPS (or localhost for dev).
 4. Local smoke test: `curl http://localhost:3000/api/cron/reminders`
 
 **Vercel Cron (Hobby-safe)**
 
-`vercel.json` registers **24 daily crons** (`0 0 * * *` … `0 23 * * *`) — one per UTC hour. Each expression runs once per day (Hobby-compatible). When an hour fires, the server notifies users whose **local** clock is in the 08:00–08:59 window.
+`vercel.json` registers one daily cron (`0 0 * * *`) at **00:00 UTC**. The dispatcher only notifies during 00:00–00:59 UTC (once per UTC day).
 
 Hobby timing can drift up to ~59 minutes within that UTC hour.
 

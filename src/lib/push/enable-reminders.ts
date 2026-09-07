@@ -57,7 +57,7 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
       permission: "granted",
       pushStatus: getVapidPublicKeyFromEnv() ? "unsupported" : "missing-vapid",
       message:
-        "We will call at dawn (~8:00 local). Background push needs a push-capable browser.",
+        "We will call at 00:00 UTC. Background push needs a push-capable browser.",
     };
   }
 
@@ -77,7 +77,7 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
       return {
         permission: "granted",
         pushStatus: "subscribed",
-        message: "Dawn will find you — a gentle reminder around 8:00 local time.",
+        message: "Dawn will find you — a gentle reminder around 00:00 UTC.",
       };
     }
     return {
@@ -98,6 +98,6 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
   return {
     permission: "granted",
     pushStatus: "skipped",
-    message: "We will call at dawn (~8:00 local).",
+    message: "We will call at 00:00 UTC.",
   };
 }

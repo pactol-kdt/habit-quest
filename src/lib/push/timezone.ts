@@ -1,5 +1,8 @@
-/** Fixed daily reminder: 08:00 in each user's local timezone. */
+/** In-tab digest fallback: 08:00 in the user's local timezone. */
 export const FIXED_REMINDER_LOCAL_TIME = "08:00";
+
+/** Background Web Push: 00:00 UTC (08:00 in UTC+8). */
+export const FIXED_PUSH_UTC_TIME = "00:00";
 
 export function getDateKeyInTimeZone(timeZone: string, now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -63,7 +66,6 @@ export function shouldFireReminderInTimeZone(
 
 /**
  * True only during the reminder's local hour (e.g. 08:00–08:59).
- * Used by hourly Vercel crons so each timezone fires near 8am, not all day.
  */
 export function isWithinReminderHourInTimeZone(
   reminderTime: string,
@@ -76,4 +78,9 @@ export function isWithinReminderHourInTimeZone(
   }
   const currentMinutes = getClockMinutesInTimeZone(timeZone, now);
   return currentMinutes >= targetMinutes && currentMinutes < targetMinutes + 60;
+}
+
+/** True during 00:00–00:59 UTC so a single midnight cron can send the daily push. */
+export function isWithinPushHourUtc(now = new Date()) {
+  return isWithinReminderHourInTimeZone(FIXED_PUSH_UTC_TIME, "UTC", now);
 }

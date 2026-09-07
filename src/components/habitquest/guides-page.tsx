@@ -30,7 +30,7 @@ const GUIDE_SECTIONS = [
   },
   {
     title: "Triggers & reminders",
-    body: "Optional trigger time and place sit on each habit. In-tab reminders fire at each due habit’s trigger (falling back to 08:00). Push still sends a morning digest; stack language shows up in the copy when you have stacked habits due.",
+    body: "Optional trigger time and place sit on each habit. In-tab reminders fire at each due habit’s trigger (falling back to 08:00 local). Push sends a daily digest at 00:00 UTC; stack language shows up in the copy when you have stacked habits due.",
   },
   {
     title: "Streaks & freezes",

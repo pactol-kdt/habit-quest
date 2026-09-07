@@ -11,11 +11,7 @@ import {
 import { getDueHabitsForDate } from "~/lib/habitquest/utils";
 import { buildDailyReminderCopy } from "~/lib/habitquest/reminder-copy";
 import { describeStackFormula } from "~/lib/habitquest/habit-loop";
-import {
-  FIXED_REMINDER_LOCAL_TIME,
-  getDateKeyInTimeZone,
-  isWithinReminderHourInTimeZone,
-} from "~/lib/push/timezone";
+import { getDateKeyInTimeZone, isWithinPushHourUtc } from "~/lib/push/timezone";
 import { isWebPushConfigured, sendWebPush, type PushPayload } from "~/lib/push/web-push";
 import type { Habit, HabitDifficulty, HabitRecurrence } from "~/types/habitquest";
 
@@ -190,18 +186,17 @@ export async function dispatchDuePushReminders(database: Database, now = new Dat
   let sentUsers = 0;
   let skipped = 0;
   let failed = 0;
+  const utcDateKey = getDateKeyInTimeZone("UTC", now);
+  const inPushHour = isWithinPushHourUtc(now);
 
   for (const user of candidates) {
-    const timeZone = user.reminderTimezone || "UTC";
-    const dateKey = getDateKeyInTimeZone(timeZone, now);
-
-    if (user.lastPushReminderDate === dateKey) {
+    if (user.lastPushReminderDate === utcDateKey) {
       skipped += 1;
       continue;
     }
 
-    // Fixed 08:00 local — only send during that hour so hourly UTC crons map cleanly.
-    if (!isWithinReminderHourInTimeZone(FIXED_REMINDER_LOCAL_TIME, timeZone, now)) {
+    // Fixed 00:00 UTC — only send during that hour so the midnight cron maps cleanly.
+    if (!inPushHour) {
       skipped += 1;
       continue;
     }
@@ -217,7 +212,8 @@ export async function dispatchDuePushReminders(database: Database, now = new Dat
       continue;
     }
 
-    const incomplete = await loadIncompleteDueHabits(database, user.userId, dateKey);
+    const localDateKey = getDateKeyInTimeZone(user.reminderTimezone || "UTC", now);
+    const incomplete = await loadIncompleteDueHabits(database, user.userId, localDateKey);
     const allHabits = await loadHabitsForUser(database, user.userId);
     const result = await sendPushToUser(
       database,
@@ -232,7 +228,7 @@ export async function dispatchDuePushReminders(database: Database, now = new Dat
     if (result.sent > 0) {
       await database
         .update(userSettings)
-        .set({ lastPushReminderDate: dateKey })
+        .set({ lastPushReminderDate: utcDateKey })
         .where(eq(userSettings.userId, user.userId));
       sentUsers += 1;
     } else {
