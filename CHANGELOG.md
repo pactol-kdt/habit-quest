@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.4.0 - Activity Graph and Dual Daily Push
+
+### Added
+- Added a habit activity graph on Settings with year selector.
+
 ### Changed
 - Web Push now fires twice per UTC day: a digest at **00:00 UTC** and a follow-up at **14:00 UTC** if habits are still due (08:00 / 22:00 in UTC+8).
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AuthPanel } from "~/components/habitquest/auth-panel";
+import { ContributionGraph } from "~/components/habitquest/contribution-graph";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { sendTestReminderNow } from "~/hooks/use-habitquest-reminders";
 import {
@@ -21,9 +22,8 @@ export function SettingsPage() {
   const [devNote, setDevNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const { hydrated, settings, updateSettings, projectSave, habits } = useHabitQuestStore(
-    (state) => state,
-  );
+  const { hydrated, settings, updateSettings, projectSave, habits, completions } =
+    useHabitQuestStore((state) => state);
   const [displayNameDraft, setDisplayNameDraft] = useState(settings.displayName);
   const hero = PAGE_HEROES.settings;
 
@@ -33,7 +33,7 @@ export function SettingsPage() {
 
   if (!hydrated) {
     return (
-      <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
+      <div className="grid min-w-0 gap-4 pt-4 md:gap-6 md:pt-6">
         <div className="glass-panel h-48 animate-pulse rounded-[2rem]" />
       </div>
     );
@@ -101,7 +101,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
+    <div className="grid min-w-0 gap-4 pt-4 md:gap-6 md:pt-6">
       <GlassCard className="rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
           {hero.eyebrow}
@@ -137,6 +137,10 @@ export function SettingsPage() {
             className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50"
           />
         </label>
+      </GlassCard>
+
+      <GlassCard className="min-w-0 overflow-hidden">
+        <ContributionGraph completions={completions} />
       </GlassCard>
 
       {isDev ? (

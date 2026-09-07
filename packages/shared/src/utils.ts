@@ -727,6 +727,146 @@ export function getCompletionRate(data: HabitQuestData) {
   return totals.due ? Math.round((totals.completed / totals.due) * 100) : 0;
 }
 
+export type ContributionLevel = 0 | 1 | 2 | 3 | 4;
+
+export interface ContributionDay {
+  date: string;
+  count: number;
+  level: ContributionLevel;
+}
+
+export interface ContributionWeek {
+  days: ContributionDay[];
+  monthLabel: string | null;
+}
+
+function shiftDateKey(dateKey: string, days: number) {
+  const date = fromDateString(dateKey);
+  date.setDate(date.getDate() + days);
+  return getTodayDateKey(date);
+}
+
+function contributionLevelForCount(count: number, maxCount: number): ContributionLevel {
+  if (count <= 0) {
+    return 0;
+  }
+  if (maxCount <= 1) {
+    return 1;
+  }
+  const ratio = count / maxCount;
+  if (ratio <= 0.25) {
+    return 1;
+  }
+  if (ratio <= 0.5) {
+    return 2;
+  }
+  if (ratio <= 0.75) {
+    return 3;
+  }
+  return 4;
+}
+
+/** Calendar years available for the contribution graph (newest first). */
+export function getContributionYears(
+  completions: HabitCompletion[],
+  today = getTodayDateKey(),
+) {
+  const currentYear = fromDateString(today).getFullYear();
+  let earliest = currentYear;
+  for (const completion of completions) {
+    const year = Number(completion.date.slice(0, 4));
+    if (Number.isFinite(year) && year < earliest) {
+      earliest = year;
+    }
+  }
+
+  const years: number[] = [];
+  for (let year = currentYear; year >= earliest; year -= 1) {
+    years.push(year);
+  }
+  return years;
+}
+
+/** GitHub-style calendar-year grid: Sunday-first weeks for `year`. */
+export function getContributionActivity(
+  completions: HabitCompletion[],
+  year: number,
+  today = getTodayDateKey(),
+) {
+  const counts = new Map<string, number>();
+  for (const completion of completions) {
+    if (Number(completion.date.slice(0, 4)) !== year) {
+      continue;
+    }
+    counts.set(completion.date, (counts.get(completion.date) ?? 0) + 1);
+  }
+
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+  const rangeEnd = today < yearEnd ? today : yearEnd;
+  const visibleEnd = rangeEnd < yearStart ? yearStart : rangeEnd;
+
+  const gridStart = shiftDateKey(yearStart, -fromDateString(yearStart).getDay());
+  const gridEnd = shiftDateKey(visibleEnd, 6 - fromDateString(visibleEnd).getDay());
+  const totalDays = getDaysBetween(gridStart, gridEnd) + 1;
+
+  const rawDays: Array<{ date: string; count: number; inYear: boolean }> = [];
+  let maxCount = 0;
+  for (let offset = 0; offset < totalDays; offset += 1) {
+    const date = shiftDateKey(gridStart, offset);
+    const inYear = date >= yearStart && date <= yearEnd;
+    const count = inYear && date <= today ? (counts.get(date) ?? 0) : 0;
+    if (inYear && date <= today) {
+      maxCount = Math.max(maxCount, count);
+    }
+    rawDays.push({ date, count, inYear });
+  }
+
+  const days: ContributionDay[] = rawDays.map((day) => ({
+    date: day.date,
+    count: day.count,
+    level:
+      !day.inYear || day.date > today
+        ? 0
+        : contributionLevelForCount(day.count, maxCount),
+  }));
+
+  const weekCount = Math.ceil(days.length / 7);
+  const weeks: ContributionWeek[] = [];
+  let previousMonth = -1;
+  for (let weekIndex = 0; weekIndex < weekCount; weekIndex += 1) {
+    const weekDays = days.slice(weekIndex * 7, weekIndex * 7 + 7);
+    const anchor =
+      weekDays.find((day) => day.date >= yearStart && day.date <= visibleEnd) ?? weekDays[0]!;
+    const month = fromDateString(anchor.date).getMonth();
+    const showMonth = month !== previousMonth && anchor.date >= yearStart && anchor.date <= yearEnd;
+    if (showMonth) {
+      previousMonth = month;
+    }
+    weeks.push({
+      days: weekDays,
+      monthLabel: showMonth
+        ? fromDateString(anchor.date).toLocaleDateString("en-US", { month: "short" })
+        : null,
+    });
+  }
+
+  const visibleDays = days.filter(
+    (day) => day.date >= yearStart && day.date <= visibleEnd && day.date <= today,
+  );
+  const totalCompletions = visibleDays.reduce((sum, day) => sum + day.count, 0);
+  const totalActiveDays = visibleDays.filter((day) => day.count > 0).length;
+
+  return {
+    year,
+    weeks,
+    days: visibleDays,
+    totalCompletions,
+    totalActiveDays,
+    maxCount,
+  };
+}
+
 export function getProfileDisplay(
   shopItems: ShopItem[],
   equippedItems: HabitQuestData["equippedItems"],

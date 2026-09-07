@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import { createSeedData } from "./seed.ts";
 import {
   calculateChallengeProgress,
+  getContributionActivity,
+  getContributionYears,
   getPeriodStreakDays,
   isHabitDueOnDate,
   reconcileChallenges,
@@ -200,5 +202,63 @@ describe("completion cleanup", () => {
     assert.equal(next.userProgress.expHistory.some((entry: ExpHistoryEntry) => entry.id === "exp_3"), false);
     assert.equal(next.userProgress.expHistory.some((entry: ExpHistoryEntry) => entry.id === "exp_1"), true);
     assert.equal(next.userProgress.expHistory.some((entry: ExpHistoryEntry) => entry.id === "exp_4"), true);
+  });
+});
+
+describe("contribution activity", () => {
+  it("builds a Sunday-first calendar year grid with intensity from completion counts", () => {
+    const completions: HabitCompletion[] = [
+      {
+        id: "c1",
+        habitId: "h1",
+        date: "2026-03-02",
+        completedAt: "2026-03-02T12:00:00.000Z",
+        expEarned: 10,
+        streakBonusExp: 0,
+        crit: false,
+      },
+      {
+        id: "c2",
+        habitId: "h2",
+        date: "2026-03-02",
+        completedAt: "2026-03-02T13:00:00.000Z",
+        expEarned: 10,
+        streakBonusExp: 0,
+        crit: false,
+      },
+      {
+        id: "c3",
+        habitId: "h1",
+        date: "2026-03-03",
+        completedAt: "2026-03-03T12:00:00.000Z",
+        expEarned: 10,
+        streakBonusExp: 0,
+        crit: false,
+      },
+      {
+        id: "c4",
+        habitId: "h1",
+        date: "2025-12-01",
+        completedAt: "2025-12-01T12:00:00.000Z",
+        expEarned: 10,
+        streakBonusExp: 0,
+        crit: false,
+      },
+    ];
+
+    const activity = getContributionActivity(completions, 2026, "2026-03-04");
+
+    assert.equal(activity.year, 2026);
+    assert.equal(activity.weeks[0]!.days[0]!.date, "2025-12-28"); // Sunday on/before Jan 1
+    assert.equal(activity.totalCompletions, 3);
+    assert.equal(activity.totalActiveDays, 2);
+    assert.deepEqual(getContributionYears(completions, "2026-03-04"), [2026, 2025]);
+
+    const busy = activity.days.find((day) => day.date === "2026-03-02");
+    const light = activity.days.find((day) => day.date === "2026-03-03");
+    assert.equal(busy?.count, 2);
+    assert.equal(busy?.level, 4);
+    assert.equal(light?.count, 1);
+    assert.equal(light?.level, 2);
   });
 });
