@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { shouldFireReminder } from "./reminders.ts";
 import {
+  getActivePushSlotUtc,
   getClockMinutesInTimeZone,
   getDateKeyInTimeZone,
+  hasSentPushSlot,
   isWithinPushHourUtc,
   isWithinReminderHourInTimeZone,
   shouldFireReminderInTimeZone,
@@ -50,12 +52,29 @@ describe("timezone reminder helpers", () => {
     assert.equal(isWithinReminderHourInTimeZone("08:00", "UTC", afterHour), false);
   });
 
-  it("matches the UTC midnight push window", () => {
-    const before = new Date("2026-08-13T23:59:00.000Z");
-    const inHour = new Date("2026-08-14T00:30:00.000Z");
-    const afterHour = new Date("2026-08-14T01:00:00.000Z");
-    assert.equal(isWithinPushHourUtc(before), false);
-    assert.equal(isWithinPushHourUtc(inHour), true);
-    assert.equal(isWithinPushHourUtc(afterHour), false);
+  it("matches the UTC midnight and afternoon push windows", () => {
+    const beforeMidnight = new Date("2026-08-13T23:59:00.000Z");
+    const midnight = new Date("2026-08-14T00:30:00.000Z");
+    const afterMidnight = new Date("2026-08-14T01:00:00.000Z");
+    const afternoon = new Date("2026-08-14T14:15:00.000Z");
+    const afterAfternoon = new Date("2026-08-14T15:00:00.000Z");
+    assert.equal(isWithinPushHourUtc(beforeMidnight), false);
+    assert.equal(isWithinPushHourUtc(midnight), true);
+    assert.equal(isWithinPushHourUtc(afterMidnight), false);
+    assert.equal(isWithinPushHourUtc(afternoon), true);
+    assert.equal(isWithinPushHourUtc(afterAfternoon), false);
+    assert.equal(getActivePushSlotUtc(midnight)?.kind, "digest");
+    assert.equal(getActivePushSlotUtc(midnight)?.slotKey, "2026-08-14T00");
+    assert.equal(getActivePushSlotUtc(afternoon)?.kind, "followup");
+    assert.equal(getActivePushSlotUtc(afternoon)?.slotKey, "2026-08-14T14");
+  });
+
+  it("gates each UTC slot once without blocking the follow-up", () => {
+    assert.equal(hasSentPushSlot("2026-08-14T00", "2026-08-14T00"), true);
+    assert.equal(hasSentPushSlot("2026-08-14T00", "2026-08-14T14"), false);
+    assert.equal(hasSentPushSlot("2026-08-14T14", "2026-08-14T14"), true);
+    assert.equal(hasSentPushSlot("2026-08-14T14", "2026-08-15T00"), false);
+    assert.equal(hasSentPushSlot("2026-08-14", "2026-08-14T00"), true);
+    assert.equal(hasSentPushSlot("2026-08-14", "2026-08-14T14"), false);
   });
 });

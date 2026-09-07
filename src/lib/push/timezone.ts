@@ -1,8 +1,24 @@
 /** In-tab digest fallback: 08:00 in the user's local timezone. */
 export const FIXED_REMINDER_LOCAL_TIME = "08:00";
 
-/** Background Web Push: 00:00 UTC (08:00 in UTC+8). */
+/** Background Web Push digest: 00:00 UTC (08:00 in UTC+8). */
 export const FIXED_PUSH_UTC_TIME = "00:00";
+
+/** Background Web Push follow-up: 14:00 UTC (22:00 in UTC+8). */
+export const FOLLOW_UP_PUSH_UTC_TIME = "14:00";
+
+export const PUSH_UTC_SLOTS = [
+  { time: FIXED_PUSH_UTC_TIME, kind: "digest" as const },
+  { time: FOLLOW_UP_PUSH_UTC_TIME, kind: "followup" as const },
+] as const;
+
+export type PushUtcSlotKind = (typeof PUSH_UTC_SLOTS)[number]["kind"];
+
+export type ActivePushUtcSlot = {
+  kind: PushUtcSlotKind;
+  time: string;
+  slotKey: string;
+};
 
 export function getDateKeyInTimeZone(timeZone: string, now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -80,7 +96,37 @@ export function isWithinReminderHourInTimeZone(
   return currentMinutes >= targetMinutes && currentMinutes < targetMinutes + 60;
 }
 
-/** True during 00:00–00:59 UTC so a single midnight cron can send the daily push. */
+export function getActivePushSlotUtc(now = new Date()): ActivePushUtcSlot | null {
+  const dateKey = getDateKeyInTimeZone("UTC", now);
+  for (const slot of PUSH_UTC_SLOTS) {
+    if (isWithinReminderHourInTimeZone(slot.time, "UTC", now)) {
+      return {
+        kind: slot.kind,
+        time: slot.time,
+        slotKey: `${dateKey}T${slot.time.slice(0, 2)}`,
+      };
+    }
+  }
+  return null;
+}
+
+/** True during 00:00–00:59 or 14:00–14:59 UTC. */
 export function isWithinPushHourUtc(now = new Date()) {
-  return isWithinReminderHourInTimeZone(FIXED_PUSH_UTC_TIME, "UTC", now);
+  return getActivePushSlotUtc(now) !== null;
+}
+
+/**
+ * Once-per-slot gate. Legacy `YYYY-MM-DD` values count as the midnight digest
+ * for that UTC day so a deploy does not double-send 00:00.
+ */
+export function hasSentPushSlot(lastSlot: string | null | undefined, slotKey: string) {
+  if (!lastSlot) {
+    return false;
+  }
+  if (lastSlot === slotKey) {
+    return true;
+  }
+  const dateKey = slotKey.slice(0, 10);
+  const hour = slotKey.slice(11);
+  return lastSlot === dateKey && hour === "00";
 }

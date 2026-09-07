@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Changed
-- Web Push daily reminders now fire at **00:00 UTC** (08:00 in UTC+8) instead of 08:00 local. Vercel uses a single midnight cron.
+- Web Push now fires twice per UTC day: a digest at **00:00 UTC** and a follow-up at **14:00 UTC** if habits are still due (08:00 / 22:00 in UTC+8).
 
 ## 0.3.2 - Background Push Reminders
 

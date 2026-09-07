@@ -162,7 +162,7 @@ const DDL = [
     reminders_enabled BOOLEAN NOT NULL DEFAULT false,
     reminder_time VARCHAR(8) NOT NULL DEFAULT '08:00',
     reminder_timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
-    last_push_reminder_date VARCHAR(10)
+    last_push_reminder_date VARCHAR(16)
   )`,
   `CREATE TABLE IF NOT EXISTS push_subscriptions (
     endpoint TEXT PRIMARY KEY NOT NULL,
@@ -391,7 +391,11 @@ async function runMigrations(database: ReturnType<typeof createDrizzle>) {
 
     if (!(await columnExists(client, "user_settings", "last_push_reminder_date"))) {
       await client.query(
-        `ALTER TABLE user_settings ADD COLUMN last_push_reminder_date VARCHAR(10)`,
+        `ALTER TABLE user_settings ADD COLUMN last_push_reminder_date VARCHAR(16)`,
+      );
+    } else {
+      await client.query(
+        `ALTER TABLE user_settings ALTER COLUMN last_push_reminder_date TYPE VARCHAR(16)`,
       );
     }
 

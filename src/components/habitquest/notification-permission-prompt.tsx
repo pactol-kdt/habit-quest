@@ -82,7 +82,9 @@ export function NotificationPermissionPrompt() {
         <h2 className="section-title mt-2 text-2xl text-white">Shall we wake you at dawn?</h2>
         <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
           Around <span className="text-cyan-100">00:00 UTC</span>, HabitQuest can gently
-          remind you that habits await. You can change this later in your browser settings.
+          remind you that habits await — then a follow-up at{" "}
+          <span className="text-cyan-100">14:00 UTC</span> if anything is still due. You can
+          change this later in your browser settings.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <button

@@ -9,9 +9,17 @@ import {
   userSettings,
 } from "~/lib/db/schema";
 import { getDueHabitsForDate } from "~/lib/habitquest/utils";
-import { buildDailyReminderCopy } from "~/lib/habitquest/reminder-copy";
+import {
+  buildDailyReminderCopy,
+  buildFollowUpReminderCopy,
+} from "~/lib/habitquest/reminder-copy";
 import { describeStackFormula } from "~/lib/habitquest/habit-loop";
-import { getDateKeyInTimeZone, isWithinPushHourUtc } from "~/lib/push/timezone";
+import {
+  getActivePushSlotUtc,
+  getDateKeyInTimeZone,
+  hasSentPushSlot,
+  type PushUtcSlotKind,
+} from "~/lib/push/timezone";
 import { isWebPushConfigured, sendWebPush, type PushPayload } from "~/lib/push/web-push";
 import type { Habit, HabitDifficulty, HabitRecurrence } from "~/types/habitquest";
 
@@ -21,12 +29,16 @@ function buildReminderPayload(
   displayName: string,
   dueCount: number,
   stackHint?: string | null,
+  kind: PushUtcSlotKind = "digest",
 ): PushPayload {
-  const { title, body } = buildDailyReminderCopy(displayName, dueCount, stackHint);
+  const { title, body } =
+    kind === "followup"
+      ? buildFollowUpReminderCopy(displayName, dueCount, stackHint)
+      : buildDailyReminderCopy(displayName, dueCount, stackHint);
   return {
     title,
     body,
-    tag: "habitquest-daily-reminder",
+    tag: kind === "followup" ? "habitquest-followup-reminder" : "habitquest-daily-reminder",
     url: "/",
   };
 }
@@ -186,17 +198,10 @@ export async function dispatchDuePushReminders(database: Database, now = new Dat
   let sentUsers = 0;
   let skipped = 0;
   let failed = 0;
-  const utcDateKey = getDateKeyInTimeZone("UTC", now);
-  const inPushHour = isWithinPushHourUtc(now);
+  const slot = getActivePushSlotUtc(now);
 
   for (const user of candidates) {
-    if (user.lastPushReminderDate === utcDateKey) {
-      skipped += 1;
-      continue;
-    }
-
-    // Fixed 00:00 UTC — only send during that hour so the midnight cron maps cleanly.
-    if (!inPushHour) {
+    if (!slot || hasSentPushSlot(user.lastPushReminderDate, slot.slotKey)) {
       skipped += 1;
       continue;
     }
@@ -214,6 +219,11 @@ export async function dispatchDuePushReminders(database: Database, now = new Dat
 
     const localDateKey = getDateKeyInTimeZone(user.reminderTimezone || "UTC", now);
     const incomplete = await loadIncompleteDueHabits(database, user.userId, localDateKey);
+    if (slot.kind === "followup" && incomplete.length === 0) {
+      skipped += 1;
+      continue;
+    }
+
     const allHabits = await loadHabitsForUser(database, user.userId);
     const result = await sendPushToUser(
       database,
@@ -222,13 +232,14 @@ export async function dispatchDuePushReminders(database: Database, now = new Dat
         user.displayName,
         incomplete.length,
         stackHintForHabits(incomplete, allHabits),
+        slot.kind,
       ),
     );
 
     if (result.sent > 0) {
       await database
         .update(userSettings)
-        .set({ lastPushReminderDate: utcDateKey })
+        .set({ lastPushReminderDate: slot.slotKey })
         .where(eq(userSettings.userId, user.userId));
       sentUsers += 1;
     } else {

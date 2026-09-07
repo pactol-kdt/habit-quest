@@ -144,7 +144,7 @@ export const userSettings = pgTable("user_settings", {
   remindersEnabled: boolean("reminders_enabled").notNull().default(false),
   reminderTime: varchar("reminder_time", { length: 8 }).notNull().default("08:00"),
   reminderTimezone: varchar("reminder_timezone", { length: 64 }).notNull().default("UTC"),
-  lastPushReminderDate: varchar("last_push_reminder_date", { length: 10 }),
+  lastPushReminderDate: varchar("last_push_reminder_date", { length: 16 }),
 });
 
 export const pushSubscriptions = pgTable("push_subscriptions", {

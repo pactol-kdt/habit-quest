@@ -22,6 +22,27 @@ export function buildDailyReminderCopy(
   };
 }
 
+export function buildFollowUpReminderCopy(
+  displayName: string,
+  dueCount: number,
+  stackHint?: string | null,
+) {
+  const name = displayName.trim() || "Traveler";
+  if (stackHint) {
+    return {
+      title: "Still waiting",
+      body:
+        dueCount > 1
+          ? `${name}: ${stackHint} · ${dueCount} still open.`
+          : `${name}: ${stackHint}`,
+    };
+  }
+  return {
+    title: "Follow-up",
+    body: `${name}, ${dueCount} habit${dueCount === 1 ? "" : "s"} still open — close the day.`,
+  };
+}
+
 export function buildHabitCueReminderCopy(
   displayName: string,
   habitTitle: string,
