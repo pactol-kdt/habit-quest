@@ -249,19 +249,32 @@ export function Navigation() {
             <Link
               href="/settings"
               aria-label={`Settings for ${displayName}`}
-              className="flex min-w-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 p-1 transition hover:border-white/20 sm:gap-3 sm:py-2 sm:pl-2 sm:pr-4"
+              className="flex min-w-0 max-w-[7.5rem] items-center gap-1.5 rounded-full border border-white/10 bg-white/5 p-1 transition hover:border-white/20 sm:max-w-none sm:gap-3 sm:py-2 sm:pl-2 sm:pr-4"
             >
               <AvatarWithFrame
                 avatar={profile.avatar}
                 frame={profile.frame}
-                className="h-9 w-9 border border-white/10 sm:h-11 sm:w-11"
+                className="h-9 w-9 shrink-0 border border-white/10 sm:h-11 sm:w-11"
               />
-              <div className="hidden min-w-0 leading-tight sm:block">
-                <p className="truncate text-sm font-medium text-white">
+              <div className="min-w-0 flex-1 leading-tight pr-1.5 sm:pr-0">
+                <p className="hidden truncate text-sm font-medium text-white sm:block">
                   {displayName}
                 </p>
-                <p className="text-xs text-[var(--color-text-muted)]">
-                  {profile.title?.name ? `${profile.title.name} • ` : ""}Level {userProgress.level}
+                <p className="truncate text-[10px] text-[var(--color-text-muted)] sm:text-xs">
+                  {profile.title?.name ? (
+                    <>
+                      <span className="text-white/90 sm:text-[var(--color-text-muted)]">
+                        {profile.title.name}
+                      </span>
+                      <span className="hidden sm:inline">{` • Level ${userProgress.level}`}</span>
+                      <span className="sm:hidden">{` · Lv ${userProgress.level}`}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="sm:hidden">Lv {userProgress.level}</span>
+                      <span className="hidden sm:inline">Level {userProgress.level}</span>
+                    </>
+                  )}
                 </p>
               </div>
             </Link>

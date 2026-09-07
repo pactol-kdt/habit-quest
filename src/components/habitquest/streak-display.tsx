@@ -5,6 +5,8 @@ import { StreakFlame } from "~/components/habitquest/streak-flame";
 import {
   getStreakFireTier,
   streakFireBorderClass,
+  streakFireTierLabel,
+  type StreakFireTier,
 } from "~/lib/habitquest/streak-fire-tier";
 
 interface StreakDisplayProps {
@@ -13,32 +15,39 @@ interface StreakDisplayProps {
   featured?: boolean;
 }
 
+const TIER_LABEL_CLASS: Record<StreakFireTier, string> = {
+  dormant: "text-slate-300/80",
+  spark: "text-amber-200/90",
+  ember: "text-orange-200/90",
+  blaze: "text-orange-100/90",
+  inferno: "text-rose-200/90",
+  legendary: "text-amber-200/90",
+  eternal: "text-cyan-200/90",
+  apex: "text-pink-200/90",
+};
+
 export function StreakDisplay({
   currentStreak,
   bestStreak = 0,
   featured = false,
 }: StreakDisplayProps) {
   const tier = getStreakFireTier(currentStreak);
+  const tierLabel = streakFireTierLabel(tier);
+  const toneClass = TIER_LABEL_CLASS[tier];
 
   if (featured) {
     return (
       <div className={cn("relative rounded-[1.5rem] md:rounded-[1.75rem]", streakFireBorderClass(tier))}>
         <div className="hq-streak-panel-inner relative overflow-hidden p-4 sm:p-5 md:p-6">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full bg-orange-300/15 blur-3xl"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -bottom-12 -left-6 h-32 w-32 rounded-full bg-red-500/10 blur-3xl"
-          />
+          <div aria-hidden className="hq-streak-blob hq-streak-blob--tr" />
+          <div aria-hidden className="hq-streak-blob hq-streak-blob--bl" />
 
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex items-end gap-4 sm:gap-5">
               <StreakFlame tier={tier} size="lg" />
               <div>
-                <p className="text-xs uppercase tracking-[0.28em] text-orange-200/90">
-                  Current streak
+                <p className={cn("text-xs uppercase tracking-[0.28em]", toneClass)}>
+                  {tierLabel}
                 </p>
                 <div className="mt-1 flex items-baseline gap-2">
                   <span
@@ -49,7 +58,7 @@ export function StreakDisplay({
                   >
                     {currentStreak}
                   </span>
-                  <span className="pb-1 text-base text-orange-100/90 sm:text-lg">
+                  <span className={cn("pb-1 text-base sm:text-lg", toneClass)}>
                     {currentStreak === 1 ? "day" : "days"}
                   </span>
                 </div>
@@ -70,7 +79,7 @@ export function StreakDisplay({
                 Clear a habit today to start your streak.
               </p>
             ) : (
-              <p className="max-w-xs text-sm leading-6 text-orange-100/80 sm:text-right">
+              <p className={cn("max-w-xs text-sm leading-6 sm:text-right", toneClass)}>
                 One clear today keeps the chain alive.
               </p>
             )}
@@ -86,6 +95,9 @@ export function StreakDisplay({
       <span className="text-white">
         {currentStreak === 0 ? "No active streak" : `${currentStreak}-day streak`}
       </span>
+      {tier !== "dormant" ? (
+        <span className={toneClass}>· {tierLabel}</span>
+      ) : null}
       {bestStreak > currentStreak ? (
         <span className="text-[var(--color-text-muted)]">· Best {bestStreak}d</span>
       ) : null}

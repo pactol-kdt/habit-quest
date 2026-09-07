@@ -27,6 +27,7 @@ import {
   getDailyRewardSummary,
   getLevelState,
   getMotivationalGreeting,
+  getProfileDisplay,
   getTodayDateKey,
   getWeeklyActivity,
   hasCompletionForDate,
@@ -54,6 +55,8 @@ export function HabitQuestApp() {
     completions,
     achievements,
     challenges,
+    shopItems,
+    equippedItems,
     dailyRewards,
     levelUnlocks,
     settings,
@@ -160,11 +163,21 @@ export function HabitQuestApp() {
     );
   }
 
-  const displayName = settings.displayName.trim() || "Adventurer";
+  const displayName = settings.displayName.trim() || "Traveler";
+  const profile = getProfileDisplay(shopItems, equippedItems);
   const weeklyChallenge = challenges.find((challenge) => challenge.period === "weekly") ?? null;
   const monthlyChallenge = challenges.find((challenge) => challenge.period === "monthly") ?? null;
   const weeklyUnlocked = isFeatureUnlocked(levelUnlocks, "weekly-challenges");
   const monthlyUnlocked = isFeatureUnlocked(levelUnlocks, "monthly-challenges");
+  const greeting = getMotivationalGreeting(userProgress);
+  const weeklyTitleOwned = Boolean(
+    weeklyChallenge?.reward.titleItemId &&
+      shopItems.some((item) => item.id === weeklyChallenge.reward.titleItemId && item.owned),
+  );
+  const monthlyTitleOwned = Boolean(
+    monthlyChallenge?.reward.titleItemId &&
+      shopItems.some((item) => item.id === monthlyChallenge.reward.titleItemId && item.owned),
+  );
 
   return (
     <main className="grid gap-4 pt-4 md:gap-6 md:pt-6">
@@ -177,12 +190,12 @@ export function HabitQuestApp() {
         {needsFirstHabit ? (
           <GlassCard className="rounded-[1.75rem] border-cyan-300/20 p-5 md:p-6">
             <p className="text-xs uppercase tracking-[0.28em] text-cyan-200">First step</p>
-            <h2 className="section-title mt-2 text-2xl text-white">Stack your first habit</h2>
+            <h2 className="section-title mt-2 text-2xl text-white">Add your first habit</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)]">
-              Attach it to something you already do — after coffee, after sitting down. Progress
-              stays a soft preview until midnight, so undos remain kind.{" "}
+              Attach it to something you already do — after coffee, after sitting down. Clears stay
+              undoable until midnight.{" "}
               <Link href="/guides" className="hq-text-accent underline-offset-2 hover:underline">
-                Read the guides
+                How it works
               </Link>
             </p>
             <button
@@ -195,15 +208,24 @@ export function HabitQuestApp() {
           </GlassCard>
         ) : null}
 
-        <GlassCard className="rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-6">
+        <GlassCard className="panel-highlight rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
                 {displayName}
+                {profile.title?.name ? (
+                  <span className="normal-case tracking-normal text-white/80">
+                    {" "}
+                    · {profile.title.name}
+                  </span>
+                ) : null}
               </p>
-              <h1 className="section-title mt-2 text-xl text-white sm:text-2xl md:text-3xl">
-                {getMotivationalGreeting(userProgress)}
+              <h1 className="section-title mt-2 text-2xl text-white sm:text-3xl md:text-4xl">
+                {greeting.headline}
               </h1>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base">
+                {greeting.support}
+              </p>
             </div>
             <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <button
@@ -259,12 +281,12 @@ export function HabitQuestApp() {
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-                Today&apos;s path
+                Today
               </p>
               <h2 className="section-title mt-2 text-2xl text-white">Daily habits</h2>
               <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                {todayReward.completedCount}/{todayReward.dueHabits.length || 0} due clears —
-                ordered by trigger time and stack. Undo stays gentle until tonight&apos;s lock-in.
+                {todayReward.completedCount}/{todayReward.dueHabits.length || 0} due —
+                finish the list, keep the streak.
               </p>
             </div>
             <div className="rounded-3xl border border-pink-300/20 bg-pink-300/8 px-4 py-3 text-sm text-pink-100">
@@ -319,6 +341,7 @@ export function HabitQuestApp() {
                 locked={!weeklyUnlocked}
                 lockLabel="Unlocks at level 3 with Weekly Challenges."
                 pending={pendingClaimIds.includes(`challenge:${weeklyChallenge.id}`)}
+                titleAlreadyOwned={weeklyTitleOwned}
                 onClaim={claimChallengeReward}
               />
             ) : null}
@@ -328,6 +351,7 @@ export function HabitQuestApp() {
                 locked={!monthlyUnlocked}
                 lockLabel="Unlocks at level 7 with Monthly Challenges."
                 pending={pendingClaimIds.includes(`challenge:${monthlyChallenge.id}`)}
+                titleAlreadyOwned={monthlyTitleOwned}
                 onClaim={claimChallengeReward}
               />
             ) : null}

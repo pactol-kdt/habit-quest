@@ -2,14 +2,16 @@
   "name": "frontend",
   "version": "0.3.2",
   "private": true,
+  "workspaces": ["packages/*"],
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0 --port 3001",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx --yes tsx --test src/lib/habitquest/utils.test.ts src/lib/habitquest/focused-api.test.ts src/lib/habitquest/reminders.test.ts src/lib/habitquest/habit-loop.test.ts"
+    "test": "npx --yes tsx --test packages/shared/src/utils.test.ts packages/shared/src/habit-loop.test.ts packages/shared/src/economy-balance.test.ts packages/shared/src/shop-mutations.test.ts src/lib/habitquest/focused-api.test.ts src/lib/habitquest/reminders.test.ts src/lib/v1/http.test.ts"
   },
   "dependencies": {
+    "@habitquest/shared": "*",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.2",
     "framer-motion": "^12.39.0",

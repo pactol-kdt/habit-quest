@@ -2,11 +2,13 @@
 
 import { AchievementGrid } from "~/components/habitquest/achievement-grid";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 export function AchievementsPage() {
   const achievements = useHabitQuestStore((state) => state.achievements);
   const unlocked = achievements.filter((achievement) => achievement.unlocked).length;
+  const hero = PAGE_HEROES.achievements;
 
   return (
     <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
@@ -14,14 +16,13 @@ export function AchievementsPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-              Achievements
+              {hero.eyebrow}
             </p>
             <h1 className="section-title mt-2 text-3xl text-white sm:text-4xl md:text-5xl">
-              Marks of the journey
+              {hero.title}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              Milestones open on their own and gift coins and EXP. Each mark stays with your
-              traveler profile.
+              {hero.support}
             </p>
           </div>
           <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white">

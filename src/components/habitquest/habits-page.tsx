@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { HabitFormModal } from "~/components/habitquest/habit-form-modal";
 import { HabitList } from "~/components/habitquest/habit-list";
+import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { cn } from "~/lib/ui/cn";
 import {
   getDueHabitsForDate,
@@ -68,20 +69,21 @@ export function HabitsPage() {
     );
   }
 
+  const hero = PAGE_HEROES.habits;
+
   return (
     <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
       <GlassCard className="rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-              Habit Codex
+              {hero.eyebrow}
             </p>
             <h1 className="section-title mt-2 text-2xl text-white sm:text-4xl md:text-5xl">
-              All habits
+              {hero.title}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base">
-              Build loops with stacking triggers — after something you already do, attach the next
-              step. Removing a habit also clears its history so your story stays true.
+              {hero.support}
             </p>
           </div>
           <button

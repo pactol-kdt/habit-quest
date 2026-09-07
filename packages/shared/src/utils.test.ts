@@ -8,7 +8,7 @@ import {
   reconcileChallenges,
   removeCompletionsFromProgress,
 } from "./utils.ts";
-import type { Challenge, Habit, HabitCompletion, ExpHistoryEntry } from "../../types/habitquest.ts";
+import type { Challenge, Habit, HabitCompletion, ExpHistoryEntry } from "./types.ts";
 
 function makeHabit(overrides: Partial<Habit> = {}): Habit {
   return {

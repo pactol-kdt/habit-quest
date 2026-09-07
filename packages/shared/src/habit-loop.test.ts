@@ -7,7 +7,7 @@ import {
   normalizeCueTime,
   sortHabitsByLoop,
 } from "./habit-loop.ts";
-import type { Habit } from "../../types/habitquest.ts";
+import type { Habit } from "./types.ts";
 
 function habit(partial: Partial<Habit> & Pick<Habit, "id" | "title">): Habit {
   return {

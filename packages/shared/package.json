@@ -1,0 +1,14 @@
+{
+  "name": "@habitquest/shared",
+  "version": "0.3.2",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "npx --yes tsx --test src/utils.test.ts src/habit-loop.test.ts src/economy-balance.test.ts src/shop-mutations.test.ts"
+  }
+}

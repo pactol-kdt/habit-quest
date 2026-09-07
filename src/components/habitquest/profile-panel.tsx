@@ -32,9 +32,13 @@ export function ProfilePanel({ data }: ProfilePanelProps) {
           />
           <div>
             <p className="text-lg font-semibold text-white">{displayName}</p>
-            <p className="text-sm text-[var(--color-text-muted)]">
-              {profile.title?.name ?? "Unranked"} • {profile.frame?.name ?? "No frame"} •{" "}
-              {profile.avatar?.name ?? "Default avatar"}
+            {profile.title?.name ? (
+              <p className="mt-0.5 text-sm font-medium text-white/90">{profile.title.name}</p>
+            ) : (
+              <p className="mt-0.5 text-sm text-[var(--color-text-muted)]">Unranked</p>
+            )}
+            <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+              {profile.frame?.name ?? "No frame"} • {profile.avatar?.name ?? "Default avatar"}
             </p>
           </div>
         </div>

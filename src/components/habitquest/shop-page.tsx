@@ -5,8 +5,10 @@ import { GlassCard } from "~/components/habitquest/glass-card";
 import { ProfilePanel } from "~/components/habitquest/profile-panel";
 import { PurchaseModal } from "~/components/habitquest/purchase-modal";
 import { ShopItemCard } from "~/components/habitquest/shop-item-card";
+import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { cn } from "~/lib/ui/cn";
 import { isFeatureUnlocked } from "~/lib/habitquest/utils";
+import { getShopLadderLockReason } from "~/lib/habitquest/shop-mutations";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 import type { ShopCategory, ShopItem } from "~/types/habitquest";
@@ -47,6 +49,7 @@ export function ShopPage() {
   const { userProgress } = useEffectiveProgress();
 
   const filteredItems = shopItems.filter((item) => item.category === selectedCategory);
+  const hero = PAGE_HEROES.shop;
 
   return (
     <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
@@ -54,14 +57,13 @@ export function ShopPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-              In-App Shop
+              {hero.eyebrow}
             </p>
             <h1 className="section-title mt-2 text-2xl text-white sm:text-4xl md:text-5xl">
-              Traveler&apos;s wardrobe
+              {hero.title}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              Spend coins on titles, frames, avatars, and themes. Some themes also bloom from habit
-              chapter rewards.
+              {hero.support}
             </p>
           </div>
           <div className="self-start rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm text-amber-100 lg:self-auto">
@@ -118,12 +120,19 @@ export function ShopPage() {
                 ? !isFeatureUnlocked(levelUnlocks, item.requiredFeature)
                 : false;
               const lockedByLevel = userProgress.level < item.requiredLevel;
-              const locked = (!item.owned && lockedByFeature) || (!item.owned && lockedByLevel);
+              const ladderLockReason =
+                !item.owned && !item.exclusive
+                  ? getShopLadderLockReason(shopItems, item)
+                  : null;
+              const locked =
+                (!item.owned && lockedByFeature) ||
+                (!item.owned && lockedByLevel) ||
+                Boolean(ladderLockReason);
               const lockReason = lockedByFeature
                 ? `Requires ${item.requiredLevel} and a feature unlock.`
                 : lockedByLevel
                   ? `Unlocks at level ${item.requiredLevel}.`
-                  : null;
+                  : ladderLockReason;
 
               const equipped =
                 equippedItems.titleItemId === item.id ||

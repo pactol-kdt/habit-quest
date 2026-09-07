@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { SEASON_PASS_XP_PER_LEVEL, SETTLEMENT_LOCK_HINT } from "~/lib/habitquest/constants";
 import { cn } from "~/lib/ui/cn";
 import { formatNumber, isFeatureUnlocked } from "~/lib/habitquest/utils";
@@ -11,12 +12,14 @@ import { useHabitQuestStore } from "~/store/habitquest-store";
 export function SeasonPassPage() {
   const {
     seasonPass: settledSeasonPass,
+    rewardSystems,
     levelUnlocks,
     claimSeasonPassLevel,
     pendingClaimIds,
     hydrated,
   } = useHabitQuestStore((state) => state);
   const { seasonPass, pendingSeasonXp } = useEffectiveProgress();
+  const hero = PAGE_HEROES.season;
 
   const seasonUnlocked = isFeatureUnlocked(levelUnlocks, "season-pass");
   const seasonXpIntoLevel = seasonPass.xp % SEASON_PASS_XP_PER_LEVEL;
@@ -42,14 +45,13 @@ export function SeasonPassPage() {
         <div className="grid gap-8 xl:grid-cols-[1.35fr_0.85fr]">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-              Monthly track
+              {hero.eyebrow}
             </p>
             <h1 className="section-title mt-2 text-2xl text-white sm:text-4xl md:text-5xl">
-              Season pass
+              {hero.title}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              Clearing habits feeds season XP. Today&apos;s XP stays in preview — {SETTLEMENT_LOCK_HINT}{" "}
-              Claims use settled tiers only. The pass renews each calendar month.
+              {hero.support} {SETTLEMENT_LOCK_HINT}
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Link
@@ -78,6 +80,11 @@ export function SeasonPassPage() {
                   }`
                 : "Unlocks at level 4"}
             </p>
+            {seasonUnlocked ? (
+              <p className="mt-3 text-sm text-cyan-100/90">
+                Seasons cleared: {rewardSystems.seasonPassCompletions}
+              </p>
+            ) : null}
           </div>
         </div>
       </GlassCard>

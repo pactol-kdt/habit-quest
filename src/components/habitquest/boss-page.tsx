@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { BOSS_CLEAR_COINS, BOSS_CLEAR_EXP, BOSS_DAMAGE, SETTLEMENT_LOCK_HINT } from "~/lib/habitquest/constants";
+import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
@@ -10,6 +11,7 @@ export function BossPage() {
   const { claimBossReward, pendingClaimIds, hydrated } = useHabitQuestStore((state) => state);
   const { weeklyBoss } = useEffectiveProgress();
   const claimPending = pendingClaimIds.includes("boss-reward");
+  const hero = PAGE_HEROES.boss;
 
   const bossPercent = weeklyBoss.maxHp
     ? ((weeklyBoss.maxHp - weeklyBoss.effectiveHp) / weeklyBoss.maxHp) * 100
@@ -31,14 +33,13 @@ export function BossPage() {
         <div className="grid gap-8 xl:grid-cols-[1.35fr_0.85fr]">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-              Weekly raid
+              {hero.eyebrow}
             </p>
             <h1 className="section-title mt-2 text-2xl text-white sm:text-4xl md:text-5xl">
-              Boss fight
+              {hero.title}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              Clearing habits deals damage. Today&apos;s hits stay in preview with the rest of your
-              progress so undos stay kind — {SETTLEMENT_LOCK_HINT}
+              {hero.support} {SETTLEMENT_LOCK_HINT}
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Link

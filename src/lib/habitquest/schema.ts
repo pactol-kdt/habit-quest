@@ -1,6 +1,6 @@
 /**
  * Sync-ready relational schema for HabitQuest cloud migration.
- * Domain gameplay stays in `src/lib/habitquest/`; persistence adapters swap underneath.
+ * Domain gameplay lives in `@habitquest/shared`; persistence adapters swap underneath.
  *
  * Live today: PostgreSQL normalized tables via drizzle (`src/lib/db`).
  * Legacy `habitquest_saves` blobs migrate once into rows on pull.

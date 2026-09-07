@@ -232,6 +232,7 @@ export async function loadNormalizedSave(
           todayCombo: rewardRows[0].todayCombo,
           comboDate: rewardRows[0].comboDate,
           progressSettledThroughDate: rewardRows[0].progressSettledThroughDate ?? null,
+          seasonPassCompletions: rewardRows[0].seasonPassCompletions ?? 0,
         }
       : undefined,
     questArcs: [...questByKey.entries()].map(([key, row]) => ({
@@ -498,6 +499,7 @@ export async function replaceNormalizedSave(
     partyCode: null,
     partyWeeklyTarget: 20,
     progressSettledThroughDate: normalized.rewardSystems.progressSettledThroughDate,
+    seasonPassCompletions: normalized.rewardSystems.seasonPassCompletions,
   });
 
   if (normalized.questArcs.length) {
@@ -917,6 +919,7 @@ type EconomyBundle = {
   newExpEntryIds: string[];
   newOwnedItemIds: string[];
   streakFreezes?: number;
+  seasonPassCompletions?: number;
   challenge?: { challengeKey: string; startsAt: string; claimed: boolean };
   quest?: { questKey: string; claimed: boolean };
   seasonClaimedLevels?: number[];
@@ -958,6 +961,13 @@ export async function persistEconomyClaim(
       await tx
         .update(rewardSystems)
         .set({ streakFreezes: bundle.streakFreezes })
+        .where(eq(rewardSystems.userId, userId));
+    }
+
+    if (bundle.seasonPassCompletions !== undefined) {
+      await tx
+        .update(rewardSystems)
+        .set({ seasonPassCompletions: bundle.seasonPassCompletions })
         .where(eq(rewardSystems.userId, userId));
     }
 

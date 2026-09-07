@@ -143,8 +143,20 @@ function AvatarArt({ itemId, className }: { itemId: string; className?: string }
     return <KnightAvatar className={className} />;
   }
 
+  if (itemId === "avatar_scribe") {
+    return <ScribeAvatar className={className} />;
+  }
+
   if (itemId === "avatar_wizard") {
     return <WizardAvatar className={className} />;
+  }
+
+  if (itemId === "avatar_warden") {
+    return <WardenAvatar className={className} />;
+  }
+
+  if (itemId === "avatar_ranger") {
+    return <RangerAvatar className={className} />;
   }
 
   if (itemId === "avatar_samurai") {
@@ -159,12 +171,24 @@ function AvatarArt({ itemId, className }: { itemId: string; className?: string }
 }
 
 function FrameArt({ itemId, className }: { itemId: string; className?: string }) {
+  if (itemId === "frame_ink_line") {
+    return <InkLineFrame className={className} />;
+  }
+
   if (itemId === "frame_bronze") {
     return <BronzeFrame className={className} />;
   }
 
+  if (itemId === "frame_forge_ring") {
+    return <ForgeRingFrame className={className} />;
+  }
+
   if (itemId === "frame_neon") {
     return <NeonFrame className={className} />;
+  }
+
+  if (itemId === "frame_aurora_filigree") {
+    return <AuroraFiligreeFrame className={className} />;
   }
 
   if (itemId === "frame_galaxy") {
@@ -215,6 +239,28 @@ function KnightAvatar({ className }: { className?: string }) {
   );
 }
 
+function ScribeAvatar({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className={cn("h-full w-full", className)}>
+      <defs>
+        <linearGradient id="scribe-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#1c1917" />
+          <stop offset="100%" stopColor="#292524" />
+        </linearGradient>
+      </defs>
+      <rect width="100" height="100" rx="28" fill="url(#scribe-bg)" />
+      <circle cx="50" cy="40" r="16" fill="#e7e5e4" />
+      <path d="M42 38h4M54 38h4" stroke="#1c1917" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M46 46c2 2 6 2 8 0" fill="none" stroke="#78716c" strokeWidth="2" strokeLinecap="round" />
+      <path d="M28 86c5-14 12-22 22-22s17 8 22 22" fill="#a8a29e" />
+      <rect x="58" y="52" width="18" height="28" rx="2" fill="#fef3c7" stroke="#d6b06a" strokeWidth="1.5" />
+      <path d="M62 58h10M62 64h8M62 70h10" stroke="#a16207" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M22 62 34 54l4 6-12 8Z" fill="#78716c" />
+      <path d="M22 62l-4 10 8-2" fill="#57534e" />
+    </svg>
+  );
+}
+
 function WizardAvatar({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 100 100" className={cn("h-full w-full", className)}>
@@ -237,6 +283,45 @@ function WizardAvatar({ className }: { className?: string }) {
       <circle cx="68" cy="24" r="3.5" fill="#fde68a" />
       <circle cx="75" cy="31" r="2" fill="#67e8f9" />
       <circle cx="61" cy="30" r="1.8" fill="#f9a8d4" />
+    </svg>
+  );
+}
+
+function WardenAvatar({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className={cn("h-full w-full", className)}>
+      <defs>
+        <linearGradient id="warden-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#14532d" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </linearGradient>
+      </defs>
+      <rect width="100" height="100" rx="28" fill="url(#warden-bg)" />
+      <path d="M50 12 78 26v22c0 22-14 36-28 42-14-6-28-20-28-42V26Z" fill="#166534" stroke="#86efac" strokeWidth="2" />
+      <circle cx="50" cy="42" r="14" fill="#fefce8" />
+      <path d="M43 42h5M52 42h5" stroke="#14532d" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M32 86c5-12 11-18 18-18s13 6 18 18" fill="#15803d" />
+      <path d="M50 28v28M42 42h16" stroke="#bbf7d0" strokeWidth="2.5" strokeLinecap="round" opacity="0.7" />
+    </svg>
+  );
+}
+
+function RangerAvatar({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className={cn("h-full w-full", className)}>
+      <defs>
+        <linearGradient id="ranger-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#365314" />
+          <stop offset="100%" stopColor="#1c1917" />
+        </linearGradient>
+      </defs>
+      <rect width="100" height="100" rx="28" fill="url(#ranger-bg)" />
+      <path d="M28 48c4-14 12-22 22-22s18 8 22 22l-8 8H36Z" fill="#3f6212" />
+      <circle cx="50" cy="46" r="15" fill="#fef3c7" />
+      <path d="M43 46h5M52 46h5" stroke="#1c1917" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M30 86c6-14 12-20 20-20s14 6 20 20" fill="#4d7c0f" />
+      <path d="M68 30 82 58M72 34l12 2" stroke="#a3e635" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M22 58c8-4 14-2 20 4" fill="none" stroke="#84cc16" strokeWidth="2" opacity="0.7" />
     </svg>
   );
 }
@@ -299,6 +384,32 @@ function BronzeFrame({ className }: { className?: string }) {
   );
 }
 
+function InkLineFrame({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className={cn("pointer-events-none absolute inset-0 h-full w-full", className)}>
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#e7e5e4" strokeWidth="2.5" />
+      <circle cx="50" cy="50" r="42" fill="none" stroke="#a8a29e" strokeWidth="1" opacity="0.7" />
+      <path d="M50 8v6M50 86v6M8 50h6M86 50h6" stroke="#fafaf9" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ForgeRingFrame({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className={cn("pointer-events-none absolute inset-0 h-full w-full", className)}>
+      <defs>
+        <linearGradient id="forge-frame" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fb923c" />
+          <stop offset="100%" stopColor="#9a3412" />
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="47" fill="none" stroke="url(#forge-frame)" strokeWidth="5.5" />
+      <circle cx="50" cy="50" r="41" fill="none" stroke="#fdba74" strokeWidth="1.5" opacity="0.5" />
+      <path d="M20 28h8M72 28h8M20 72h8M72 72h8" stroke="#fed7aa" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function NeonFrame({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 100 100" className={cn("pointer-events-none absolute inset-0 h-full w-full", className)}>
@@ -309,6 +420,32 @@ function NeonFrame({ className }: { className?: string }) {
       <circle cx="82" cy="50" r="3" fill="#67e8f9" />
       <circle cx="50" cy="18" r="3" fill="#67e8f9" />
       <circle cx="50" cy="82" r="3" fill="#67e8f9" />
+    </svg>
+  );
+}
+
+function AuroraFiligreeFrame({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className={cn("pointer-events-none absolute inset-0 h-full w-full", className)}>
+      <defs>
+        <linearGradient id="filigree-frame" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#5eead4" />
+          <stop offset="50%" stopColor="#67e8f9" />
+          <stop offset="100%" stopColor="#a7f3d0" />
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="47" fill="none" stroke="url(#filigree-frame)" strokeWidth="3.5" />
+      <path
+        d="M50 10c12 8 18 18 18 30S62 70 50 80C38 70 32 54 32 40S38 18 50 10Z"
+        fill="none"
+        stroke="#99f6e4"
+        strokeWidth="1.2"
+        opacity="0.55"
+      />
+      <circle cx="50" cy="12" r="2" fill="#ecfeff" />
+      <circle cx="78" cy="50" r="1.8" fill="#a7f3d0" />
+      <circle cx="22" cy="50" r="1.8" fill="#67e8f9" />
+      <circle cx="50" cy="88" r="2" fill="#ccfbf1" />
     </svg>
   );
 }
@@ -336,12 +473,20 @@ function GalaxyFrame({ className }: { className?: string }) {
 }
 
 function getTitlePalette(itemId: string) {
-  if (itemId.includes("archon")) {
+  if (itemId.includes("archon") || itemId.includes("season_cleared")) {
     return ["#a855f7", "#f59e0b"];
   }
 
   if (itemId.includes("weekly")) {
     return ["#22d3ee", "#a855f7"];
+  }
+
+  if (itemId.includes("iron")) {
+    return ["#94a3b8", "#f59e0b"];
+  }
+
+  if (itemId.includes("dawn")) {
+    return ["#fbbf24", "#fb923c"];
   }
 
   if (itemId.includes("master") || itemId.includes("night")) {

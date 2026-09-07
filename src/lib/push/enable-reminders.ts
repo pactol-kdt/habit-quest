@@ -1,8 +1,6 @@
 "use client";
 
-import {
-  savePushSubscriptionAction,
-} from "~/app/actions/push";
+import { savePushSubscriptionRequest } from "~/lib/v1/requests";
 import { requestReminderPermission } from "~/lib/habitquest/reminders";
 import {
   canUseWebPush,
@@ -65,7 +63,7 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
 
   const subscribed = await subscribeToHabitQuestPush();
   if (subscribed.status === "subscribed" && subscribed.subscription?.endpoint) {
-    const saved = await savePushSubscriptionAction(
+    const saved = await savePushSubscriptionRequest(
       {
         endpoint: subscribed.subscription.endpoint,
         keys: {

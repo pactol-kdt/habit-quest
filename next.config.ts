@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["@habitquest/shared"],
   serverExternalPackages: ["pg", "bcryptjs", "web-push"],
   // Let phones/PCs on the same network hit the dev server (HMR + /_next assets).
   allowedDevOrigins: [

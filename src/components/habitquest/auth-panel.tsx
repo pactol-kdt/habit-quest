@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { signOutAction } from "~/app/actions/auth";
+import { signOutRequest } from "~/lib/v1/requests";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import {
   flushCloudSaveNow,
@@ -38,7 +38,7 @@ export function AuthPanel() {
     setError(null);
     startTransition(async () => {
       await flushCloudSaveNow(projectSave());
-      await signOutAction();
+      await signOutRequest();
       setCloudSyncEnabled(false);
       clearHabitQuestData();
       setAuthUser(null);

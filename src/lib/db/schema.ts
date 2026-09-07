@@ -245,6 +245,7 @@ export const rewardSystems = pgTable("reward_systems", {
   partyCode: varchar("party_code", { length: 16 }),
   partyWeeklyTarget: integer("party_weekly_target").notNull().default(20),
   progressSettledThroughDate: varchar("progress_settled_through_date", { length: 10 }),
+  seasonPassCompletions: integer("season_pass_completions").notNull().default(0),
 });
 
 export const userQuestArcs = pgTable(

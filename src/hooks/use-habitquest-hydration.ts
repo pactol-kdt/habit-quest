@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { getSessionAction } from "~/app/actions/auth";
-import { syncHabitQuestOnAuthAction } from "~/app/actions/habitquest-sync";
+import { bootHabitQuestSessionRequest } from "~/lib/v1/requests";
 import { flushCloudSaveNow, setCloudSyncEnabled } from "~/lib/habitquest/cloud-sync";
 import { createSeedData } from "~/lib/habitquest/seed";
 import {
   mergeCloudSaveWithLocalDraft,
+  peekCachedAuthUser,
   peekHabitQuestLocalSave,
 } from "~/lib/habitquest/storage";
 import { useHabitQuestStore } from "~/store/habitquest-store";
@@ -24,26 +24,42 @@ export function useHabitQuestHydration() {
     booted.current = true;
 
     void (async () => {
-      const session = await getSessionAction();
-      if (!session) {
+      const localSave = peekHabitQuestLocalSave();
+      const cachedUser = peekCachedAuthUser();
+
+      // Optimistic first paint: show cached save immediately. Do NOT enable cloud
+      // sync yet — a premature push could overwrite a newer cloud save.
+      const paintedOptimistic = Boolean(localSave && cachedUser);
+      if (localSave && cachedUser) {
+        setAuthUser(cachedUser);
+        applyAuthenticatedSave(localSave, {
+          processDailyLogin: false,
+        });
+      }
+
+      const boot = await bootHabitQuestSessionRequest(localSave ?? createSeedData(), {
+        // Session restore never overwrites an existing cloud save.
+        // Empty accounts still migrate leftover local progress, then clear it.
+        extractLocal: false,
+      });
+
+      if (boot.status === "guest") {
         setCloudSyncEnabled(false);
         setAuthUser(null);
         setAuthChecked(true);
         return;
       }
 
-      setAuthUser(session);
+      setAuthUser(boot.user);
       setCloudSyncEnabled(true);
 
-      const localSave = peekHabitQuestLocalSave();
-      const sync = await syncHabitQuestOnAuthAction(localSave ?? createSeedData(), {
-        // Session restore never overwrites an existing cloud save.
-        // Empty accounts still migrate leftover local progress, then clear it.
-        extractLocal: false,
-      });
-
-      if (sync.status === "loaded") {
-        const merged = mergeCloudSaveWithLocalDraft(sync.data, localSave);
+      if (boot.status === "loaded") {
+        // Prefer the live store draft so edits during optimistic paint survive merge.
+        const draft =
+          paintedOptimistic
+            ? useHabitQuestStore.getState().projectSave()
+            : localSave;
+        const merged = mergeCloudSaveWithLocalDraft(boot.data, draft);
         applyAuthenticatedSave(merged.data, {
           processDailyLogin: true,
         });
@@ -57,17 +73,10 @@ export function useHabitQuestHydration() {
       }
 
       // Keep the session on sync errors — fall back to local cache when possible.
-      if (sync.status === "error" && localSave) {
+      if (localSave) {
         applyAuthenticatedSave(localSave, {
           processDailyLogin: true,
         });
-        setAuthChecked(true);
-        return;
-      }
-
-      if (sync.status === "unauthenticated") {
-        setCloudSyncEnabled(false);
-        setAuthUser(null);
         setAuthChecked(true);
         return;
       }

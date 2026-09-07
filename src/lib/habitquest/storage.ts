@@ -1,8 +1,14 @@
-import { DEFAULT_SETTINGS, SAVE_VERSION, STORAGE_KEY } from "~/lib/habitquest/constants";
+import {
+  AUTH_CACHE_KEY,
+  DEFAULT_SETTINGS,
+  SAVE_VERSION,
+  STORAGE_KEY,
+} from "~/lib/habitquest/constants";
 import { normalizeHabitRecord } from "~/lib/habitquest/habit-loop";
 import type { HabitQuestCatalog } from "~/lib/habitquest/catalog";
 import { createSeedData } from "~/lib/habitquest/seed";
 import { getTodayDateKey } from "~/lib/habitquest/utils";
+import type { AuthUser } from "~/lib/auth/session-types";
 import type {
   Achievement,
   Challenge,
@@ -254,14 +260,18 @@ export function normalizeHabitQuestData(
         parsed.rewardSystems?.progressSettledThroughDate ??
         fallback.rewardSystems.progressSettledThroughDate ??
         null,
+      seasonPassCompletions:
+        parsed.rewardSystems?.seasonPassCompletions ??
+        fallback.rewardSystems.seasonPassCompletions,
     },
     questArcs: mergeQuestArcs(parsed.questArcs, fallback.questArcs),
     seasonPass: {
       ...fallback.seasonPass,
       ...(parsed.seasonPass ?? {}),
-      rewards: parsed.seasonPass?.rewards?.length
-        ? parsed.seasonPass.rewards
-        : fallback.seasonPass.rewards,
+      // Prefer catalog track so L2–L30 rewrites land without waiting on a full resave.
+      rewards: fallback.seasonPass.rewards.length
+        ? fallback.seasonPass.rewards
+        : (parsed.seasonPass?.rewards ?? []),
       claimedLevels:
         parsed.seasonPass?.claimedLevels ?? fallback.seasonPass.claimedLevels,
     },
@@ -321,6 +331,24 @@ export function mergeCloudSaveWithLocalDraft(
       cloud.dailyRewards.claimedDailyCompletionRewardDate ||
     mergedDailyRewards.lastLoginDate !== cloud.dailyRewards.lastLoginDate;
 
+  const mergedLastComebackDate = pickLaterDateKey(
+    local.rewardSystems.lastComebackDate,
+    cloud.rewardSystems.lastComebackDate,
+  );
+  const mergedProgressSettledThroughDate = pickLaterDateKey(
+    local.rewardSystems.progressSettledThroughDate,
+    cloud.rewardSystems.progressSettledThroughDate,
+  );
+  const localRewardSystemsAhead =
+    mergedLastComebackDate !== cloud.rewardSystems.lastComebackDate ||
+    mergedProgressSettledThroughDate !== cloud.rewardSystems.progressSettledThroughDate;
+  // Local midnight settlement wrote coins/EXP that cloud has not received yet.
+  const localSettlementOwnsProgress =
+    Boolean(local.rewardSystems.progressSettledThroughDate) &&
+    mergedProgressSettledThroughDate === local.rewardSystems.progressSettledThroughDate &&
+    local.rewardSystems.progressSettledThroughDate !==
+      cloud.rewardSystems.progressSettledThroughDate;
+
   const localHasExtraCompletions = local.completions.some(
     (completion) =>
       !cloud.completions.some(
@@ -341,12 +369,14 @@ export function mergeCloudSaveWithLocalDraft(
     local.wallet.lifetimeCoinsEarned + 50 < cloud.wallet.lifetimeCoinsEarned;
 
   // Pending-only local drafts can look "stale" by settled EXP — still keep them
-  // when they clearly have clears, undos, or a newer daily-login claim.
+  // when they clearly have clears, undos, a newer daily-login claim, or a newer
+  // day-settlement / comeback claim the cloud has not flushed yet.
   if (
     localLooksStale &&
     !localHasExtraCompletions &&
     !localRemovedTodayClear &&
-    !localDailyAhead
+    !localDailyAhead &&
+    !localRewardSystemsAhead
   ) {
     return { data: cloud, shouldPush: false };
   }
@@ -417,7 +447,8 @@ export function mergeCloudSaveWithLocalDraft(
     !habitsChanged &&
     !addedOwned &&
     !localSpentMore &&
-    !localDailyAhead
+    !localDailyAhead &&
+    !localRewardSystemsAhead
   ) {
     return { data: cloud, shouldPush: false };
   }
@@ -455,6 +486,12 @@ export function mergeCloudSaveWithLocalDraft(
       habits: [...habitById.values()],
       completions,
       dailyRewards: mergedDailyRewards,
+      // Prefer the draft that already locked the day in — otherwise refresh
+      // re-settles and the comeback bonus celebration / payout fires again.
+      userProgress: localSettlementOwnsProgress ? local.userProgress : cloud.userProgress,
+      seasonPass: localSettlementOwnsProgress ? local.seasonPass : cloud.seasonPass,
+      weeklyBoss: localSettlementOwnsProgress ? local.weeklyBoss : cloud.weeklyBoss,
+      questArcs: localSettlementOwnsProgress ? local.questArcs : cloud.questArcs,
       shopItems: cloud.shopItems.map((item) => ({
         ...item,
         owned: ownedIds.has(item.id),
@@ -484,6 +521,16 @@ export function mergeCloudSaveWithLocalDraft(
       },
       rewardSystems: {
         ...cloud.rewardSystems,
+        lastComebackDate: mergedLastComebackDate,
+        progressSettledThroughDate: mergedProgressSettledThroughDate,
+        streakFreezes: Math.max(
+          local.rewardSystems.streakFreezes,
+          cloud.rewardSystems.streakFreezes,
+        ),
+        seasonPassCompletions: Math.max(
+          local.rewardSystems.seasonPassCompletions,
+          cloud.rewardSystems.seasonPassCompletions,
+        ),
         todayCombo,
         comboDate: todayCombo > 0 ? today : null,
       },
@@ -571,6 +618,63 @@ export function clearHabitQuestData() {
 
   try {
     window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore storage errors.
+  }
+
+  clearCachedAuthUser();
+}
+
+function isAuthUser(value: unknown): value is AuthUser {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<AuthUser>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.email === "string" &&
+    typeof candidate.displayName === "string" &&
+    (candidate.role === "admin" || candidate.role === "user")
+  );
+}
+
+/** Last signed-in profile for optimistic first paint on refresh. */
+export function peekCachedAuthUser(): AuthUser | null {
+  if (!isBrowser()) {
+    return null;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(AUTH_CACHE_KEY);
+    if (!rawValue) {
+      return null;
+    }
+    const parsed: unknown = JSON.parse(rawValue);
+    return isAuthUser(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function cacheAuthUser(user: AuthUser) {
+  if (!isBrowser()) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(user));
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+export function clearCachedAuthUser() {
+  if (!isBrowser()) {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(AUTH_CACHE_KEY);
   } catch {
     // Ignore storage errors.
   }

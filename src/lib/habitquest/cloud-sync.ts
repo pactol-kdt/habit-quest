@@ -1,6 +1,6 @@
 "use client";
 
-import { pushHabitQuestSaveAction } from "~/app/actions/habitquest-sync";
+import { pushHabitQuestSaveRequest } from "~/lib/v1/requests";
 import type { HabitQuestData } from "~/types/habitquest";
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -72,7 +72,7 @@ async function flushCloudSave() {
   emit("syncing");
 
   try {
-    const result = await pushHabitQuestSaveAction(payload);
+    const result = await pushHabitQuestSaveRequest(payload);
     if (result.status === "ok") {
       emit("synced");
       // More edits landed while this push was in flight — flush again.
@@ -161,7 +161,7 @@ export async function ensureCloudSavePushed(
   emit("syncing");
 
   try {
-    const result = await pushHabitQuestSaveAction(data);
+    const result = await pushHabitQuestSaveRequest(data);
     if (result.status === "ok") {
       emit("synced");
       return { ok: true, updatedAt: result.updatedAt };

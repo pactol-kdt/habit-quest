@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import type { AuthUser } from "~/lib/auth/session-types";
 import {
-  signInAction,
-  signUpAction,
-  type AuthActionResult,
-} from "~/app/actions/auth";
-import { syncHabitQuestOnAuthAction } from "~/app/actions/habitquest-sync";
+  signInRequest,
+  signUpRequest,
+  syncHabitQuestOnAuthRequest,
+} from "~/lib/v1/requests";
+
+type AuthResult = { ok: true; user: AuthUser } | { ok: false; error: string };
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { setCloudSyncEnabled } from "~/lib/habitquest/cloud-sync";
 import { createSeedData } from "~/lib/habitquest/seed";
@@ -31,7 +33,7 @@ export function AuthGate() {
   const setAuthUser = useHabitQuestStore((state) => state.setAuthUser);
   const applyAuthenticatedSave = useHabitQuestStore((state) => state.applyAuthenticatedSave);
 
-  function finishAuth(result: AuthActionResult) {
+  function finishAuth(result: AuthResult) {
     if (!result.ok) {
       setError(result.error);
       return;
@@ -42,7 +44,7 @@ export function AuthGate() {
     setCloudSyncEnabled(true);
 
     startTransition(async () => {
-      const sync = await syncHabitQuestOnAuthAction(localSave ?? createSeedData(), {
+      const sync = await syncHabitQuestOnAuthRequest(localSave ?? createSeedData(), {
         extractLocal: canExtract,
       });
 
@@ -67,11 +69,11 @@ export function AuthGate() {
       if (mode === "signup") {
         const displayName =
           localSave?.settings.displayName || email.split("@")[0] || "";
-        finishAuth(await signUpAction(email, password, displayName));
+        finishAuth(await signUpRequest(email, password, displayName));
         return;
       }
 
-      finishAuth(await signInAction(email, password));
+      finishAuth(await signInRequest(email, password));
     });
   }
 

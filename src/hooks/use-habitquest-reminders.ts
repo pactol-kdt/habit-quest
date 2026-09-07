@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { savePushSubscriptionAction } from "~/app/actions/push";
+import { savePushSubscriptionRequest } from "~/lib/v1/requests";
 import {
   canFireBrowserReminder,
   fireDailyReminder,
@@ -99,7 +99,7 @@ export function useHabitQuestReminders() {
         if (cancelled || subscribed.status !== "subscribed" || !subscribed.subscription?.endpoint) {
           return;
         }
-        await savePushSubscriptionAction(
+        await savePushSubscriptionRequest(
           {
             endpoint: subscribed.subscription.endpoint,
             keys: {

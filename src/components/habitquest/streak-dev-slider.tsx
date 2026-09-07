@@ -2,7 +2,7 @@
 
 const isDev = process.env.NODE_ENV === "development";
 
-const PRESET_STREAKS = [0, 1, 3, 7, 14, 30];
+const PRESET_STREAKS = [0, 1, 3, 7, 14, 30, 60, 100];
 
 interface StreakDevSliderProps {
   liveStreak: number;

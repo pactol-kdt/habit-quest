@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useTransition } from "react";
 import {
-  listAdminUsersAction,
-  listCatalogAchievementsAction,
-  listCatalogShopItemsAction,
-  resetCatalogFromBuiltinAction,
-  saveCatalogAchievementAction,
-  saveCatalogShopItemAction,
-  setUserRoleAction,
-} from "~/app/actions/admin";
+  listAdminUsersRequest,
+  listCatalogAchievementsRequest,
+  listCatalogShopItemsRequest,
+  resetCatalogFromBuiltinRequest,
+  saveCatalogAchievementRequest,
+  saveCatalogShopItemRequest,
+  setUserRoleRequest,
+} from "~/lib/v1/requests";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import type { UserRole } from "~/lib/auth/session-types";
 import { useHabitQuestStore } from "~/store/habitquest-store";
@@ -83,9 +83,9 @@ export function AdminPage() {
     startTransition(async () => {
       setError(null);
       const [usersResult, shopResult, achievementResult] = await Promise.all([
-        listAdminUsersAction(),
-        listCatalogShopItemsAction(),
-        listCatalogAchievementsAction(),
+        listAdminUsersRequest(),
+        listCatalogShopItemsRequest(),
+        listCatalogAchievementsRequest(),
       ]);
 
       if (!usersResult.ok) {
@@ -151,7 +151,7 @@ export function AdminPage() {
             disabled={pending}
             onClick={() => {
               startTransition(async () => {
-                const result = await resetCatalogFromBuiltinAction();
+                const result = await resetCatalogFromBuiltinRequest();
                 if (!result.ok) {
                   setError(result.error);
                   return;
@@ -192,7 +192,7 @@ export function AdminPage() {
                   onChange={(event) => {
                     const role = event.target.value as UserRole;
                     startTransition(async () => {
-                      const result = await setUserRoleAction(user.id, role);
+                      const result = await setUserRoleRequest(user.id, role);
                       if (!result.ok) {
                         setError(result.error);
                         return;
@@ -324,7 +324,7 @@ export function AdminPage() {
                 disabled={pending}
                 onClick={() => {
                   startTransition(async () => {
-                    const result = await saveCatalogShopItemAction({
+                    const result = await saveCatalogShopItemRequest({
                       ...shopForm,
                       requiredFeature: null,
                     });
@@ -466,7 +466,7 @@ export function AdminPage() {
                 disabled={pending}
                 onClick={() => {
                   startTransition(async () => {
-                    const result = await saveCatalogAchievementAction(achievementForm);
+                    const result = await saveCatalogAchievementRequest(achievementForm);
                     if (!result.ok) {
                       setError(result.error);
                       return;

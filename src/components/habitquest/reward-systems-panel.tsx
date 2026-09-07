@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import {
+  COMBO_COIN_THRESHOLDS,
   COMBO_EXP_PER_EXTRA_CLEAR,
   MAX_STREAK_FREEZES,
   SETTLEMENT_LOCK_HINT,
@@ -103,7 +104,9 @@ export function RewardSystemsPanel() {
               {comboPreview.exp > 0
                 ? ` · +${comboPreview.exp} EXP in preview (+${COMBO_EXP_PER_EXTRA_CLEAR}/extra clear)`
                 : ""}
-              {comboPreview.coins > 0 ? ` · +${comboPreview.coins}c at 3/5/8` : ""}
+              {comboPreview.coins > 0
+                ? ` · +${comboPreview.coins}c at ${COMBO_COIN_THRESHOLDS.join("/")}`
+                : ""}
             </span>
             <span className="rounded-full bg-white/5 px-3 py-1">
               Shields: {rewardSystems.streakShieldDates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).length}

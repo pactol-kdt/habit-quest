@@ -230,7 +230,8 @@ const DDL = [
     combo_date VARCHAR(10),
     party_code VARCHAR(16),
     party_weekly_target INTEGER NOT NULL DEFAULT 20,
-    progress_settled_through_date VARCHAR(10)
+    progress_settled_through_date VARCHAR(10),
+    season_pass_completions INTEGER NOT NULL DEFAULT 0
   )`,
   `CREATE TABLE IF NOT EXISTS user_quest_arcs (
     user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -371,6 +372,14 @@ async function runMigrations(database: ReturnType<typeof createDrizzle>) {
     ) {
       await client.query(
         `ALTER TABLE reward_systems ADD COLUMN progress_settled_through_date VARCHAR(10)`,
+      );
+    }
+
+    if (
+      !(await columnExists(client, "reward_systems", "season_pass_completions"))
+    ) {
+      await client.query(
+        `ALTER TABLE reward_systems ADD COLUMN season_pass_completions INTEGER NOT NULL DEFAULT 0`,
       );
     }
 

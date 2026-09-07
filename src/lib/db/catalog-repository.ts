@@ -31,7 +31,19 @@ import type {
 
 type Database = typeof db;
 
+/** Process-local catalog cache — avoids re-seeding + 6 SELECTs on every pull/push. */
+let catalogCache: HabitQuestCatalog | null = null;
+let catalogSeededThisProcess = false;
+
+export function invalidateCatalogCache() {
+  catalogCache = null;
+}
+
 export async function ensureCatalogSeeded(database: Database = db) {
+  if (catalogSeededThisProcess) {
+    return;
+  }
+
   const existing = await database
     .select({ id: catalogShopItems.id })
     .from(catalogShopItems)
@@ -40,6 +52,8 @@ export async function ensureCatalogSeeded(database: Database = db) {
   if (!existing[0]) {
     const catalog = getBuiltinCatalog();
     await replaceCatalog(database, catalog);
+    catalogSeededThisProcess = true;
+    invalidateCatalogCache();
     return;
   }
 
@@ -49,6 +63,7 @@ export async function ensureCatalogSeeded(database: Database = db) {
     .where(eq(catalogLevelUnlocks.feature, "party"));
 
   await syncMissingBuiltinCatalogRows(database);
+  catalogSeededThisProcess = true;
 }
 
 /** Backfill challenges / unlocks / titles stripped from older builtin catalogs. */
@@ -147,8 +162,19 @@ async function syncMissingBuiltinCatalogRows(database: Database) {
   }
 
   // Keep theme palettes in sync with builtin catalog (visual tokens evolve over time).
+  // Only write when tokens actually differ — blind UPDATEs on every request were a major
+  // refresh latency cost.
+  const themeRows = await database
+    .select({ id: catalogShopItems.id, themeVars: catalogShopItems.themeVars })
+    .from(catalogShopItems);
+  const themeById = new Map(themeRows.map((row) => [row.id, row.themeVars] as const));
+
   for (const item of builtin.shopItems) {
     if (item.category !== "theme" || !item.themeVars || !existingShopIds.has(item.id)) {
+      continue;
+    }
+    const current = themeById.get(item.id);
+    if (JSON.stringify(current ?? null) === JSON.stringify(item.themeVars)) {
       continue;
     }
     await database
@@ -265,11 +291,17 @@ export async function replaceCatalog(database: Database, catalog: HabitQuestCata
       })),
     );
   }
+
+  invalidateCatalogCache();
 }
 
 export async function loadCatalogFromDb(
   database: Database = db,
 ): Promise<HabitQuestCatalog> {
+  if (catalogCache) {
+    return catalogCache;
+  }
+
   await ensureCatalogSeeded(database);
 
   const [shopRows, achievementRows, challengeRows, unlockRows, questRows, seasonRows] =
@@ -283,7 +315,9 @@ export async function loadCatalogFromDb(
     ]);
 
   if (!shopRows.length) {
-    return getBuiltinCatalog();
+    const builtin = getBuiltinCatalog();
+    catalogCache = builtin;
+    return builtin;
   }
 
   const shopItems: ShopItem[] = shopRows
@@ -390,7 +424,7 @@ export async function loadCatalogFromDb(
       label: row.label,
     }));
 
-  return {
+  const catalog: HabitQuestCatalog = {
     shopItems,
     achievements,
     challenges,
@@ -398,6 +432,8 @@ export async function loadCatalogFromDb(
     questArcs,
     seasonRewards,
   };
+  catalogCache = catalog;
+  return catalog;
 }
 
 export async function upsertCatalogShopItem(
@@ -434,6 +470,7 @@ export async function upsertCatalogShopItem(
   } else {
     await database.insert(catalogShopItems).values(values);
   }
+  invalidateCatalogCache();
 }
 
 export async function upsertCatalogAchievement(
@@ -469,4 +506,5 @@ export async function upsertCatalogAchievement(
   } else {
     await database.insert(catalogAchievements).values(values);
   }
+  invalidateCatalogCache();
 }

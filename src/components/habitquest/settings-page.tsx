@@ -10,6 +10,7 @@ import {
   requestReminderPermission,
 } from "~/lib/habitquest/reminders";
 import { APP_VERSION } from "~/lib/app-version";
+import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { getDueHabitsForDate, getTodayDateKey } from "~/lib/habitquest/utils";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
@@ -24,6 +25,7 @@ export function SettingsPage() {
     (state) => state,
   );
   const [displayNameDraft, setDisplayNameDraft] = useState(settings.displayName);
+  const hero = PAGE_HEROES.settings;
 
   useEffect(() => {
     setDisplayNameDraft(settings.displayName);
@@ -102,13 +104,13 @@ export function SettingsPage() {
     <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
       <GlassCard className="rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-          Settings
+          {hero.eyebrow}
         </p>
         <h1 className="section-title mt-2 text-2xl text-white sm:text-4xl md:text-5xl">
-          Traveler preferences
+          {hero.title}
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base">
-          Your account holds the journey. Here you can shape your name and keep your sync steady.
+          {hero.support}
         </p>
       </GlassCard>
 
