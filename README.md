@@ -136,7 +136,7 @@ src/
 
 ## Core gamification rules
 
-- Daily login: `+1` coin once per local day
+- Daily login: `+1` coin once per day
 - Perfect day reward: `+2` coins only if all habits due today are completed and at least `3` due habits were completed
 - Habit EXP:
   - Easy: `10`

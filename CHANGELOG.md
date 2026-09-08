@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.4.1 - How to Play and Habit Form Clarity
+
+### Added
+- Added a replayable how-to-play tutorial for new users (stack, clear, lock-in, daily loop), with replay from Habits.
+
+### Changed
+- Rewrote the stack-a-habit modal so the formula is one choice (a cue or another habit), with a live preview.
+- Dropped “local” from lock-in and reminder copy (midnight, daily streak, 08:00).
+- Clarified that habit trigger time is a cue, not a guaranteed alarm.
+
 ## 0.4.0 - Activity Graph and Dual Daily Push
 
 ### Added

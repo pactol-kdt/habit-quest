@@ -63,7 +63,7 @@ export const CRIT_MULTIPLIER = 2;
 export const COMBO_EXP_PER_EXTRA_CLEAR = 5;
 /** Coin payouts when same-day clear count hits these thresholds. */
 export const COMBO_COIN_THRESHOLDS = [4, 7] as const;
-export const SETTLEMENT_LOCK_HINT = "Banks at local midnight on next open.";
+export const SETTLEMENT_LOCK_HINT = "Banks at midnight on next open.";
 /** Short label for tonight's reversible progress (not the same as "Saving…"). */
 export const PREVIEW_LABEL = "Preview";
 export const CLEARED_TODAY_LABEL = "Cleared today";

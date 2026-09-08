@@ -30,11 +30,11 @@ const GUIDE_SECTIONS = [
   },
   {
     title: "Triggers & reminders",
-    body: "Optional trigger time and place sit on each habit. In-tab reminders fire at each due habit’s trigger (falling back to 08:00 local). Push sends a digest at 00:00 UTC and a follow-up at 14:00 UTC if habits are still open; stack language shows up in the copy when you have stacked habits due.",
+    body: "Time and place are optional cues — when and where you usually do the habit. They sort today's list. They are not a guaranteed alarm. If reminders are on and this tab is open, you'll get a browser ping at that trigger. Phone push is separate: a digest at 00:00 UTC, then a follow-up at 14:00 UTC if habits are still due — not at each habit's time.",
   },
   {
     title: "Streaks & freezes",
-    body: `Complete at least one habit each local day to keep your streak. Freezes auto-spend when you miss exactly one day and return the next morning. Earn freezes at ${FREEZE_MILESTONES_LABEL}-day milestones, or buy one for ${STREAK_FREEZE_COST} coins (max ${MAX_STREAK_FREEZES} held).`,
+    body: `Complete at least one habit each day to keep your streak. Freezes auto-spend when you miss exactly one day and return the next morning. Earn freezes at ${FREEZE_MILESTONES_LABEL}-day milestones, or buy one for ${STREAK_FREEZE_COST} coins (max ${MAX_STREAK_FREEZES} held).`,
   },
   {
     title: "Comeback bonus",
@@ -54,7 +54,7 @@ const GUIDE_SECTIONS = [
   },
   {
     title: "End-of-day lock-in",
-    body: "Completing habits logs a pending clear immediately. Stats preview includes today, but permanent EXP, season tiers, comeback, combo, perfect-day coins, quest progress, and boss HP only lock in at local midnight on next open.",
+    body: "Completing habits logs a pending clear immediately. Stats preview includes today, but permanent EXP, season tiers, comeback, combo, perfect-day coins, quest progress, and boss HP only lock in at midnight on next open.",
   },
   {
     title: "Critical clears",

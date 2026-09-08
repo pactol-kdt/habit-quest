@@ -193,10 +193,7 @@ export function HabitQuestApp() {
             <h2 className="section-title mt-2 text-2xl text-white">Add your first habit</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)]">
               Attach it to something you already do — after coffee, after sitting down. Clears stay
-              undoable until midnight.{" "}
-              <Link href="/guides" className="hq-text-accent underline-offset-2 hover:underline">
-                How it works
-              </Link>
+              undoable until midnight.
             </p>
             <button
               type="button"

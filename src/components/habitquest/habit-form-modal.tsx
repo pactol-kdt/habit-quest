@@ -3,10 +3,17 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DIFFICULTY_LABELS, RECURRENCE_LABELS, WEEKDAY_LABELS } from "~/lib/habitquest/constants";
-import { describeStackFormula, canLinkStackAfter, wouldCreateStackCycle } from "~/lib/habitquest/habit-loop";
+import {
+  describeHabitCue,
+  describeStackFormula,
+  canLinkStackAfter,
+  wouldCreateStackCycle,
+} from "~/lib/habitquest/habit-loop";
 import { cn } from "~/lib/ui/cn";
-import { emptyHabitFormValues } from "~/lib/habitquest/utils";
+import { emptyHabitFormValues, getDifficultyExp } from "~/lib/habitquest/utils";
 import type { Habit, HabitDifficulty, HabitFormValues, HabitRecurrence } from "~/types/habitquest";
+
+type StackMode = "cue" | "habit";
 
 interface HabitFormModalProps {
   habit?: Habit | null;
@@ -69,6 +76,9 @@ function HabitFormDialog({
         }
       : emptyHabitFormValues(),
   );
+  const [stackMode, setStackMode] = useState<StackMode>(() =>
+    habit?.stackAfterHabitId ? "habit" : "cue",
+  );
   const [submitting, setSubmitting] = useState(false);
 
   const stackableHabits = useMemo(
@@ -88,6 +98,9 @@ function HabitFormDialog({
     [habit?.id, habits],
   );
 
+  const canLinkHabits = stackableHabits.length > 0 || Boolean(values.stackAfterHabitId);
+  const activeStackMode = canLinkHabits ? stackMode : "cue";
+
   const previewHabit = useMemo(
     () =>
       ({
@@ -97,8 +110,8 @@ function HabitFormDialog({
         difficulty: values.difficulty,
         recurrence: values.recurrence,
         customDays: values.customDays,
-        stackAfter: values.stackAfter,
-        stackAfterHabitId: values.stackAfterHabitId,
+        stackAfter: activeStackMode === "cue" ? values.stackAfter : "",
+        stackAfterHabitId: activeStackMode === "habit" ? values.stackAfterHabitId : null,
         cueTime: values.cueTime,
         cueContext: values.cueContext,
         identityWhy: values.identityWhy,
@@ -107,10 +120,16 @@ function HabitFormDialog({
         createdAt: habit?.createdAt ?? "",
         updatedAt: habit?.updatedAt ?? "",
       }) satisfies Habit,
-    [habit, values],
+    [activeStackMode, habit, values],
   );
 
   const stackPreview = describeStackFormula(previewHabit, habits);
+  const cueLine = describeHabitCue(previewHabit);
+  const selectedAnchor = habits.find((entry) => entry.id === values.stackAfterHabitId);
+  const afterLabel =
+    activeStackMode === "habit"
+      ? selectedAnchor?.title.trim() || ""
+      : values.stackAfter.trim();
 
   function updateField<Key extends keyof HabitFormValues>(key: Key, value: HabitFormValues[Key]) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -130,87 +149,123 @@ function HabitFormDialog({
       return;
     }
     setSubmitting(true);
-    onSubmit(values);
+    onSubmit({
+      ...values,
+      stackAfter: activeStackMode === "habit" ? "" : values.stackAfter,
+      stackAfterHabitId: activeStackMode === "habit" ? values.stackAfterHabitId : null,
+    });
     window.setTimeout(() => onClose(), 420);
   }
 
   return (
     <motion.div
-      className="glass-panel max-h-[min(92dvh,900px)] w-full max-w-2xl overflow-y-auto rounded-t-[1.5rem] border border-white/10 p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-[1.75rem] sm:p-5 md:rounded-[2rem] md:p-8"
+      className="glass-panel flex max-h-[min(92dvh,900px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-[1.5rem] border border-white/10 sm:rounded-[1.75rem] md:rounded-[2rem]"
       initial={{ y: 20, opacity: 0, scale: 0.98 }}
       animate={{ y: 0, opacity: 1, scale: 1 }}
       exit={{ y: 12, opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.2 }}
     >
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4 sm:px-5 sm:pt-5 md:px-8 md:pt-8">
         <div>
           <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
             Habit loop
           </p>
           <h2 className="section-title mt-2 text-2xl text-white md:text-3xl">
-            {habit ? "Refine this stack" : "Stack a new habit"}
+            {habit ? "Refine this habit" : "Stack a new habit"}
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--color-text-muted)]">
-            Design trigger → motivation → response → reward. Habit stacking is the strongest
-            trigger: attach the new behavior to something you already do.
+            Hook it onto something you already do. After that cue, the next action is obvious —
+            then name why it matters and the smallest version you can still finish.
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="min-h-10 rounded-full border border-white/10 px-3 py-1 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
+          className="min-h-10 shrink-0 rounded-full border border-white/10 px-3 py-1 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
         >
           Close
         </button>
       </div>
 
-      <div className="grid gap-5">
+      <div className="grid flex-1 gap-5 overflow-y-auto px-4 py-5 sm:px-5 md:px-8 md:py-6">
         <section className="rounded-[1.35rem] border border-cyan-300/20 bg-cyan-300/5 p-4 sm:p-5">
-          <p className="text-xs uppercase tracking-[0.22em] text-cyan-200">1. Trigger · Stack</p>
+          <p className="text-xs uppercase tracking-[0.22em] text-cyan-200">1. Trigger</p>
           <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
-            Formula: <span className="text-white">After [current habit], I will [new habit]</span>
-            . Chains only — each habit gets one next step (1 → 2 → 3).
+            Write the automatic moment, not the new habit. Chains stay 1 → 2 → 3 — each habit
+            can have only one next step.
           </p>
 
-          <label className="mt-4 grid gap-2">
-            <span className="text-sm text-[var(--color-text-muted)]">After I…</span>
-            <input
-              value={values.stackAfter}
-              onChange={(event) => updateField("stackAfter", event.target.value)}
-              placeholder="pour coffee / sit at my desk / brush my teeth"
-              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50 focus:bg-white/7"
-            />
-          </label>
+          {canLinkHabits ? (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <StackModeButton
+                active={activeStackMode === "cue"}
+                label="A moment I already do"
+                onClick={() => setStackMode("cue")}
+              />
+              <StackModeButton
+                active={activeStackMode === "habit"}
+                label="Another habit"
+                onClick={() => setStackMode("habit")}
+              />
+            </div>
+          ) : null}
 
-          {stackableHabits.length ? (
+          {activeStackMode === "habit" ? (
             <div className="mt-4 grid gap-2">
-              <span className="text-sm text-[var(--color-text-muted)]">
-                Or stack after another HabitQuest habit (open anchors only)
-              </span>
+              <span className="text-sm text-[var(--color-text-muted)]">After I clear…</span>
               <StackAfterDropdown
                 habits={stackableHabits}
                 value={values.stackAfterHabitId}
                 onChange={(habitId) => updateField("stackAfterHabitId", habitId)}
               />
+              <p className="text-xs leading-5 text-[var(--color-text-muted)]">
+                This habit glows Next once that one is cleared today.
+              </p>
             </div>
-          ) : habits.some((entry) => entry.id !== habit?.id) ? (
-            <p className="mt-4 text-xs text-[var(--color-text-muted)]">
-              Every habit already has a next step. Edit or clear a link to extend the chain.
+          ) : (
+            <label className="mt-4 grid gap-2">
+              <span className="text-sm text-[var(--color-text-muted)]">After I…</span>
+              <input
+                value={values.stackAfter}
+                onChange={(event) => updateField("stackAfter", event.target.value)}
+                placeholder="pour coffee, sit at my desk, brush my teeth"
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50 focus:bg-white/7"
+              />
+            </label>
+          )}
+
+          {!canLinkHabits && habits.some((entry) => entry.id !== habit?.id) ? (
+            <p className="mt-3 text-xs leading-5 text-[var(--color-text-muted)]">
+              Every habit already has a next step. Edit or clear a link if you want to extend
+              the chain.
             </p>
           ) : null}
 
+          <label className="mt-4 grid gap-2">
+            <span className="text-sm text-[var(--color-text-muted)]">I will…</span>
+            <input
+              value={values.title}
+              onChange={(event) => updateField("title", event.target.value)}
+              placeholder="stretch for 5 minutes"
+              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50 focus:bg-white/7"
+            />
+          </label>
+
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="grid gap-2">
-              <span className="text-sm text-[var(--color-text-muted)]">Trigger time (optional)</span>
+              <span className="text-sm text-[var(--color-text-muted)]">Time (optional)</span>
               <input
                 type="time"
                 value={values.cueTime ?? ""}
                 onChange={(event) => updateField("cueTime", event.target.value || null)}
                 className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50"
               />
+              <span className="text-xs leading-5 text-[var(--color-text-muted)]">
+                Cue for today&apos;s list. A ping only if this tab is open.
+              </span>
             </label>
             <label className="grid gap-2">
-              <span className="text-sm text-[var(--color-text-muted)]">Where / context</span>
+              <span className="text-sm text-[var(--color-text-muted)]">Where</span>
               <input
                 value={values.cueContext}
                 onChange={(event) => updateField("cueContext", event.target.value)}
@@ -220,31 +275,26 @@ function HabitFormDialog({
             </label>
           </div>
 
-          {stackPreview ? (
-            <p className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-cyan-100">
-              {stackPreview}
-            </p>
-          ) : null}
+          <StackFormulaPreview after={afterLabel} will={values.title} cueLine={cueLine} formula={stackPreview} />
         </section>
 
         <section className="rounded-[1.35rem] border border-white/10 bg-white/4 p-4 sm:p-5">
           <p className="text-xs uppercase tracking-[0.22em] text-amber-200">2. Motivation</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
+            Give the habit a reason you care about — identity, feeling, or both.
+          </p>
           <div className="mt-4 grid gap-4">
             <label className="grid gap-2">
-              <span className="text-sm text-[var(--color-text-muted)]">
-                Why / identity (“I’m someone who…”)
-              </span>
+              <span className="text-sm text-[var(--color-text-muted)]">I&apos;m someone who…</span>
               <input
                 value={values.identityWhy}
                 onChange={(event) => updateField("identityWhy", event.target.value)}
-                placeholder="I'm someone who starts the day in my body"
+                placeholder="starts the day in my body"
                 className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-amber-300/40"
               />
             </label>
             <label className="grid gap-2">
-              <span className="text-sm text-[var(--color-text-muted)]">
-                Feeling you want after doing it
-              </span>
+              <span className="text-sm text-[var(--color-text-muted)]">I want to feel</span>
               <input
                 value={values.desiredFeeling}
                 onChange={(event) => updateField("desiredFeeling", event.target.value)}
@@ -257,20 +307,12 @@ function HabitFormDialog({
 
         <section className="rounded-[1.35rem] border border-white/10 bg-white/4 p-4 sm:p-5">
           <p className="text-xs uppercase tracking-[0.22em] text-white">3. Response</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
+            Keep a fallback so a hard day still counts. One reach, one page, one minute.
+          </p>
           <div className="mt-4 grid gap-4">
             <label className="grid gap-2">
-              <span className="text-sm text-[var(--color-text-muted)]">I will… (habit name)</span>
-              <input
-                value={values.title}
-                onChange={(event) => updateField("title", event.target.value)}
-                placeholder="stretch for 5 minutes"
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50 focus:bg-white/7"
-              />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm text-[var(--color-text-muted)]">
-                Bare minimum (when resistance hits)
-              </span>
+              <span className="text-sm text-[var(--color-text-muted)]">Bare minimum</span>
               <input
                 value={values.tinyVersion}
                 onChange={(event) => updateField("tinyVersion", event.target.value)}
@@ -279,11 +321,11 @@ function HabitFormDialog({
               />
             </label>
             <label className="grid gap-2">
-              <span className="text-sm text-[var(--color-text-muted)]">Notes</span>
+              <span className="text-sm text-[var(--color-text-muted)]">Notes (optional)</span>
               <textarea
                 value={values.description}
                 onChange={(event) => updateField("description", event.target.value)}
-                placeholder="Optional details — keep the action obvious."
+                placeholder="Anything that makes the action obvious."
                 rows={2}
                 className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50 focus:bg-white/7"
               />
@@ -291,99 +333,110 @@ function HabitFormDialog({
           </div>
         </section>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-3">
-            <p className="text-sm text-[var(--color-text-muted)]">Difficulty · reward size</p>
-            <div className="grid grid-cols-3 gap-2">
-              {Object.entries(DIFFICULTY_LABELS).map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => updateField("difficulty", key as HabitDifficulty)}
-                  className={cn(
-                    "min-h-11 rounded-2xl border px-2 py-3 text-sm transition md:px-3",
-                    values.difficulty === key
-                      ? "border-cyan-300/60 bg-cyan-300/10 text-white"
-                      : "border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:border-white/20 hover:text-white",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
+        <section className="rounded-[1.35rem] border border-white/10 bg-white/4 p-4 sm:p-5">
+          <p className="text-xs uppercase tracking-[0.22em] text-pink-200">4. Reward</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
+            The feeling is the real payoff. Difficulty only sizes pending EXP — it banks at
+            midnight, so undos stay safe.
+          </p>
 
-          <div className="space-y-3">
-            <p className="text-sm text-[var(--color-text-muted)]">Recurrence</p>
-            <div className="grid grid-cols-3 gap-2">
-              {Object.entries(RECURRENCE_LABELS).map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => {
-                    const recurrence = key as HabitRecurrence;
-                    setValues((current) => ({
-                      ...current,
-                      recurrence,
-                      customDays:
-                        recurrence === "weekly"
-                          ? current.customDays.length === 1
-                            ? current.customDays
-                            : [new Date().getDay()]
-                          : recurrence === "custom"
-                            ? current.customDays.length
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="space-y-3">
+              <p className="text-sm text-[var(--color-text-muted)]">Difficulty</p>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(DIFFICULTY_LABELS).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => updateField("difficulty", key as HabitDifficulty)}
+                    className={cn(
+                      "min-h-11 rounded-2xl border px-2 py-2.5 text-sm transition md:px-3",
+                      values.difficulty === key
+                        ? "border-cyan-300/60 bg-cyan-300/10 text-white"
+                        : "border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:border-white/20 hover:text-white",
+                    )}
+                  >
+                    <span className="block">{label}</span>
+                    <span className="mt-0.5 block text-[11px] opacity-70">
+                      {getDifficultyExp(key as HabitDifficulty)} EXP
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm text-[var(--color-text-muted)]">How often</p>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(RECURRENCE_LABELS).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      const recurrence = key as HabitRecurrence;
+                      setValues((current) => ({
+                        ...current,
+                        recurrence,
+                        customDays:
+                          recurrence === "weekly"
+                            ? current.customDays.length === 1
                               ? current.customDays
-                              : [1, 3, 5]
-                            : [],
-                    }));
-                  }}
-                  className={cn(
-                    "min-h-11 rounded-2xl border px-2 py-3 text-sm transition md:px-3",
-                    values.recurrence === key
-                      ? "border-amber-300/60 bg-amber-300/10 text-white"
-                      : "border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:border-white/20 hover:text-white",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
+                              : [new Date().getDay()]
+                            : recurrence === "custom"
+                              ? current.customDays.length
+                                ? current.customDays
+                                : [1, 3, 5]
+                              : [],
+                      }));
+                    }}
+                    className={cn(
+                      "min-h-11 rounded-2xl border px-2 py-3 text-sm transition md:px-3",
+                      values.recurrence === key
+                        ? "border-amber-300/60 bg-amber-300/10 text-white"
+                        : "border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:border-white/20 hover:text-white",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
 
-        {values.recurrence === "custom" || values.recurrence === "weekly" ? (
-          <div className="space-y-3">
-            <p className="text-sm text-[var(--color-text-muted)]">
-              {values.recurrence === "weekly" ? "Weekly weekday" : "Select weekdays"}
-            </p>
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-              {WEEKDAY_LABELS.map((label, day) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => {
-                    if (values.recurrence === "weekly") {
-                      updateField("customDays", [day]);
-                      return;
-                    }
-                    toggleDay(day);
-                  }}
-                  className={cn(
-                    "min-h-11 rounded-2xl border px-2 py-3 text-sm transition md:px-3",
-                    values.customDays.includes(day)
-                      ? "border-pink-300/60 bg-pink-300/10 text-white"
-                      : "border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:border-white/20 hover:text-white",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
+          {values.recurrence === "custom" || values.recurrence === "weekly" ? (
+            <div className="mt-4 space-y-3">
+              <p className="text-sm text-[var(--color-text-muted)]">
+                {values.recurrence === "weekly" ? "Which weekday" : "Which days"}
+              </p>
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                {WEEKDAY_LABELS.map((label, day) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => {
+                      if (values.recurrence === "weekly") {
+                        updateField("customDays", [day]);
+                        return;
+                      }
+                      toggleDay(day);
+                    }}
+                    className={cn(
+                      "min-h-11 rounded-2xl border px-2 py-3 text-sm transition md:px-3",
+                      values.customDays.includes(day)
+                        ? "border-pink-300/60 bg-pink-300/10 text-white"
+                        : "border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:border-white/20 hover:text-white",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </section>
       </div>
 
-      <div className="mt-8 grid gap-3 sm:flex sm:flex-row sm:justify-end">
+      <div className="grid gap-3 border-t border-white/10 bg-slate-950/40 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:flex sm:flex-row sm:justify-end sm:px-5 md:px-8">
         <button
           type="button"
           onClick={onClose}
@@ -403,15 +456,89 @@ function HabitFormDialog({
               ? "Saving…"
               : "Creating…"
             : habit
-              ? "Save stack"
-              : "Create stacked habit"}
+              ? "Save habit"
+              : "Stack this habit"}
         </button>
       </div>
     </motion.div>
   );
 }
 
-const NONE_STACK_LABEL = "None — use free-text trigger above";
+function StackModeButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "min-h-11 rounded-2xl border px-3 py-2.5 text-sm transition",
+        active
+          ? "border-cyan-300/60 bg-cyan-300/10 text-white"
+          : "border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:border-white/20 hover:text-white",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+function StackFormulaPreview({
+  after,
+  will,
+  cueLine,
+  formula,
+}: {
+  after: string;
+  will: string;
+  cueLine: string | null;
+  formula: string | null;
+}) {
+  const hasAfter = after.trim().length > 0;
+  const hasWill = will.trim().length > 0;
+
+  return (
+    <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">Your formula</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <PreviewChip muted={!hasAfter}>{hasAfter ? after : "the cue"}</PreviewChip>
+        <span aria-hidden className="text-cyan-200/70">
+          →
+        </span>
+        <PreviewChip muted={!hasWill}>{hasWill ? will : "the new habit"}</PreviewChip>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-cyan-100">
+        {formula ?? "After [cue], I will [habit]"}
+      </p>
+      {cueLine ? (
+        <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
+          {cueLine}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function PreviewChip({ children, muted }: { children: string; muted: boolean }) {
+  return (
+    <span
+      className={cn(
+        "max-w-full truncate rounded-full px-3 py-1.5 text-sm",
+        muted ? "bg-white/5 text-[var(--color-text-muted)]" : "bg-cyan-300/15 text-cyan-50",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+const NONE_STACK_LABEL = "Choose a habit";
 
 function StackAfterDropdown({
   habits,
@@ -496,20 +623,6 @@ function StackAfterDropdown({
             transition={{ duration: 0.15 }}
             className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-20 max-h-56 overflow-y-auto rounded-[1.25rem] border border-white/10 bg-slate-950/95 p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl"
           >
-            <li role="option" aria-selected={!selected}>
-              <button
-                type="button"
-                onClick={() => choose(null)}
-                className={cn(
-                  "flex w-full rounded-[0.95rem] px-3 py-2.5 text-left text-sm transition",
-                  !selected
-                    ? "bg-cyan-300/15 text-white"
-                    : "text-[var(--color-text-muted)] hover:bg-white/5 hover:text-white",
-                )}
-              >
-                {NONE_STACK_LABEL}
-              </button>
-            </li>
             {habits.map((entry) => {
               const isActive = entry.id === value;
               return (

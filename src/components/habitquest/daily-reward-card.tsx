@@ -39,7 +39,7 @@ export function DailyRewardCard({
             <div>
               <p className="font-medium text-white">Daily login</p>
               <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                Auto-granted once when you open the app each local day. No claim button.
+                Auto-granted once when you open the app each day. No claim button.
               </p>
             </div>
             <div className="text-right">

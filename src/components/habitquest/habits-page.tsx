@@ -5,6 +5,7 @@ import { GlassCard } from "~/components/habitquest/glass-card";
 import { HabitFormModal } from "~/components/habitquest/habit-form-modal";
 import { HabitList } from "~/components/habitquest/habit-list";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
+import { replayTutorial } from "~/lib/habitquest/tutorial";
 import { cn } from "~/lib/ui/cn";
 import {
   getDueHabitsForDate,
@@ -83,7 +84,14 @@ export function HabitsPage() {
               {hero.title}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base">
-              {hero.support}
+              {hero.support}{" "}
+              <button
+                type="button"
+                onClick={() => replayTutorial()}
+                className="text-cyan-200 underline-offset-2 hover:underline"
+              >
+                How to play
+              </button>
             </p>
           </div>
           <button
