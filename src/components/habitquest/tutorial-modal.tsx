@@ -50,7 +50,7 @@ export function TutorialModal({
 function TutorialDialog({
   mode,
   hasHabits,
-  initialName,
+  initialName = "",
   onSkip,
   onFinish,
 }: Omit<TutorialModalProps, "open">) {
