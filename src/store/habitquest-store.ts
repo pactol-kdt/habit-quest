@@ -24,6 +24,7 @@ import {
   ensureCloudSavePushed,
   flushCloudSaveNow,
   scheduleCloudSave,
+  setCloudSyncEnabled,
 } from "~/lib/habitquest/cloud-sync";
 import {
   DAILY_LOGIN_COINS,
@@ -75,6 +76,7 @@ import {
   saveHabitQuestData,
   cacheAuthUser,
   clearCachedAuthUser,
+  setGuestPlayEnabled,
 } from "~/lib/habitquest/storage";
 import {
   checkLevelUnlocks,
@@ -111,6 +113,7 @@ type HabitQuestStore = HabitQuestData & {
   hydrated: boolean;
   authChecked: boolean;
   authUser: AuthUser | null;
+  guestPlay: boolean;
   pendingHabitIds: string[];
   pendingHabitActions: Record<string, HabitPendingAction>;
   pendingShopItemIds: string[];
@@ -123,6 +126,8 @@ type HabitQuestStore = HabitQuestData & {
   hydrate: () => void;
   setAuthChecked: (checked: boolean) => void;
   setAuthUser: (user: AuthUser | null) => void;
+  startGuestPlay: () => void;
+  exitGuestPlay: () => void;
   projectSave: () => HabitQuestData;
   applyRemoteSave: (data: HabitQuestData, options?: ResolutionOptions) => void;
   applyAuthenticatedSave: (
@@ -755,6 +760,12 @@ async function runClaimAgainstCloud(
     shopItems?: HabitQuestData["shopItems"];
   }) => void,
 ) {
+  if (!useHabitQuestStore.getState().authUser) {
+    useHabitQuestStore.setState((current) => ({
+      pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+    }));
+    return;
+  }
   // Prefer surgical claim first. Full-save push is only a bootstrap for empty accounts —
   // pushing every claim can fail on Vercel when client local "yesterday" is still UTC "today".
   let result = await claim();
@@ -794,6 +805,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
   hydrated: false,
   authChecked: false,
   authUser: null,
+  guestPlay: false,
   pendingHabitIds: [],
   pendingHabitActions: {},
   pendingShopItemIds: [],
@@ -829,11 +841,25 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     if (user) {
       setLocalPersistenceEnabled(false);
       cacheAuthUser(user);
-    } else {
-      setLocalPersistenceEnabled(true);
-      clearCachedAuthUser();
+      setGuestPlayEnabled(false);
+      set({ authUser: user, guestPlay: false });
+      return;
     }
-    set({ authUser: user });
+    setLocalPersistenceEnabled(true);
+    clearCachedAuthUser();
+    set({ authUser: null });
+  },
+  startGuestPlay: () => {
+    setCloudSyncEnabled(false);
+    setLocalPersistenceEnabled(true);
+    setGuestPlayEnabled(true);
+    clearCachedAuthUser();
+    set({ authUser: null, guestPlay: true, authChecked: true });
+    get().hydrate();
+  },
+  exitGuestPlay: () => {
+    setGuestPlayEnabled(false);
+    set({ guestPlay: false });
   },
   projectSave: () => projectData(get()),
   applyRemoteSave: (data, options = {}) => {
@@ -934,6 +960,14 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ...withHabitPending(current, habitId, "create"),
     }));
 
+    if (!get().authUser) {
+      set((current) => ({
+        ...current,
+        ...withoutHabitPending(current, habitId),
+      }));
+      return;
+    }
+
     void createHabitRequest(rawValues, habitId)
       .then((result) => {
         if (!isCurrentHabitMutation(habitId, seq)) {
@@ -1015,6 +1049,14 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ...withHabitPending(current, habitId, "update"),
     }));
 
+    if (!get().authUser) {
+      set((current) => ({
+        ...current,
+        ...withoutHabitPending(current, habitId),
+      }));
+      return;
+    }
+
     void updateHabitRequest(habitId, rawValues)
       .then((result) => {
         if (!isCurrentHabitMutation(habitId, seq)) {
@@ -1088,6 +1130,17 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     }
 
     const seq = nextHabitMutationSeq(habitId);
+    if (!get().authUser) {
+      const resolution = resolveGameState(
+        withLiveHabitMembership(mutation.data, { excludeHabitId: habitId }),
+      );
+      const persisted = persistLocalOnly(resolution.data);
+      set((current) => ({
+        ...mergeTransientState(current, { ...resolution, data: persisted }),
+      }));
+      return;
+    }
+
     set((current) => ({
       ...current,
       ...withHabitPending(current, habitId, "delete"),
@@ -1170,6 +1223,14 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       celebration: mutation.celebration ?? optimisticResolution.celebration,
     }));
 
+    if (!get().authUser) {
+      set((current) => ({
+        ...current,
+        ...withoutHabitPending(current, habitId),
+      }));
+      return;
+    }
+
     void completeHabitRequest(habitId, today)
       .then((result) => {
         if (!isCurrentHabitMutation(habitId, seq)) {
@@ -1191,7 +1252,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             ...withoutHabitPending(current, habitId),
             ...pushWarningState(
               { ...current, ...rolledBack } as HabitQuestStore,
-              "Complete failed",
+              "Clear failed",
               result.status === "unauthenticated"
                 ? "Sign in again to save habit clears."
                 : result.error,
@@ -1230,7 +1291,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           ...withoutHabitPending(current, habitId),
           ...pushWarningState(
             { ...current, ...rolledBack } as HabitQuestStore,
-            "Complete failed",
+            "Clear failed",
             error instanceof Error ? error.message : "Network error while saving clear.",
           ),
         }));
@@ -1258,6 +1319,14 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ...withHabitPending(current, habitId, "uncomplete"),
       rewardToasts: [...current.rewardToasts, ...mutation.rewardToasts],
     }));
+
+    if (!get().authUser) {
+      set((current) => ({
+        ...current,
+        ...withoutHabitPending(current, habitId),
+      }));
+      return;
+    }
 
     void uncompleteHabitRequest(habitId, today)
       .then((result) => {
@@ -1600,9 +1669,17 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
 
     const seqKey = "streak-freeze";
     const seq = nextShopMutationSeq(seqKey);
+    const resolution = resolveGameState(withLiveHabitMembership(mutation.data));
+    const persisted = persistLocalOnly(resolution.data);
+    bumpCloudSavePayload(persisted);
     set((current) => ({
-      ...current,
+      ...mergeTransientState(current, { ...resolution, data: persisted }),
       pendingClaimIds: [...current.pendingClaimIds, pendingKey],
+      rewardToasts: [
+        ...current.rewardToasts,
+        ...mutation.rewardToasts,
+        ...resolution.rewardToasts,
+      ],
     }));
 
     void runClaimAgainstCloud(
@@ -1612,23 +1689,18 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       seq,
       () => buyStreakFreezeRequest(),
       (result) => {
-        const resolution = resolveGameState(
+        const confirmed = resolveGameState(
           withLiveHabitMembership({
             ...mutation.data,
             wallet: result.wallet,
             rewardSystems: result.rewardSystems ?? mutation.data.rewardSystems,
           }),
         );
-        const persisted = persistLocalOnly(resolution.data);
-        bumpCloudSavePayload(persisted);
+        const nextData = persistLocalOnly(confirmed.data);
+        bumpCloudSavePayload(nextData);
         set((current) => ({
-          ...mergeTransientState(current, { ...resolution, data: persisted }),
+          ...mergeTransientState(current, { ...confirmed, data: nextData }),
           pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
-          rewardToasts: [
-            ...current.rewardToasts,
-            ...mutation.rewardToasts,
-            ...resolution.rewardToasts,
-          ],
         }));
       },
     );
@@ -1651,6 +1723,20 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
 
     const itemName =
       state.shopItems.find((entry) => entry.id === itemId)?.name ?? "Item";
+    if (!get().authUser) {
+      const resolution = resolveGameState(withLiveHabitMembership(mutation.data));
+      const persisted = persistLocalOnly(resolution.data);
+      set((current) => ({
+        ...mergeTransientState(current, { ...resolution, data: persisted }),
+        rewardToasts: [
+          ...current.rewardToasts,
+          createToast("shop", "Purchase successful", `${itemName} added to inventory.`),
+          ...resolution.rewardToasts,
+        ],
+      }));
+      return;
+    }
+
     const seq = nextShopMutationSeq(itemId);
     set((current) => ({
       ...current,
@@ -1733,6 +1819,19 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
 
     const itemName =
       state.shopItems.find((entry) => entry.id === itemId)?.name ?? "Item";
+    if (!get().authUser) {
+      const persisted = persistLocalOnly(withLiveHabitMembership(mutation.data));
+      set((current) => ({
+        ...current,
+        ...persisted,
+        rewardToasts: [
+          ...current.rewardToasts,
+          createToast("shop", "Equipped", `${itemName} is now active.`),
+        ],
+      }));
+      return;
+    }
+
     const seq = nextShopMutationSeq(itemId);
     set((current) => ({
       ...current,
@@ -1811,6 +1910,19 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     }
 
     const seq = nextShopMutationSeq(pendingKey);
+    if (!get().authUser) {
+      const persisted = persistLocalOnly(withLiveHabitMembership(mutation.data));
+      set((current) => ({
+        ...current,
+        ...persisted,
+        rewardToasts: [
+          ...current.rewardToasts,
+          createToast("shop", "Unequipped", `${category} slot cleared.`),
+        ],
+      }));
+      return;
+    }
+
     set((current) => ({
       ...current,
       pendingShopItemIds: [...current.pendingShopItemIds, pendingKey],
@@ -1882,6 +1994,10 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ...persisted,
     }));
 
+    if (!get().authUser) {
+      return;
+    }
+
     void updateSettingsRequest(patch).then((result) => {
       if (result.status !== "ok") {
         const rolledBack = persistLocalOnly(snapshot);
@@ -1928,6 +2044,10 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         ),
       ],
     }));
+
+    if (!get().authUser) {
+      return;
+    }
 
     void completeOnboardingRequest(displayName).then((result) => {
       if (result.status !== "ok") {

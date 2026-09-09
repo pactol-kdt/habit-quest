@@ -115,6 +115,58 @@ export function isWithinPushHourUtc(now = new Date()) {
   return getActivePushSlotUtc(now) !== null;
 }
 
+function resolveTimeZone(timeZone?: string) {
+  if (timeZone && timeZone.trim()) {
+    return timeZone.trim();
+  }
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+/** Clock label for a fixed UTC HH:mm slot, in the player's timezone. */
+export function formatUtcHhMmInTimeZone(
+  utcHHmm: string,
+  timeZone?: string,
+  now = new Date(),
+) {
+  const [hoursRaw, minutesRaw] = utcHHmm.split(":");
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return utcHHmm;
+  }
+
+  const instant = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hours, minutes, 0),
+  );
+
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: resolveTimeZone(timeZone),
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(instant);
+  } catch {
+    return utcHHmm;
+  }
+}
+
+export function getPushReminderLocalTimes(timeZone?: string, now = new Date()) {
+  return {
+    digest: formatUtcHhMmInTimeZone(FIXED_PUSH_UTC_TIME, timeZone, now),
+    followUp: formatUtcHhMmInTimeZone(FOLLOW_UP_PUSH_UTC_TIME, timeZone, now),
+  };
+}
+
+/** Player-facing schedule. Never mention UTC. */
+export function describePushReminderSchedule(timeZone?: string, now = new Date()) {
+  const { digest, followUp } = getPushReminderLocalTimes(timeZone, now);
+  return `around ${digest}, then a follow-up around ${followUp} if anything is still due`;
+}
+
 /**
  * Once-per-slot gate. Legacy `YYYY-MM-DD` values count as the midnight digest
  * for that UTC day so a deploy does not double-send 00:00.

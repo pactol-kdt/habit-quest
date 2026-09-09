@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 0.5.0 - Guest Play and Home Clarity
+
+### Added
+- Guest play: try HabitQuest on this device without an account; creating an account gathers local progress.
+- Password reset via emailed link (Resend) is implemented but currently disabled.
+
+### Changed
+- Home now opens on today's habit board; streak, EXP, lock-in, and reward chrome sit behind Show streak, EXP & rewards.
+- Habit cards are title, cue, and Clear, with Edit in a menu and a delete confirmation.
+- First-create habit form is trigger + name; extra loop fields sit under Add optional details.
+- Reminder copy uses the player's local clock; the notification prompt waits until after the first clear.
+- Mobile tabs use icons plus labels; dialogs trap focus and honor reduced motion.
+- Create buttons and empty states say Add a habit; stacking language stays in the form and tutorial.
+- Combo moved off the Daily habits header into Show streak, EXP & rewards.
+- Skip-to-content link; Progress/More sheet buttons no longer claim aria-current="page".
+
 ## 0.4.1 - How to Play and Habit Form Clarity
 
 ### Added

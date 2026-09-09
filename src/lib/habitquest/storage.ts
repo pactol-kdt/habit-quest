@@ -1,6 +1,7 @@
 import {
   AUTH_CACHE_KEY,
   DEFAULT_SETTINGS,
+  GUEST_PLAY_KEY,
   SAVE_VERSION,
   STORAGE_KEY,
 } from "~/lib/habitquest/constants";
@@ -586,6 +587,34 @@ export function hasExtractableLocalProgress(data: HabitQuestData | null): boolea
   );
 }
 
+export function isGuestPlayEnabled() {
+  if (!isBrowser()) {
+    return false;
+  }
+
+  try {
+    return window.localStorage.getItem(GUEST_PLAY_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setGuestPlayEnabled(enabled: boolean) {
+  if (!isBrowser()) {
+    return;
+  }
+
+  try {
+    if (enabled) {
+      window.localStorage.setItem(GUEST_PLAY_KEY, "1");
+    } else {
+      window.localStorage.removeItem(GUEST_PLAY_KEY);
+    }
+  } catch {
+    // Ignore quota / private mode failures.
+  }
+}
+
 export function loadHabitQuestData(): HabitQuestData {
   const peeked = peekHabitQuestLocalSave();
   return peeked ?? createSeedData();
@@ -618,6 +647,7 @@ export function clearHabitQuestData() {
 
   try {
     window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(GUEST_PLAY_KEY);
   } catch {
     // Ignore storage errors.
   }

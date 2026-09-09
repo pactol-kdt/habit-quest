@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import { DIFFICULTY_LABELS, RECURRENCE_LABELS, WEEKDAY_LABELS } from "~/lib/habitquest/constants";
 import {
   describeHabitCue,
@@ -38,6 +39,7 @@ export function HabitFormModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onClick={onClose}
         >
           <HabitFormDialog
             key={habit?.id ?? "new"}
@@ -80,6 +82,12 @@ function HabitFormDialog({
     habit?.stackAfterHabitId ? "habit" : "cue",
   );
   const [submitting, setSubmitting] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(Boolean(habit));
+  const panelRef = useRef<HTMLDivElement>(null);
+  const isCreate = !habit;
+  const canSubmit = values.title.trim().length > 0 && !submitting;
+
+  useDialogA11y(panelRef, onClose);
 
   const stackableHabits = useMemo(
     () =>
@@ -145,7 +153,7 @@ function HabitFormDialog({
   }
 
   function handleSubmit() {
-    if (submitting) {
+    if (!canSubmit) {
       return;
     }
     setSubmitting(true);
@@ -159,23 +167,30 @@ function HabitFormDialog({
 
   return (
     <motion.div
-      className="glass-panel flex max-h-[min(92dvh,900px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-[1.5rem] border border-white/10 sm:rounded-[1.75rem] md:rounded-[2rem]"
+      ref={panelRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="habit-form-title"
+      tabIndex={-1}
+      className="glass-panel flex max-h-[min(92dvh,900px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-[1.5rem] border border-white/10 outline-none sm:rounded-[1.75rem] md:rounded-[2rem]"
       initial={{ y: 20, opacity: 0, scale: 0.98 }}
       animate={{ y: 0, opacity: 1, scale: 1 }}
       exit={{ y: 12, opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.2 }}
+      onClick={(event) => event.stopPropagation()}
     >
       <div className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4 sm:px-5 sm:pt-5 md:px-8 md:pt-8">
         <div>
           <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
             Habit loop
           </p>
-          <h2 className="section-title mt-2 text-2xl text-white md:text-3xl">
-            {habit ? "Refine this habit" : "Stack a new habit"}
+          <h2 id="habit-form-title" className="section-title mt-2 text-2xl text-white md:text-3xl">
+            {habit ? "Refine this habit" : "New habit"}
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--color-text-muted)]">
-            Hook it onto something you already do. After that cue, the next action is obvious —
-            then name why it matters and the smallest version you can still finish.
+            {isCreate
+              ? "Name the cue you already do, then the new action. Optional details can wait."
+              : "Hook it onto something you already do, then refine why it matters and the smallest version you can still finish."}
           </p>
         </div>
         <button
@@ -251,7 +266,23 @@ function HabitFormDialog({
             />
           </label>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <StackFormulaPreview after={afterLabel} will={values.title} cueLine={cueLine} formula={stackPreview} />
+        </section>
+
+        {isCreate ? (
+          <button
+            type="button"
+            onClick={() => setAdvancedOpen((current) => !current)}
+            aria-expanded={advancedOpen}
+            className="min-h-11 rounded-full border border-white/10 px-4 py-2.5 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
+          >
+            {advancedOpen ? "Hide optional details" : "Add optional details"}
+          </button>
+        ) : null}
+
+        {advancedOpen ? (
+          <>
+        <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-2">
               <span className="text-sm text-[var(--color-text-muted)]">Time (optional)</span>
               <input
@@ -261,7 +292,7 @@ function HabitFormDialog({
                 className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50"
               />
               <span className="text-xs leading-5 text-[var(--color-text-muted)]">
-                Cue for today&apos;s list. A ping only if this tab is open.
+                Optional cue for today&apos;s list — not an alarm.
               </span>
             </label>
             <label className="grid gap-2">
@@ -274,9 +305,6 @@ function HabitFormDialog({
               />
             </label>
           </div>
-
-          <StackFormulaPreview after={afterLabel} will={values.title} cueLine={cueLine} formula={stackPreview} />
-        </section>
 
         <section className="rounded-[1.35rem] border border-white/10 bg-white/4 p-4 sm:p-5">
           <p className="text-xs uppercase tracking-[0.22em] text-amber-200">2. Motivation</p>
@@ -434,6 +462,8 @@ function HabitFormDialog({
             </div>
           ) : null}
         </section>
+          </>
+        ) : null}
       </div>
 
       <div className="grid gap-3 border-t border-white/10 bg-slate-950/40 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:flex sm:flex-row sm:justify-end sm:px-5 md:px-8">
@@ -448,7 +478,7 @@ function HabitFormDialog({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={submitting}
+          disabled={!canSubmit}
           className="min-h-12 rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting
@@ -457,7 +487,7 @@ function HabitFormDialog({
               : "Creating…"
             : habit
               ? "Save habit"
-              : "Stack this habit"}
+              : "Add this habit"}
         </button>
       </div>
     </motion.div>

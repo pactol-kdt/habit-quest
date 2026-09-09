@@ -77,6 +77,25 @@ select {
   touch-action: manipulation;
 }
 
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: -4rem;
+  z-index: 100;
+  border-radius: 999px;
+  background: var(--color-cyan);
+  color: var(--hq-accent-ink);
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: max(0.75rem, env(safe-area-inset-top));
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+
 *::-webkit-scrollbar {
   width: var(--scrollbar-size);
   height: var(--scrollbar-size);
@@ -707,10 +726,20 @@ body::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  body {
+    transition: none;
+  }
+
+  .hq-boot-bar,
+  .panel-highlight::after,
   .hq-streak-flame-svg,
   .hq-streak-flame-aura,
   .hq-streak-flame-sparks span,
   .hq-streak-panel::before {
-    animation: none;
+    animation: none !important;
   }
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { GlassCard } from "~/components/habitquest/glass-card";
+import { useEffect, useRef, useState } from "react";
+import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import { getReminderPermission } from "~/lib/habitquest/reminders";
 import { enableHabitQuestReminders } from "~/lib/push/enable-reminders";
+import { describePushReminderSchedule } from "~/lib/push/timezone";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 const DISMISS_KEY = "habitquest::notification-prompt-dismissed";
@@ -28,9 +29,22 @@ export function NotificationPermissionPrompt() {
   const hydrated = useHabitQuestStore((state) => state.hydrated);
   const authUser = useHabitQuestStore((state) => state.authUser);
   const remindersEnabled = useHabitQuestStore((state) => state.settings.remindersEnabled);
+  const completions = useHabitQuestStore((state) => state.completions);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const schedule = describePushReminderSchedule();
+  const hasCleared = completions.length > 0;
+
+  useDialogA11y(
+    panelRef,
+    () => {
+      markDismissed();
+      setOpen(false);
+    },
+    open,
+  );
 
   useEffect(() => {
     if (!hydrated || !authUser) {
@@ -39,14 +53,13 @@ export function NotificationPermissionPrompt() {
     }
 
     const permission = getReminderPermission();
-    // Only prompt when the browser has not decided yet and reminders aren't already on.
-    if (permission !== "default" || remindersEnabled || wasDismissed()) {
+    if (permission !== "default" || remindersEnabled || wasDismissed() || !hasCleared) {
       setOpen(false);
       return;
     }
 
     setOpen(true);
-  }, [authUser, hydrated, remindersEnabled]);
+  }, [authUser, hasCleared, hydrated, remindersEnabled]);
 
   if (!open) {
     return null;
@@ -60,7 +73,6 @@ export function NotificationPermissionPrompt() {
       setNote(result.message);
       if (result.permission === "granted" || result.permission === "denied") {
         markDismissed();
-        // Keep the note visible briefly, then close.
         window.setTimeout(() => setOpen(false), 1600);
       }
     } finally {
@@ -74,17 +86,27 @@ export function NotificationPermissionPrompt() {
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 p-4 sm:items-center">
-      <GlassCard className="w-full max-w-md rounded-[1.75rem] p-5 md:p-6">
+    <div
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 p-4 sm:items-center"
+      onClick={handleLater}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reminder-prompt-title"
+        tabIndex={-1}
+        className="glass-panel w-full max-w-md rounded-[1.75rem] p-5 outline-none md:p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-          A quiet call
+          Daily reminder
         </p>
-        <h2 className="section-title mt-2 text-2xl text-white">Shall we wake you at dawn?</h2>
+        <h2 id="reminder-prompt-title" className="section-title mt-2 text-2xl text-white">
+          Want a nudge for tomorrow?
+        </h2>
         <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
-          Around <span className="text-cyan-100">00:00 UTC</span>, HabitQuest can gently
-          remind you that habits await — then a follow-up at{" "}
-          <span className="text-cyan-100">14:00 UTC</span> if anything is still due. You can
-          change this later in your browser settings.
+          HabitQuest can remind you {schedule}. You can change this later in Settings.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <button
@@ -93,7 +115,7 @@ export function NotificationPermissionPrompt() {
             onClick={handleAllow}
             className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60"
           >
-            {busy ? "Asking…" : "Yes, wake me"}
+            {busy ? "Asking…" : "Yes, remind me"}
           </button>
           <button
             type="button"
@@ -101,11 +123,11 @@ export function NotificationPermissionPrompt() {
             onClick={handleLater}
             className="rounded-full border border-white/10 px-4 py-2 text-sm text-[var(--color-text-muted)] hover:text-white disabled:opacity-60"
           >
-            Not tonight
+            Not now
           </button>
         </div>
         {note ? <p className="mt-3 text-sm text-cyan-100">{note}</p> : null}
-      </GlassCard>
+      </div>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   mergeCloudSaveWithLocalDraft,
   peekCachedAuthUser,
   peekHabitQuestLocalSave,
+  isGuestPlayEnabled,
 } from "~/lib/habitquest/storage";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
@@ -46,6 +47,9 @@ export function useHabitQuestHydration() {
       if (boot.status === "guest") {
         setCloudSyncEnabled(false);
         setAuthUser(null);
+        if (isGuestPlayEnabled()) {
+          useHabitQuestStore.getState().startGuestPlay();
+        }
         setAuthChecked(true);
         return;
       }

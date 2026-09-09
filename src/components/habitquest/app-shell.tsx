@@ -12,6 +12,9 @@ import { SettlementRecapModal } from "~/components/habitquest/settlement-recap-m
 import { useHabitQuestHydration } from "~/hooks/use-habitquest-hydration";
 import { useHabitQuestReminders } from "~/hooks/use-habitquest-reminders";
 import { useHabitQuestStore } from "~/store/habitquest-store";
+import { MotionConfig } from "framer-motion";
+import { PASSWORD_RESET_ENABLED } from "~/lib/auth/password-reset-enabled";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 const THEME_STYLE_KEYS = [
@@ -52,8 +55,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useHabitQuestHydration();
   useHabitQuestReminders();
 
+  const pathname = usePathname();
   const authChecked = useHabitQuestStore((state) => state.authChecked);
   const authUser = useHabitQuestStore((state) => state.authUser);
+  const guestPlay = useHabitQuestStore((state) => state.guestPlay);
   const hydrated = useHabitQuestStore((state) => state.hydrated);
   const shopItems = useHabitQuestStore((state) => state.shopItems);
   const equippedItems = useHabitQuestStore((state) => state.equippedItems);
@@ -86,7 +91,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <BootLoader message="Recognizing your traveler…" />;
   }
 
-  if (!authUser) {
+  if (!authUser && !guestPlay) {
+    if (PASSWORD_RESET_ENABLED && pathname === "/reset-password") {
+      return <MotionConfig reducedMotion="user">{children}</MotionConfig>;
+    }
     return <AuthGate />;
   }
 
@@ -95,7 +103,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="relative min-h-screen">
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       <Navigation />
       <RewardToastLayer />
       <FloatingRewardLayer />
@@ -103,10 +115,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <OnboardingModal />
       <NotificationPermissionPrompt />
       <SettlementRecapModal />
-      <div className="mx-auto w-full max-w-7xl px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-6 md:pt-8 lg:pb-10">
+      <div
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-7xl px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-6 md:pt-8 lg:pb-10"
+      >
         {children}
       </div>
       <MobileBottomNav />
     </div>
+    </MotionConfig>
   );
 }

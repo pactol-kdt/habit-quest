@@ -1,7 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import { TUTORIAL_LESSONS } from "~/lib/habitquest/copy";
 import { cn } from "~/lib/ui/cn";
 
@@ -27,21 +28,14 @@ export function TutorialModal({
   return (
     <AnimatePresence>
       {open ? (
-        <motion.div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/80 p-0 backdrop-blur-md sm:items-center sm:p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <TutorialDialog
-            key={mode}
-            mode={mode}
-            hasHabits={hasHabits}
-            initialName={initialName}
-            onSkip={onSkip}
-            onFinish={onFinish}
-          />
-        </motion.div>
+        <TutorialDialog
+          key={mode}
+          mode={mode}
+          hasHabits={hasHabits}
+          initialName={initialName}
+          onSkip={onSkip}
+          onFinish={onFinish}
+        />
       ) : null}
     </AnimatePresence>
   );
@@ -65,6 +59,9 @@ function TutorialDialog({
   const isLast = step === totalSteps - 1;
   const resolvedName = displayName.trim() || "Adventurer";
   const showCreateHabit = mode === "onboarding" || !hasHabits;
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useDialogA11y(panelRef, () => onSkip(resolvedName));
 
   function goNext() {
     if (isLast) {
@@ -80,13 +77,23 @@ function TutorialDialog({
 
   return (
     <motion.div
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/80 p-0 backdrop-blur-md sm:items-center sm:p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={() => onSkip(resolvedName)}
+    >
+    <motion.div
+      ref={panelRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="tutorial-title"
-      className="glass-panel flex max-h-[min(92dvh,900px)] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.5rem] border border-white/10 sm:rounded-[2rem]"
+      tabIndex={-1}
+      className="glass-panel flex max-h-[min(92dvh,900px)] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.5rem] border border-white/10 outline-none sm:rounded-[2rem]"
       initial={{ y: 18, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 12, opacity: 0 }}
+      onClick={(event) => event.stopPropagation()}
     >
       <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4 md:px-8 md:pt-7">
         <div>
@@ -173,6 +180,7 @@ function TutorialDialog({
           </button>
         )}
       </div>
+    </motion.div>
     </motion.div>
   );
 }

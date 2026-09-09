@@ -3,6 +3,8 @@ import type { HabitDifficulty, ShopRarity, UnlockFeature, UserSettings } from ".
 export const STORAGE_KEY = "habitquest::save";
 /** Cached session user for optimistic refresh paint (non-secret profile fields only). */
 export const AUTH_CACHE_KEY = "habitquest::auth-user";
+/** Local-only play without an account. Progress stays in this browser until sign-up. */
+export const GUEST_PLAY_KEY = "habitquest::guest-play";
 export const SAVE_VERSION = 3;
 
 /** When false (signed-in), HabitQuest will not write `habitquest::save`. */

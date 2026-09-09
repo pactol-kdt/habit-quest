@@ -11,6 +11,7 @@ import { getBuiltinCatalog } from "~/lib/habitquest/catalog";
 import { getStreakFireTier } from "~/lib/habitquest/streak-fire-tier";
 import { cn } from "~/lib/ui/cn";
 import { formatNumber } from "~/lib/habitquest/utils";
+import { useHabitQuestStore } from "~/store/habitquest-store";
 import type { ShopItem } from "~/types/habitquest";
 
 function resolveCosmetic(itemId: string | null): ShopItem | null {
@@ -93,6 +94,7 @@ function LeaderboardRow({ entry }: { entry: LevelLeaderboardEntry }) {
 }
 
 export function LeaderboardPage() {
+  const authUser = useHabitQuestStore((state) => state.authUser);
   const [entries, setEntries] = useState<LevelLeaderboardEntry[]>([]);
   const [you, setYou] = useState<LevelLeaderboardEntry | null>(null);
   const [totalPlayers, setTotalPlayers] = useState(0);
@@ -217,7 +219,9 @@ export function LeaderboardPage() {
 
         {error ? (
           <p className="rounded-3xl border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-sm text-rose-100">
-            {error}
+            {!authUser
+              ? "Rankings are account-only. Sign in from Settings to appear on the board."
+              : error}
           </p>
         ) : pending && entries.length === 0 ? (
           <div className="space-y-3">

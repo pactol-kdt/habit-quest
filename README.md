@@ -29,6 +29,8 @@ Variables:
 - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` — Web Push keys (`npx web-push generate-vapid-keys --json`)
 - `CRON_SECRET` — protects `/api/cron/reminders` (required in production; Vercel Cron sends it as Bearer)
 - `ADMIN_EMAIL` — optional; that email becomes admin on signup (first account is always admin)
+- `APP_URL` — public origin for password-reset links (defaults to the request origin)
+- `RESEND_API_KEY` / `EMAIL_FROM` — optional Resend mailer for password reset. Reset is currently disabled (`PASSWORD_RESET_ENABLED` in `src/lib/auth/password-reset-enabled.ts`). Without a key, the reset URL is logged in the server console. Resend’s test sender (`onboarding@resend.dev`) can only deliver to the Resend account email until a domain is verified.
 
 Production setup:
 
@@ -77,7 +79,7 @@ Runs focused Node test-runner checks (via `tsx`) for recurrence, challenges, com
 
 ## Auth & sync
 
-1. HabitQuest requires sign-in — the app shell shows an auth gate until a session exists.
+1. HabitQuest can be used as a guest on this device, or behind email/password auth. Guest progress gathers into a new account on sign-up.
 2. Users have roles: `user` (default) or `admin` (first signup, or `ADMIN_EMAIL`).
 3. Catalogs (shop, achievements, challenges, quests, unlocks, season rewards) live in PostgreSQL `catalog_*` tables and are editable at `/admin`.
 4. Player progress stays in normalized per-user tables; catalogs merge in on load.
@@ -97,6 +99,7 @@ src/
     actions/auth.ts
     actions/habitquest-sync.ts
     habits/page.tsx
+    reset-password/page.tsx
     settings/page.tsx
     shop/page.tsx
     globals.css

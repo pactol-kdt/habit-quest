@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AchievementsPanel } from "~/components/habitquest/achievements-panel";
 import { AnalyticsPanel } from "~/components/habitquest/analytics-panel";
@@ -142,7 +141,6 @@ export function HabitQuestApp() {
   const comboPreview = getComboRewards(todayCombo);
   const nextMilestone = getNextComboMilestone(todayCombo);
   const hasHabits = habits.length > 0;
-  const needsFirstHabit = hydrated && settings.onboardingCompleted && !hasHabits;
 
   function openCreateModal() {
     setEditingHabit(null);
@@ -187,110 +185,36 @@ export function HabitQuestApp() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
       >
-        {needsFirstHabit ? (
-          <GlassCard className="rounded-[1.75rem] border-cyan-300/20 p-5 md:p-6">
-            <p className="text-xs uppercase tracking-[0.28em] text-cyan-200">First step</p>
-            <h2 className="section-title mt-2 text-2xl text-white">Add your first habit</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)]">
-              Attach it to something you already do — after coffee, after sitting down. Clears stay
-              undoable until midnight.
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="section-title truncate text-2xl text-white sm:text-3xl">
+              {greeting.headline}
+              {displayName ? (
+                <span className="font-sans text-lg font-normal tracking-normal text-white/70 sm:text-xl">
+                  {`, ${displayName}`}
+                </span>
+              ) : null}
+            </h1>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+              {todayReward.completedCount}/{todayReward.dueHabits.length || 0} due
+              {profile.title?.name ? ` · ${profile.title.name}` : ""}
             </p>
-            <button
-              type="button"
-              onClick={openCreateModal}
-              className="mt-4 rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950"
-            >
-              Stack a habit
-            </button>
-          </GlassCard>
-        ) : null}
-
-        <GlassCard className="panel-highlight rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-                {displayName}
-                {profile.title?.name ? (
-                  <span className="normal-case tracking-normal text-white/80">
-                    {" "}
-                    · {profile.title.name}
-                  </span>
-                ) : null}
-              </p>
-              <h1 className="section-title mt-2 text-2xl text-white sm:text-3xl md:text-4xl">
-                {greeting.headline}
-              </h1>
-              <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base">
-                {greeting.support}
-              </p>
-            </div>
-            <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-              <button
-                type="button"
-                onClick={openCreateModal}
-                className="min-h-12 rounded-full hq-btn-accent px-4 py-2.5 text-sm font-semibold text-slate-950 sm:min-h-11 sm:px-5"
-              >
-                Stack a habit
-              </button>
-              <Link
-                href="/habits"
-                className="flex min-h-12 items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-[var(--color-text-muted)] hover:text-white sm:min-h-11 sm:px-5"
-              >
-                Manage all
-              </Link>
-            </div>
           </div>
-
-          <div className="mt-5">
-            <StreakDisplay
-              featured
-              currentStreak={streakForDisplay}
-              bestStreak={bestStreakForDisplay}
-            />
-            <StreakDevSlider
-              liveStreak={userProgress.currentStreak}
-              previewStreak={devStreakPreview}
-              onPreviewChange={setDevStreakPreview}
-            />
-          </div>
-
-          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/8 bg-white/3 p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
-            <ExpProgress
-              compact
-              level={userProgress.level}
-              currentExp={levelState.expIntoLevel}
-              requiredExp={levelState.requiredExp}
-              progressPercent={levelState.progressPercent}
-            />
-            <div className="hidden h-8 w-px shrink-0 bg-white/10 sm:block" aria-hidden />
-            <div className="flex shrink-0 items-center justify-between gap-4 text-sm sm:flex-col sm:items-end sm:justify-center sm:text-right">
-              <span className="text-[var(--color-text-muted)]">Spendable</span>
-              <span className="text-lg font-semibold text-amber-100">
-                {formatNumber(spendableCoins)} coins
-              </span>
-            </div>
-          </div>
-        </GlassCard>
-
-        <ClaimableRewardsStrip />
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="min-h-12 shrink-0 rounded-full hq-btn-accent px-5 py-2.5 text-sm font-semibold text-slate-950 sm:min-h-11"
+          >
+            Add a habit
+          </button>
+        </div>
 
         <GlassCard className="overflow-hidden rounded-[1.75rem]">
-          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-                Today
-              </p>
-              <h2 className="section-title mt-2 text-2xl text-white">Daily habits</h2>
-              <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                {todayReward.completedCount}/{todayReward.dueHabits.length || 0} due —
-                finish the list, keep the streak.
-              </p>
-            </div>
-            <div className="rounded-3xl border border-pink-300/20 bg-pink-300/8 px-4 py-3 text-sm text-pink-100">
-              Combo x{todayCombo || 0}
-              {comboPreview.exp > 0 ? ` · +${comboPreview.exp} EXP` : ""}
-              {nextMilestone ? ` · next coin at ${nextMilestone}` : todayCombo >= 8 ? " · maxed" : ""}
-            </div>
+          <div className="mb-5">
+            <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
+              Today
+            </p>
+            <h2 className="section-title mt-1 text-2xl text-white">Daily habits</h2>
           </div>
 
           <HabitList
@@ -301,10 +225,10 @@ export function HabitQuestApp() {
             pendingHabitActions={pendingHabitActions}
             emptyMessage={
               hasHabits
-                ? "Nothing is due today. Add another habit or check Manage all."
-                : "No habits yet — stack your first loop and begin gathering EXP."
+                ? "Nothing is due today. Add another habit or check Habits."
+                : "No habits yet. Add one to start today's list — attach it to something you already do."
             }
-            emptyActionLabel="Stack a habit"
+            emptyActionLabel="Add a habit"
             onEmptyAction={openCreateModal}
             onComplete={completeHabitForToday}
             onUncomplete={uncompleteHabitForToday}
@@ -314,46 +238,7 @@ export function HabitQuestApp() {
         </GlassCard>
 
         <LockInTipBanner />
-
-        <PendingProgressCard />
-
-        <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <DailyRewardCard
-            loginClaimed={todayReward.loginClaimed}
-            completionClaimed={todayReward.completionClaimed}
-            completedCount={todayReward.completedCount}
-            dueCount={todayReward.dueHabits.length}
-            qualifiesForReward={todayReward.qualifiesForReward}
-            dailyLoginCoins={todayReward.dailyLoginCoins}
-            dailyCompletionCoins={todayReward.dailyCompletionCoins}
-          />
-          <UnlockTracker level={userProgress.level} levelUnlocks={levelUnlocks} />
-        </section>
-
-        {(weeklyChallenge || monthlyChallenge) ? (
-          <section id="contracts" className="grid gap-6 xl:grid-cols-2">
-            {weeklyChallenge ? (
-              <ChallengeCard
-                challenge={weeklyChallenge}
-                locked={!weeklyUnlocked}
-                lockLabel="Unlocks at level 3 with Weekly Challenges."
-                pending={pendingClaimIds.includes(`challenge:${weeklyChallenge.id}`)}
-                titleAlreadyOwned={weeklyTitleOwned}
-                onClaim={claimChallengeReward}
-              />
-            ) : null}
-            {monthlyChallenge ? (
-              <ChallengeCard
-                challenge={monthlyChallenge}
-                locked={!monthlyUnlocked}
-                lockLabel="Unlocks at level 7 with Monthly Challenges."
-                pending={pendingClaimIds.includes(`challenge:${monthlyChallenge.id}`)}
-                titleAlreadyOwned={monthlyTitleOwned}
-                onClaim={claimChallengeReward}
-              />
-            ) : null}
-          </section>
-        ) : null}
+        <ClaimableRewardsStrip />
 
         <div className="flex justify-center">
           <button
@@ -366,12 +251,90 @@ export function HabitQuestApp() {
                 : "border-white/10 bg-white/5 text-[var(--color-text-muted)] hover:text-white",
             )}
           >
-            {showMore ? "Hide momentum & analytics" : "Show more stats"}
+            {showMore ? "Hide streak & rewards" : "Show streak, EXP & rewards"}
           </button>
         </div>
 
         {showMore ? (
           <>
+            <GlassCard className="panel-highlight rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-6">
+              <StreakDisplay
+                featured
+                currentStreak={streakForDisplay}
+                bestStreak={bestStreakForDisplay}
+              />
+              <StreakDevSlider
+                liveStreak={userProgress.currentStreak}
+                previewStreak={devStreakPreview}
+                onPreviewChange={setDevStreakPreview}
+              />
+              <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/8 bg-white/3 p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
+                <ExpProgress
+                  compact
+                  level={userProgress.level}
+                  currentExp={levelState.expIntoLevel}
+                  requiredExp={levelState.requiredExp}
+                  progressPercent={levelState.progressPercent}
+                />
+                <div className="hidden h-8 w-px shrink-0 bg-white/10 sm:block" aria-hidden />
+                <div className="flex shrink-0 items-center justify-between gap-4 text-sm sm:flex-col sm:items-end sm:justify-center sm:text-right">
+                  <span className="text-[var(--color-text-muted)]">Spendable</span>
+                  <span className="text-lg font-semibold text-amber-100">
+                    {formatNumber(spendableCoins)} coins
+                  </span>
+                </div>
+              </div>
+              <p className="mt-3 text-sm text-pink-100/90">
+                Combo x{todayCombo || 0}
+                {comboPreview.exp > 0 ? ` · +${comboPreview.exp} EXP` : ""}
+                {nextMilestone
+                  ? ` · next coin at ${nextMilestone}`
+                  : todayCombo >= 8
+                    ? " · maxed"
+                    : ""}
+              </p>
+            </GlassCard>
+
+            <PendingProgressCard />
+
+            <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+              <DailyRewardCard
+                loginClaimed={todayReward.loginClaimed}
+                completionClaimed={todayReward.completionClaimed}
+                completedCount={todayReward.completedCount}
+                dueCount={todayReward.dueHabits.length}
+                qualifiesForReward={todayReward.qualifiesForReward}
+                dailyLoginCoins={todayReward.dailyLoginCoins}
+                dailyCompletionCoins={todayReward.dailyCompletionCoins}
+              />
+              <UnlockTracker level={userProgress.level} levelUnlocks={levelUnlocks} />
+            </section>
+
+            {weeklyChallenge || monthlyChallenge ? (
+              <section id="contracts" className="grid gap-6 xl:grid-cols-2">
+                {weeklyChallenge ? (
+                  <ChallengeCard
+                    challenge={weeklyChallenge}
+                    locked={!weeklyUnlocked}
+                    lockLabel="Unlocks at level 3 with Weekly Challenges."
+                    pending={pendingClaimIds.includes(`challenge:${weeklyChallenge.id}`)}
+                    titleAlreadyOwned={weeklyTitleOwned}
+                    onClaim={claimChallengeReward}
+                  />
+                ) : null}
+                {monthlyChallenge ? (
+                  <ChallengeCard
+                    challenge={monthlyChallenge}
+                    locked={!monthlyUnlocked}
+                    lockLabel="Unlocks at level 7 with Monthly Challenges."
+                    pending={pendingClaimIds.includes(`challenge:${monthlyChallenge.id}`)}
+                    titleAlreadyOwned={monthlyTitleOwned}
+                    onClaim={claimChallengeReward}
+                  />
+                ) : null}
+              </section>
+            ) : null}
+
             <RewardSystemsPanel />
             <AchievementsPanel achievements={achievements} />
             <AnalyticsPanel

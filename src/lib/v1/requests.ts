@@ -43,6 +43,29 @@ export async function signOutRequest() {
   return { ok: true as const };
 }
 
+export async function forgotPasswordRequest(email: string) {
+  const result = await v1Request<{ message: string }>("/auth/forgot-password", {
+    json: { email },
+  });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return {
+    ok: true as const,
+    message: result.data.message || "If that email has an account, we sent a reset link.",
+  };
+}
+
+export async function resetPasswordRequest(token: string, password: string) {
+  const result = await v1Request("/auth/reset-password", {
+    json: { token, password },
+  });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const };
+}
+
 export async function completeHabitRequest(habitId: string, dateKey: string): Promise<HabitActionResult> {
   return asCommand<HabitActionResult>(
     await v1Request(`/habits/${encodeURIComponent(habitId)}/complete`, {

@@ -1,8 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { useRef } from "react";
+import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import { useHabitQuestStore } from "~/store/habitquest-store";
-import type { CelebrationKind } from "~/types/habitquest";
+import type { CelebrationEvent, CelebrationKind } from "~/types/habitquest";
 
 const KIND_ACCENT: Record<CelebrationKind, string> = {
   "streak-milestone": "from-emerald-400/30 via-cyan-300/20 to-transparent",
@@ -20,8 +22,28 @@ export function CelebrationOverlay() {
   return (
     <AnimatePresence>
       {celebration ? (
-        <motion.div
+        <CelebrationDialog
           key={celebration.id}
+          celebration={celebration}
+          onClose={dismissCelebration}
+        />
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function CelebrationDialog({
+  celebration,
+  onClose,
+}: {
+  celebration: CelebrationEvent;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(panelRef, onClose);
+
+  return (
+        <motion.div
           className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:px-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -31,14 +53,19 @@ export function CelebrationOverlay() {
             type="button"
             aria-label="Dismiss celebration"
             className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
-            onClick={dismissCelebration}
+            onClick={onClose}
           />
           <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="celebration-title"
+            tabIndex={-1}
             initial={{ opacity: 0, scale: 0.88, y: 24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 12 }}
             transition={{ type: "spring", stiffness: 260, damping: 22 }}
-            className="relative w-full max-w-lg overflow-hidden rounded-t-[1.5rem] border border-white/15 bg-[rgba(8,14,28,0.92)] p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_30px_80px_rgba(0,0,0,0.55)] sm:rounded-[2rem] sm:p-8"
+            className="relative w-full max-w-lg overflow-hidden rounded-t-[1.5rem] border border-white/15 bg-[rgba(8,14,28,0.92)] p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] outline-none sm:rounded-[2rem] sm:p-8"
           >
             <motion.div
               className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${KIND_ACCENT[celebration.kind]}`}
@@ -61,7 +88,7 @@ export function CelebrationOverlay() {
               <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
                 Celebration
               </p>
-              <h2 className="section-title mt-3 text-2xl text-white sm:text-3xl md:text-4xl">
+              <h2 id="celebration-title" className="section-title mt-3 text-2xl text-white sm:text-3xl md:text-4xl">
                 {celebration.title}
               </h2>
               <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)] md:text-base">
@@ -69,7 +96,7 @@ export function CelebrationOverlay() {
               </p>
               <button
                 type="button"
-                onClick={dismissCelebration}
+                onClick={onClose}
                 className="mt-6 min-h-12 w-full rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] sm:w-auto"
               >
                 Continue the run
@@ -77,7 +104,5 @@ export function CelebrationOverlay() {
             </div>
           </motion.div>
         </motion.div>
-      ) : null}
-    </AnimatePresence>
   );
 }

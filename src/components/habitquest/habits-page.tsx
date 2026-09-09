@@ -102,7 +102,7 @@ export function HabitsPage() {
             }}
             className="min-h-12 w-full rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] sm:w-auto lg:self-auto"
           >
-            Stack a habit
+            Add a habit
           </button>
         </div>
       </GlassCard>
@@ -142,12 +142,12 @@ export function HabitsPage() {
           dueHabitIds={dueHabitIds}
           emptyMessage={
             filter === "all"
-              ? "No habits yet. Stack your first loop and begin gathering EXP."
+              ? "No habits yet. Add one to start today's list."
               : filter === "due"
-                ? "Nothing is due today. Browse All, or stack a daily habit."
-                : "Nothing cleared today yet. Complete a due habit to see it here."
+                ? "Nothing is due today. Browse All, or add a daily habit."
+                : "Nothing cleared today yet. Clear a due habit to see it here."
           }
-          emptyActionLabel={filter === "all" || filter === "due" ? "Stack a habit" : undefined}
+          emptyActionLabel={filter === "all" || filter === "due" ? "Add a habit" : undefined}
           onEmptyAction={
             filter === "all" || filter === "due"
               ? () => {

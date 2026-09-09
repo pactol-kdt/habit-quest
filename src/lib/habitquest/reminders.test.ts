@@ -9,6 +9,8 @@ import {
   isWithinPushHourUtc,
   isWithinReminderHourInTimeZone,
   shouldFireReminderInTimeZone,
+  formatUtcHhMmInTimeZone,
+  describePushReminderSchedule,
 } from "../push/timezone.ts";
 
 describe("shouldFireReminder", () => {
@@ -76,5 +78,15 @@ describe("timezone reminder helpers", () => {
     assert.equal(hasSentPushSlot("2026-08-14T14", "2026-08-15T00"), false);
     assert.equal(hasSentPushSlot("2026-08-14", "2026-08-14T00"), true);
     assert.equal(hasSentPushSlot("2026-08-14", "2026-08-14T14"), false);
+  });
+
+  it("formats UTC push slots in the player's timezone", () => {
+    const stamp = new Date("2026-08-14T00:00:00.000Z");
+    assert.equal(formatUtcHhMmInTimeZone("00:00", "Asia/Manila", stamp), "8:00 AM");
+    assert.equal(formatUtcHhMmInTimeZone("14:00", "Asia/Manila", stamp), "10:00 PM");
+    assert.equal(
+      describePushReminderSchedule("Asia/Manila", stamp),
+      "around 8:00 AM, then a follow-up around 10:00 PM if anything is still due",
+    );
   });
 });

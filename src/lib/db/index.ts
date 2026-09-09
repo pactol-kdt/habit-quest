@@ -82,6 +82,14 @@ const DDL = [
     expires_at VARCHAR(40) NOT NULL,
     created_at VARCHAR(40) NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id VARCHAR(36) PRIMARY KEY NOT NULL,
+    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(128) NOT NULL UNIQUE,
+    expires_at VARCHAR(40) NOT NULL,
+    created_at VARCHAR(40) NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id)`,
   `CREATE TABLE IF NOT EXISTS save_meta (
     user_id VARCHAR(36) PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     version INTEGER NOT NULL DEFAULT 3,

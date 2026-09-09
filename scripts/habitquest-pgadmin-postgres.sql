@@ -43,6 +43,7 @@ DROP TABLE IF EXISTS habit_completions CASCADE;
 DROP TABLE IF EXISTS habits CASCADE;
 DROP TABLE IF EXISTS habitquest_saves CASCADE;
 DROP TABLE IF EXISTS save_meta CASCADE;
+DROP TABLE IF EXISTS password_reset_tokens CASCADE;
 DROP TABLE IF EXISTS sessions CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS catalog_season_rewards CASCADE;
@@ -69,6 +70,16 @@ CREATE TABLE sessions (
   expires_at varchar(40) NOT NULL,
   created_at varchar(40) NOT NULL
 );
+
+CREATE TABLE password_reset_tokens (
+  id varchar(36) PRIMARY KEY NOT NULL,
+  user_id varchar(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash varchar(128) NOT NULL UNIQUE,
+  expires_at varchar(40) NOT NULL,
+  created_at varchar(40) NOT NULL
+);
+
+CREATE INDEX idx_password_reset_tokens_user ON password_reset_tokens(user_id);
 
 CREATE TABLE save_meta (
   user_id varchar(36) PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,

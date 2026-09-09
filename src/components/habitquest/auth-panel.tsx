@@ -19,8 +19,10 @@ export function AuthPanel() {
   const [pending, startTransition] = useTransition();
 
   const authUser = useHabitQuestStore((state) => state.authUser);
+  const guestPlay = useHabitQuestStore((state) => state.guestPlay);
   const setAuthUser = useHabitQuestStore((state) => state.setAuthUser);
   const setAuthChecked = useHabitQuestStore((state) => state.setAuthChecked);
+  const exitGuestPlay = useHabitQuestStore((state) => state.exitGuestPlay);
   const projectSave = useHabitQuestStore((state) => state.projectSave);
 
   const syncStatus: CloudSyncStatus = !authUser
@@ -48,7 +50,26 @@ export function AuthPanel() {
   }
 
   if (!authUser) {
-    return null;
+    if (!guestPlay) {
+      return null;
+    }
+
+    return (
+      <GlassCard>
+        <h2 className="section-title text-2xl text-white">Playing on this device</h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
+          Progress stays in this browser until you create an account. Create one to keep it
+          if you switch devices or clear site data.
+        </p>
+        <button
+          type="button"
+          onClick={() => exitGuestPlay()}
+          className="mt-5 min-h-11 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950"
+        >
+          Create account or sign in
+        </button>
+      </GlassCard>
+    );
   }
 
   return (

@@ -10,6 +10,11 @@ import {
   getReminderPermission,
   requestReminderPermission,
 } from "~/lib/habitquest/reminders";
+import {
+  disableHabitQuestReminders,
+  enableHabitQuestReminders,
+} from "~/lib/push/enable-reminders";
+import { describePushReminderSchedule } from "~/lib/push/timezone";
 import { APP_VERSION } from "~/lib/app-version";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { getDueHabitsForDate, getTodayDateKey } from "~/lib/habitquest/utils";
@@ -20,9 +25,10 @@ const isDev = process.env.NODE_ENV === "development";
 export function SettingsPage() {
   const [backupNote, setBackupNote] = useState<string | null>(null);
   const [devNote, setDevNote] = useState<string | null>(null);
+  const [reminderNote, setReminderNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const { hydrated, settings, updateSettings, projectSave, habits, completions } =
+  const { hydrated, settings, updateSettings, projectSave, habits, completions, authUser } =
     useHabitQuestStore((state) => state);
   const [displayNameDraft, setDisplayNameDraft] = useState(settings.displayName);
   const hero = PAGE_HEROES.settings;
@@ -139,6 +145,41 @@ export function SettingsPage() {
         </label>
       </GlassCard>
 
+      <GlassCard>
+        <h2 className="section-title text-2xl text-white">Daily reminder</h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
+          HabitQuest can remind you {describePushReminderSchedule()}. Cue times on habits sort
+          today&apos;s list — they are not alarms.
+        </p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setReminderNote(null);
+            try {
+              if (settings.remindersEnabled) {
+                await disableHabitQuestReminders();
+                setReminderNote("Reminders are off.");
+                return;
+              }
+              const result = await enableHabitQuestReminders();
+              setReminderNote(result.message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+          className="mt-5 min-h-11 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60"
+        >
+          {busy
+            ? "Working…"
+            : settings.remindersEnabled
+              ? "Turn reminders off"
+              : "Turn reminders on"}
+        </button>
+        {reminderNote ? <p className="mt-3 text-sm text-cyan-100">{reminderNote}</p> : null}
+      </GlassCard>
+
       <GlassCard className="min-w-0 overflow-hidden">
         <ContributionGraph completions={completions} />
       </GlassCard>
@@ -169,8 +210,9 @@ export function SettingsPage() {
       <GlassCard>
         <h2 className="section-title text-2xl text-white">Backup</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)]">
-          Your signed-in account is the source of truth. There is no import flow — downloading a
-          JSON snapshot is only for your own records if you want a local copy.
+          {authUser
+            ? "Your signed-in account is the source of truth. There is no import flow — downloading a JSON snapshot is only for your own records if you want a local copy."
+            : "Progress on this device lives in the browser. Create an account to keep it. A JSON snapshot is only for your own records."}
         </p>
         <button
           type="button"

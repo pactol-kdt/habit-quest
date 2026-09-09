@@ -1,13 +1,20 @@
 "use client";
 
-import { savePushSubscriptionRequest } from "~/lib/v1/requests";
 import { requestReminderPermission } from "~/lib/habitquest/reminders";
 import {
   canUseWebPush,
   getVapidPublicKeyFromEnv,
   subscribeToHabitQuestPush,
+  unsubscribeFromHabitQuestPush,
 } from "~/lib/push/client";
-import { FIXED_REMINDER_LOCAL_TIME } from "~/lib/push/timezone";
+import {
+  describePushReminderSchedule,
+  FIXED_REMINDER_LOCAL_TIME,
+} from "~/lib/push/timezone";
+import {
+  removePushSubscriptionRequest,
+  savePushSubscriptionRequest,
+} from "~/lib/v1/requests";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 export type EnableRemindersResult = {
@@ -34,7 +41,7 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
     return {
       permission,
       pushStatus: "unsupported",
-      message: "This realm cannot show notifications.",
+      message: "This browser cannot show notifications.",
     };
   }
 
@@ -43,7 +50,7 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
     return {
       permission,
       pushStatus: "skipped",
-      message: "The call was declined. You can allow it later in browser settings.",
+      message: "Reminders stay off. You can allow them later in Settings.",
     };
   }
 
@@ -52,12 +59,13 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
     reminderTime: FIXED_REMINDER_LOCAL_TIME,
   });
 
+  const schedule = describePushReminderSchedule();
+
   if (!canUseWebPush() || !getVapidPublicKeyFromEnv()) {
     return {
       permission: "granted",
       pushStatus: getVapidPublicKeyFromEnv() ? "unsupported" : "missing-vapid",
-      message:
-        "We will call at 00:00 UTC, then follow up at 14:00 UTC if habits remain. Background push needs a push-capable browser.",
+      message: `We'll ping you ${schedule}. Background push needs a push-capable browser.`,
     };
   }
 
@@ -77,13 +85,13 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
       return {
         permission: "granted",
         pushStatus: "subscribed",
-        message: "Dawn will find you — a reminder around 00:00 UTC, then a follow-up at 14:00 UTC if habits remain.",
+        message: `Reminders on — ${schedule}.`,
       };
     }
     return {
       permission: "granted",
       pushStatus: "error",
-      message: `The call was heard, but push could not be saved: ${saved.status === "error" || saved.status === "not_configured" ? saved.error : "unknown error"}.`,
+      message: `Permission is on, but push could not be saved: ${saved.status === "error" || saved.status === "not_configured" ? saved.error : "unknown error"}.`,
     };
   }
 
@@ -91,13 +99,22 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
     return {
       permission: "granted",
       pushStatus: "push_service_error",
-      message: `The call was heard on this device. Background push is blocked (${subscribed.error}).`,
+      message: `Permission is on for this device. Background push is blocked (${subscribed.error}).`,
     };
   }
 
   return {
     permission: "granted",
     pushStatus: "skipped",
-    message: "We will call at 00:00 UTC, then follow up at 14:00 UTC if habits remain.",
+    message: `We'll ping you ${schedule}.`,
   };
+}
+
+export async function disableHabitQuestReminders() {
+  const updateSettings = useHabitQuestStore.getState().updateSettings;
+  updateSettings({ remindersEnabled: false });
+  const result = await unsubscribeFromHabitQuestPush();
+  if (result.endpoint) {
+    await removePushSubscriptionRequest(result.endpoint);
+  }
 }

@@ -29,6 +29,16 @@ export const sessions = pgTable("sessions", {
   createdAt: varchar("created_at", { length: 40 }).notNull(),
 });
 
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 })
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: varchar("token_hash", { length: 128 }).notNull().unique(),
+  expiresAt: varchar("expires_at", { length: 40 }).notNull(),
+  createdAt: varchar("created_at", { length: 40 }).notNull(),
+});
+
 /** Presence / version marker for normalized saves. */
 export const saveMeta = pgTable("save_meta", {
   userId: varchar("user_id", { length: 36 })

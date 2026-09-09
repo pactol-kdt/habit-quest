@@ -109,11 +109,20 @@ export function AdminPage() {
   }
 
   useEffect(() => {
-    refresh();
-  }, []);
+    if (authUser?.role === "admin") {
+      refresh();
+    }
+  }, [authUser?.role]);
 
   if (!authUser) {
-    return null;
+    return (
+      <GlassCard className="mt-6">
+        <h1 className="section-title text-3xl text-white">Admin</h1>
+        <p className="mt-3 text-sm text-[var(--color-text-muted)]">
+          Sign in with an admin account to open this page.
+        </p>
+      </GlassCard>
+    );
   }
 
   if (authUser.role !== "admin") {

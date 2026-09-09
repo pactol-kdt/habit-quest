@@ -30,7 +30,7 @@ const GUIDE_SECTIONS = [
   },
   {
     title: "Triggers & reminders",
-    body: "Time and place are optional cues — when and where you usually do the habit. They sort today's list. They are not a guaranteed alarm. If reminders are on and this tab is open, you'll get a browser ping at that trigger. Phone push is separate: a digest at 00:00 UTC, then a follow-up at 14:00 UTC if habits are still due — not at each habit's time.",
+    body: "Time and place are optional cues — when and where you usually do the habit. They sort today's list. They are not a guaranteed alarm. Phone push is a morning digest and an evening follow-up if habits are still due — not at each habit's time. Times follow your timezone.",
   },
   {
     title: "Streaks & freezes",
