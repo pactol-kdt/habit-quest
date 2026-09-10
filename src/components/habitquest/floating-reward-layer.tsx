@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect } from "react";
+import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
 import { cn } from "~/lib/ui/cn";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
@@ -34,13 +35,20 @@ export function FloatingRewardLayer() {
             exit={{ opacity: 0, y: -28, scale: 0.86 }}
             transition={{ duration: 0.6 }}
             className={cn(
-              "rounded-full px-4 py-2 text-sm font-semibold shadow-[0_18px_50px_rgba(0,0,0,0.35)]",
+              "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-[0_18px_50px_rgba(0,0,0,0.35)]",
               reward.kind === "coins"
                 ? "bg-amber-300/18 text-amber-100 ring-1 ring-amber-300/20"
                 : "bg-cyan-300/18 text-cyan-100 ring-1 ring-cyan-300/20",
             )}
           >
-            +{reward.value} {reward.kind === "coins" ? "coins" : "EXP"} • {reward.label}
+            <CurrencyAmount
+              kind={reward.kind === "coins" ? "coins" : "exp"}
+              value={reward.value}
+              prefix="+"
+              size={15}
+            />
+            <span className="opacity-80">•</span>
+            <span>{reward.label}</span>
           </motion.div>
         ))}
       </AnimatePresence>

@@ -1,7 +1,7 @@
 import type { AuthUser } from "~/lib/auth/session-types";
 import type { UserRole } from "~/lib/auth/session-types";
 import type { ClaimActionResult, SettingsActionResult } from "~/lib/v1/claims";
-import type { HabitActionResult, HabitCrudActionResult } from "~/lib/v1/habits";
+import type { HabitActionResult, HabitBatchActionResult, HabitCrudActionResult } from "~/lib/v1/habits";
 import type { AuthCommandResult } from "~/lib/v1/identity";
 import type { LevelLeaderboardEntry } from "~/lib/v1/leaderboard";
 import type { PushSubscribeResult, PushTestResult } from "~/lib/v1/push";
@@ -70,6 +70,17 @@ export async function completeHabitRequest(habitId: string, dateKey: string): Pr
   return asCommand<HabitActionResult>(
     await v1Request(`/habits/${encodeURIComponent(habitId)}/complete`, {
       json: { dateKey },
+    }),
+  );
+}
+
+export async function completeHabitsRequest(
+  habitIds: string[],
+  dateKey: string,
+): Promise<HabitBatchActionResult> {
+  return asCommand<HabitBatchActionResult>(
+    await v1Request("/habits/complete-batch", {
+      json: { habitIds, dateKey },
     }),
   );
 }
@@ -143,6 +154,14 @@ export async function claimQuestArcRewardRequest(arcId: string): Promise<ClaimAc
 
 export async function claimSeasonPassLevelRequest(level: number): Promise<ClaimActionResult> {
   return asCommand<ClaimActionResult>(await v1Request("/claims/season", { json: { level } }));
+}
+
+export async function claimAllRewardsRequest(kinds?: string[]): Promise<ClaimActionResult> {
+  return asCommand<ClaimActionResult>(
+    await v1Request("/claims/all", {
+      json: kinds?.length ? { kinds } : {},
+    }),
+  );
 }
 
 export async function claimBossRewardRequest(): Promise<ClaimActionResult> {

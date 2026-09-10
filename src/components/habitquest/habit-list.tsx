@@ -108,7 +108,7 @@ export function HabitList({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
               className={cn(
-                "relative rounded-[1.35rem] border p-4 transition sm:rounded-3xl sm:p-5",
+                "relative min-w-0 overflow-hidden rounded-[1.35rem] border p-4 transition sm:rounded-3xl sm:p-5",
                 completed
                   ? "border-amber-300/20 bg-amber-300/8"
                   : isNext
@@ -124,10 +124,12 @@ export function HabitList({
                 />
               ) : null}
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className={cn("min-w-0", isNext && "pl-2")}>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-semibold text-white sm:text-xl">{habit.title}</h3>
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className={cn("min-w-0 flex-1", isNext && "pl-2")}>
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <h3 className="break-words text-lg font-semibold text-white sm:text-xl">
+                      {habit.title}
+                    </h3>
                     {isNext ? (
                       <span className="rounded-full bg-cyan-300/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.16em] text-cyan-100">
                         Next
@@ -153,7 +155,7 @@ export function HabitList({
                     <p className="mt-1 truncate text-sm text-[var(--color-text-muted)]">{subtitle}</p>
                   ) : null}
                   {!completed && habit.tinyVersion.trim() ? (
-                    <p className="mt-1 text-sm leading-6 text-[var(--color-text-muted)]">
+                    <p className="mt-1 break-words text-sm leading-6 text-[var(--color-text-muted)]">
                       Bare minimum: {habit.tinyVersion.trim()}
                     </p>
                   ) : null}

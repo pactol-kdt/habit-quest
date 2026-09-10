@@ -30,7 +30,7 @@ const GUIDE_SECTIONS = [
   },
   {
     title: "Triggers & reminders",
-    body: "Time and place are optional cues — when and where you usually do the habit. They sort today's list. They are not a guaranteed alarm. Phone push is a morning digest and an evening follow-up if habits are still due — not at each habit's time. Times follow your timezone.",
+    body: "Time and place are optional cues — when and where you usually do the habit. They sort today's list. They are not a guaranteed alarm. Phone push uses the daily reminder time you set in Settings (default 8:00 AM), plus a follow-up later if habits are still due — not at each habit's cue. Times follow your timezone.",
   },
   {
     title: "Streaks & freezes",

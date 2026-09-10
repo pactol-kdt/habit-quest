@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { SEASON_PASS_XP_PER_LEVEL, SETTLEMENT_LOCK_HINT } from "~/lib/habitquest/constants";
 import { cn } from "~/lib/ui/cn";
@@ -15,6 +16,7 @@ export function SeasonPassPage() {
     rewardSystems,
     levelUnlocks,
     claimSeasonPassLevel,
+    claimAllRewards,
     pendingClaimIds,
     hydrated,
   } = useHabitQuestStore((state) => state);
@@ -30,6 +32,9 @@ export function SeasonPassPage() {
       settledSeasonPass.level >= reward.level &&
       !settledSeasonPass.claimedLevels.includes(reward.level),
   );
+  const claimingAllSeason =
+    pendingClaimIds.includes("claim-all") ||
+    claimableSeason.some((reward) => pendingClaimIds.includes(`season:${reward.level}`));
 
   if (!hydrated) {
     return (
@@ -115,21 +120,36 @@ export function SeasonPassPage() {
           </div>
 
           {seasonUnlocked && claimableSeason.length ? (
-            <div className="mt-5 flex flex-wrap gap-2">
-              {claimableSeason.map((reward) => {
-                const pending = pendingClaimIds.includes(`season:${reward.level}`);
-                return (
-                  <button
-                    key={reward.level}
-                    type="button"
-                    disabled={pending}
-                    onClick={() => claimSeasonPassLevel(reward.level)}
-                    className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-300/16 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {pending ? "Claiming…" : `Claim Lv ${reward.level} · ${reward.label}`}
-                  </button>
-                );
-              })}
+            <div className="mt-5 space-y-3">
+              {claimableSeason.length > 1 ? (
+                <button
+                  type="button"
+                  disabled={claimingAllSeason}
+                  onClick={() => claimAllRewards(["season"])}
+                  className="min-h-11 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {claimingAllSeason
+                    ? "Claiming all…"
+                    : `Claim all ${claimableSeason.length} tiers`}
+                </button>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {claimableSeason.map((reward) => {
+                  const pending =
+                    claimingAllSeason || pendingClaimIds.includes(`season:${reward.level}`);
+                  return (
+                    <button
+                      key={reward.level}
+                      type="button"
+                      disabled={pending}
+                      onClick={() => claimSeasonPassLevel(reward.level)}
+                      className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-300/16 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {pending ? "Claiming…" : `Claim Lv ${reward.level} · ${reward.label}`}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <p className="mt-5 text-sm text-[var(--color-text-muted)]">
@@ -153,7 +173,8 @@ export function SeasonPassPage() {
               const reached = seasonPass.level >= reward.level;
               const settledReached = settledSeasonPass.level >= reward.level;
               const claimed = settledSeasonPass.claimedLevels.includes(reward.level);
-              const pending = pendingClaimIds.includes(`season:${reward.level}`);
+              const pending =
+                claimingAllSeason || pendingClaimIds.includes(`season:${reward.level}`);
               const ready = settledReached && !claimed;
 
               return (
@@ -175,8 +196,10 @@ export function SeasonPassPage() {
                       <p className="font-semibold text-white">
                         Lv {reward.level} · {reward.label}
                       </p>
-                      <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                        +{reward.coins} coins · +{reward.exp} EXP
+                      <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[var(--color-text-muted)]">
+                        <CurrencyAmount kind="coins" value={reward.coins} prefix="+" size={13} />
+                        <span aria-hidden>·</span>
+                        <CurrencyAmount kind="exp" value={reward.exp} prefix="+" size={13} />
                       </p>
                     </div>
                     {ready ? (

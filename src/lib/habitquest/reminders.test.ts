@@ -2,15 +2,16 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { shouldFireReminder } from "./reminders.ts";
 import {
-  getActivePushSlotUtc,
+  getActiveLocalPushSlot,
   getClockMinutesInTimeZone,
   getDateKeyInTimeZone,
   hasSentPushSlot,
-  isWithinPushHourUtc,
   isWithinReminderHourInTimeZone,
   shouldFireReminderInTimeZone,
-  formatUtcHhMmInTimeZone,
   describePushReminderSchedule,
+  normalizeReminderTime,
+  addHoursToReminderTime,
+  snapReminderTimeToHour,
 } from "../push/timezone.ts";
 
 describe("shouldFireReminder", () => {
@@ -26,6 +27,16 @@ describe("shouldFireReminder", () => {
 
   it("rejects invalid times", () => {
     assert.equal(shouldFireReminder("nope", new Date(2026, 7, 7, 8, 0, 0)), false);
+  });
+});
+
+describe("reminder time helpers", () => {
+  it("normalizes and snaps reminder times", () => {
+    assert.equal(normalizeReminderTime("9:05"), "09:05");
+    assert.equal(normalizeReminderTime("bad", "07:00"), "07:00");
+    assert.equal(snapReminderTimeToHour("09:45"), "09:00");
+    assert.equal(addHoursToReminderTime("08:00", 14), "22:00");
+    assert.equal(addHoursToReminderTime("20:00", 14), "10:00");
   });
 });
 
@@ -54,39 +65,39 @@ describe("timezone reminder helpers", () => {
     assert.equal(isWithinReminderHourInTimeZone("08:00", "UTC", afterHour), false);
   });
 
-  it("matches the UTC midnight and afternoon push windows", () => {
-    const beforeMidnight = new Date("2026-08-13T23:59:00.000Z");
-    const midnight = new Date("2026-08-14T00:30:00.000Z");
-    const afterMidnight = new Date("2026-08-14T01:00:00.000Z");
-    const afternoon = new Date("2026-08-14T14:15:00.000Z");
-    const afterAfternoon = new Date("2026-08-14T15:00:00.000Z");
-    assert.equal(isWithinPushHourUtc(beforeMidnight), false);
-    assert.equal(isWithinPushHourUtc(midnight), true);
-    assert.equal(isWithinPushHourUtc(afterMidnight), false);
-    assert.equal(isWithinPushHourUtc(afternoon), true);
-    assert.equal(isWithinPushHourUtc(afterAfternoon), false);
-    assert.equal(getActivePushSlotUtc(midnight)?.kind, "digest");
-    assert.equal(getActivePushSlotUtc(midnight)?.slotKey, "2026-08-14T00");
-    assert.equal(getActivePushSlotUtc(afternoon)?.kind, "followup");
-    assert.equal(getActivePushSlotUtc(afternoon)?.slotKey, "2026-08-14T14");
+  it("resolves digest and follow-up from the player's local reminder time", () => {
+    const digestHour = new Date("2026-08-14T08:15:00.000Z");
+    const followUpHour = new Date("2026-08-14T22:20:00.000Z");
+    const quietHour = new Date("2026-08-14T12:00:00.000Z");
+
+    assert.equal(getActiveLocalPushSlot("08:00", "UTC", quietHour), null);
+
+    const digest = getActiveLocalPushSlot("08:00", "UTC", digestHour);
+    assert.equal(digest?.kind, "digest");
+    assert.equal(digest?.slotKey, "2026-08-14:d");
+
+    const followUp = getActiveLocalPushSlot("08:00", "UTC", followUpHour);
+    assert.equal(followUp?.kind, "followup");
+    assert.equal(followUp?.slotKey, "2026-08-14:f");
   });
 
-  it("gates each UTC slot once without blocking the follow-up", () => {
-    assert.equal(hasSentPushSlot("2026-08-14T00", "2026-08-14T00"), true);
-    assert.equal(hasSentPushSlot("2026-08-14T00", "2026-08-14T14"), false);
-    assert.equal(hasSentPushSlot("2026-08-14T14", "2026-08-14T14"), true);
-    assert.equal(hasSentPushSlot("2026-08-14T14", "2026-08-15T00"), false);
-    assert.equal(hasSentPushSlot("2026-08-14", "2026-08-14T00"), true);
-    assert.equal(hasSentPushSlot("2026-08-14", "2026-08-14T14"), false);
+  it("gates each local slot once without blocking the follow-up", () => {
+    assert.equal(hasSentPushSlot("2026-08-14:d", "2026-08-14:d"), true);
+    assert.equal(hasSentPushSlot("2026-08-14:d", "2026-08-14:f"), false);
+    assert.equal(hasSentPushSlot("2026-08-14:f", "2026-08-14:f"), true);
+    assert.equal(hasSentPushSlot("2026-08-14:f", "2026-08-15:d"), false);
+    assert.equal(hasSentPushSlot("2026-08-14", "2026-08-14:d"), true);
+    assert.equal(hasSentPushSlot("2026-08-14", "2026-08-14:f"), false);
   });
 
-  it("formats UTC push slots in the player's timezone", () => {
-    const stamp = new Date("2026-08-14T00:00:00.000Z");
-    assert.equal(formatUtcHhMmInTimeZone("00:00", "Asia/Manila", stamp), "8:00 AM");
-    assert.equal(formatUtcHhMmInTimeZone("14:00", "Asia/Manila", stamp), "10:00 PM");
+  it("describes the schedule from the chosen local time", () => {
     assert.equal(
-      describePushReminderSchedule("Asia/Manila", stamp),
+      describePushReminderSchedule("08:00"),
       "around 8:00 AM, then a follow-up around 10:00 PM if anything is still due",
+    );
+    assert.equal(
+      describePushReminderSchedule("07:00"),
+      "around 7:00 AM, then a follow-up around 9:00 PM if anything is still due",
     );
   });
 });

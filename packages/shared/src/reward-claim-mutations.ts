@@ -5,6 +5,8 @@ import {
   SEASON_PASS_MAX_LEVEL,
   STREAK_FREEZE_COST,
 } from "./constants";
+import { listClaimableRewards, type ClaimableKind } from "./claimables";
+import { normalizeReminderTime } from "./reminder-time";
 import { createId, createExpEntry, getTodayDateKey, isFeatureUnlocked, syncProgress } from "./utils";
 import type {
   CoinWallet,
@@ -13,6 +15,8 @@ import type {
   UserProgress,
   UserSettings,
 } from "./types";
+
+export type { ClaimableKind };
 
 export type ClaimMutationResult =
   | {
@@ -325,6 +329,54 @@ export function applyClaimBossReward(data: HabitQuestData): ClaimMutationResult 
   return finish(before, next, rewardToasts);
 }
 
+/**
+ * Claim every currently claimable reward in one pass (ordered by listClaimableRewards).
+ * Optional `kinds` filters which reward types to claim.
+ */
+export function applyClaimAllRewards(
+  data: HabitQuestData,
+  kinds?: ClaimableKind[],
+): ClaimMutationResult {
+  const before = data;
+  const allowed = kinds?.length ? new Set(kinds) : null;
+  const items = listClaimableRewards(data).filter(
+    (item) => !allowed || allowed.has(item.kind),
+  );
+
+  if (!items.length) {
+    return { ok: false, error: "No rewards ready to claim." };
+  }
+
+  let next = data;
+  const rewardToasts: RewardToast[] = [];
+
+  for (const item of items) {
+    let mutation: ClaimMutationResult;
+    if (item.kind === "challenge") {
+      mutation = applyClaimChallengeReward(next, item.id.replace("challenge:", ""));
+    } else if (item.kind === "quest") {
+      mutation = applyClaimQuestArcReward(next, item.id.replace("quest:", ""));
+    } else if (item.kind === "season") {
+      const level = Number(item.id.replace("season:", ""));
+      mutation = applyClaimSeasonPassLevel(next, level);
+    } else {
+      mutation = applyClaimBossReward(next);
+    }
+
+    if (!mutation.ok) {
+      continue;
+    }
+    next = mutation.data;
+    rewardToasts.push(...mutation.rewardToasts);
+  }
+
+  if (next === data) {
+    return { ok: false, error: "No rewards ready to claim." };
+  }
+
+  return finish(before, next, rewardToasts);
+}
+
 export function applyBuyStreakFreeze(data: HabitQuestData): ClaimMutationResult {
   if (data.rewardSystems.streakFreezes >= MAX_STREAK_FREEZES) {
     return { ok: false, error: `You already hold ${MAX_STREAK_FREEZES} freezes.` };
@@ -360,6 +412,10 @@ export function applyUpdateSettings(
       patch.displayName !== undefined
         ? patch.displayName.trim().slice(0, 32)
         : data.settings.displayName,
+    reminderTime:
+      patch.reminderTime !== undefined
+        ? normalizeReminderTime(patch.reminderTime, data.settings.reminderTime)
+        : data.settings.reminderTime,
   };
 
   return {

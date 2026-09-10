@@ -4,11 +4,13 @@ import { create } from "zustand";
 import type { AuthUser } from "~/lib/auth/session-types";
 import {
   buyStreakFreezeRequest,
+  claimAllRewardsRequest,
   claimBossRewardRequest,
   claimChallengeRewardRequest,
   claimQuestArcRewardRequest,
   claimSeasonPassLevelRequest,
   completeHabitRequest,
+  completeHabitsRequest,
   completeOnboardingRequest,
   createHabitRequest,
   deleteHabitRequest,
@@ -40,16 +42,20 @@ import {
   applyCompleteHabitForToday,
   applyUncompleteHabitForToday,
   mergeHabitCompletionIntoState,
+  mergeHabitCompletionsIntoState,
 } from "~/lib/habitquest/habit-mutations";
 import {
   applyBuyStreakFreeze,
+  applyClaimAllRewards,
   applyClaimBossReward,
   applyClaimChallengeReward,
   applyClaimQuestArcReward,
   applyClaimSeasonPassLevel,
   applyCompleteOnboarding,
   applyUpdateSettings,
+  type ClaimableKind,
 } from "~/lib/habitquest/reward-claim-mutations";
+import { listClaimableRewards } from "~/lib/habitquest/claimables";
 import {
   applyEquipShopItem,
   applyPurchaseShopItem,
@@ -142,6 +148,7 @@ type HabitQuestStore = HabitQuestData & {
   claimChallengeReward: (challengeId: string) => void;
   claimQuestArcReward: (arcId: string) => void;
   claimSeasonPassLevel: (level: number) => void;
+  claimAllRewards: (kinds?: ClaimableKind[]) => void;
   claimBossReward: () => void;
   buyStreakFreeze: () => void;
   purchaseShopItem: (itemId: string) => void;
@@ -705,6 +712,193 @@ function isCurrentHabitMutation(habitId: string, seq: number) {
   return habitMutationSeq.get(habitId) === seq;
 }
 
+type QueuedHabitComplete = {
+  habitId: string;
+  seq: number;
+  dateKey: string;
+};
+
+const COMPLETE_BATCH_MS = 140;
+const completeFlushQueue = new Map<string, QueuedHabitComplete>();
+let completeFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function rollbackHabitCompleteFailure(
+  habitId: string,
+  dateKey: string,
+  error: string,
+) {
+  const rolledBack = persistLocalOnly(
+    mergeHabitCompletionIntoState(projectData(useHabitQuestStore.getState()), {
+      habitId,
+      date: dateKey,
+      completion: null,
+      rewardSystems: useHabitQuestStore.getState().rewardSystems,
+    }),
+  );
+  useHabitQuestStore.setState((current) => ({
+    ...current,
+    ...rolledBack,
+    ...withoutHabitPending(current, habitId),
+    ...pushWarningState(
+      { ...current, ...rolledBack } as HabitQuestStore,
+      "Clear failed",
+      error,
+    ),
+  }));
+}
+
+function applyHabitCompleteSuccess(
+  habitId: string,
+  result: {
+    habitId: string;
+    date: string;
+    completion: HabitQuestData["completions"][number] | null;
+    rewardSystems: Pick<HabitQuestData["rewardSystems"], "todayCombo" | "comboDate">;
+  },
+) {
+  const merged = mergeHabitCompletionIntoState(projectData(useHabitQuestStore.getState()), result);
+  const resolution = resolveGameState(withLiveHabitMembership(merged));
+  const persisted = persistLocalOnly(resolution.data);
+
+  useHabitQuestStore.setState((current) => ({
+    ...mergeTransientState(current, { ...resolution, data: persisted }),
+    ...withoutHabitPending(current, habitId),
+    rewardToasts: [...current.rewardToasts, ...resolution.rewardToasts],
+    floatingRewards: [...current.floatingRewards, ...resolution.floatingRewards],
+    celebration: resolution.celebration ?? current.celebration,
+  }));
+}
+
+async function flushHabitCompletes() {
+  const queued = [...completeFlushQueue.values()].filter((entry) =>
+    isCurrentHabitMutation(entry.habitId, entry.seq),
+  );
+  completeFlushQueue.clear();
+  if (!queued.length || !useHabitQuestStore.getState().authUser) {
+    return;
+  }
+
+  const dateKey = queued[0]!.dateKey;
+  const batch = queued.filter((entry) => entry.dateKey === dateKey);
+
+  if (batch.length === 1) {
+    const entry = batch[0]!;
+    try {
+      const result = await completeHabitRequest(entry.habitId, entry.dateKey);
+      if (!isCurrentHabitMutation(entry.habitId, entry.seq)) {
+        return;
+      }
+      if (result.status !== "ok") {
+        rollbackHabitCompleteFailure(
+          entry.habitId,
+          entry.dateKey,
+          result.status === "unauthenticated"
+            ? "Sign in again to save habit clears."
+            : result.error,
+        );
+        return;
+      }
+      applyHabitCompleteSuccess(entry.habitId, result);
+    } catch (error) {
+      if (!isCurrentHabitMutation(entry.habitId, entry.seq)) {
+        return;
+      }
+      rollbackHabitCompleteFailure(
+        entry.habitId,
+        entry.dateKey,
+        error instanceof Error ? error.message : "Network error while saving clear.",
+      );
+    }
+    return;
+  }
+
+  const habitIds = batch.map((entry) => entry.habitId);
+  const seqById = new Map(batch.map((entry) => [entry.habitId, entry.seq] as const));
+
+  try {
+    const result = await completeHabitsRequest(habitIds, dateKey);
+    const stillCurrent = habitIds.filter((habitId) =>
+      isCurrentHabitMutation(habitId, seqById.get(habitId) ?? -1),
+    );
+    if (!stillCurrent.length) {
+      return;
+    }
+
+    if (result.status !== "ok") {
+      const message =
+        result.status === "unauthenticated"
+          ? "Sign in again to save habit clears."
+          : result.error;
+      for (const habitId of stillCurrent) {
+        rollbackHabitCompleteFailure(habitId, dateKey, message);
+      }
+      return;
+    }
+
+    const completedIds = new Set(result.completions.map((entry) => entry.habitId));
+    const merged = mergeHabitCompletionsIntoState(projectData(useHabitQuestStore.getState()), {
+      date: result.date,
+      completions: result.completions.map((entry) => ({
+        habitId: entry.habitId,
+        completion: entry.completion,
+      })),
+      rewardSystems: result.rewardSystems,
+    });
+    const resolution = resolveGameState(withLiveHabitMembership(merged));
+    const persisted = persistLocalOnly(resolution.data);
+
+    useHabitQuestStore.setState((current) => {
+      let pendingHabitIds = current.pendingHabitIds;
+      let pendingHabitActions = current.pendingHabitActions;
+      for (const habitId of stillCurrent) {
+        if (!completedIds.has(habitId)) {
+          continue;
+        }
+        const cleared = withoutHabitPending(
+          { pendingHabitIds, pendingHabitActions },
+          habitId,
+        );
+        pendingHabitIds = cleared.pendingHabitIds;
+        pendingHabitActions = cleared.pendingHabitActions;
+      }
+      return {
+        ...mergeTransientState(current, { ...resolution, data: persisted }),
+        pendingHabitIds,
+        pendingHabitActions,
+        rewardToasts: [...current.rewardToasts, ...resolution.rewardToasts],
+        floatingRewards: [...current.floatingRewards, ...resolution.floatingRewards],
+        celebration: resolution.celebration ?? current.celebration,
+      };
+    });
+
+    for (const habitId of stillCurrent) {
+      if (!completedIds.has(habitId)) {
+        rollbackHabitCompleteFailure(habitId, dateKey, "Clear was skipped by the server.");
+      }
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Network error while saving clears.";
+    for (const entry of batch) {
+      if (!isCurrentHabitMutation(entry.habitId, entry.seq)) {
+        continue;
+      }
+      rollbackHabitCompleteFailure(entry.habitId, entry.dateKey, message);
+    }
+  }
+}
+
+function enqueueHabitComplete(habitId: string, seq: number, dateKey: string) {
+  completeFlushQueue.set(habitId, { habitId, seq, dateKey });
+  if (completeFlushTimer) {
+    clearTimeout(completeFlushTimer);
+  }
+  completeFlushTimer = setTimeout(() => {
+    completeFlushTimer = null;
+    void flushHabitCompletes();
+  }, COMPLETE_BATCH_MS);
+}
+
 function nextShopMutationSeq(key: string) {
   const next = (shopMutationSeq.get(key) ?? 0) + 1;
   shopMutationSeq.set(key, next);
@@ -717,7 +911,7 @@ function isCurrentShopMutation(key: string, seq: number) {
 
 function rollbackClaimFailure(
   snapshot: HabitQuestData,
-  pendingKey: string,
+  pendingKeys: string | string[],
   seqKey: string,
   seq: number,
   error: string,
@@ -725,12 +919,13 @@ function rollbackClaimFailure(
   if (!isCurrentShopMutation(seqKey, seq)) {
     return;
   }
+  const keys = new Set(Array.isArray(pendingKeys) ? pendingKeys : [pendingKeys]);
   const rolledBack = persistLocalOnly(snapshot);
   bumpCloudSavePayload(rolledBack);
   useHabitQuestStore.setState((current) => ({
     ...current,
     ...rolledBack,
-    pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+    pendingClaimIds: current.pendingClaimIds.filter((id) => !keys.has(id)),
     ...pushWarningState(
       { ...current, ...rolledBack } as HabitQuestStore,
       "Claim failed",
@@ -741,7 +936,7 @@ function rollbackClaimFailure(
 
 async function runClaimAgainstCloud(
   snapshot: HabitQuestData,
-  pendingKey: string,
+  pendingKeys: string | string[],
   seqKey: string,
   seq: number,
   claim: () => Promise<
@@ -760,9 +955,10 @@ async function runClaimAgainstCloud(
     shopItems?: HabitQuestData["shopItems"];
   }) => void,
 ) {
+  const keys = new Set(Array.isArray(pendingKeys) ? pendingKeys : [pendingKeys]);
   if (!useHabitQuestStore.getState().authUser) {
     useHabitQuestStore.setState((current) => ({
-      pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+      pendingClaimIds: current.pendingClaimIds.filter((id) => !keys.has(id)),
     }));
     return;
   }
@@ -775,7 +971,7 @@ async function runClaimAgainstCloud(
   ) {
     const ensured = await ensureCloudSavePushed(snapshot);
     if (!ensured.ok) {
-      rollbackClaimFailure(snapshot, pendingKey, seqKey, seq, ensured.error);
+      rollbackClaimFailure(snapshot, pendingKeys, seqKey, seq, ensured.error);
       return;
     }
     result = await claim();
@@ -787,7 +983,7 @@ async function runClaimAgainstCloud(
   if (result.status !== "ok") {
     rollbackClaimFailure(
       snapshot,
-      pendingKey,
+      pendingKeys,
       seqKey,
       seq,
       result.status === "unauthenticated"
@@ -1231,77 +1427,15 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       return;
     }
 
-    void completeHabitRequest(habitId, today)
-      .then((result) => {
-        if (!isCurrentHabitMutation(habitId, seq)) {
-          return;
-        }
-
-        if (result.status !== "ok") {
-          const rolledBack = persistLocalOnly(
-            mergeHabitCompletionIntoState(projectData(get()), {
-              habitId,
-              date: today,
-              completion: null,
-              rewardSystems: get().rewardSystems,
-            }),
-          );
-          set((current) => ({
-            ...current,
-            ...rolledBack,
-            ...withoutHabitPending(current, habitId),
-            ...pushWarningState(
-              { ...current, ...rolledBack } as HabitQuestStore,
-              "Clear failed",
-              result.status === "unauthenticated"
-                ? "Sign in again to save habit clears."
-                : result.error,
-            ),
-          }));
-          return;
-        }
-
-        const merged = mergeHabitCompletionIntoState(projectData(get()), result);
-        const resolution = resolveGameState(withLiveHabitMembership(merged));
-        const persisted = persistLocalOnly(resolution.data);
-
-        set((current) => ({
-          ...mergeTransientState(current, { ...resolution, data: persisted }),
-          ...withoutHabitPending(current, habitId),
-          rewardToasts: [...current.rewardToasts, ...resolution.rewardToasts],
-          floatingRewards: [...current.floatingRewards, ...resolution.floatingRewards],
-          celebration: resolution.celebration ?? current.celebration,
-        }));
-      })
-      .catch((error) => {
-        if (!isCurrentHabitMutation(habitId, seq)) {
-          return;
-        }
-        const rolledBack = persistLocalOnly(
-          mergeHabitCompletionIntoState(projectData(get()), {
-            habitId,
-            date: today,
-            completion: null,
-            rewardSystems: get().rewardSystems,
-          }),
-        );
-        set((current) => ({
-          ...current,
-          ...rolledBack,
-          ...withoutHabitPending(current, habitId),
-          ...pushWarningState(
-            { ...current, ...rolledBack } as HabitQuestStore,
-            "Clear failed",
-            error instanceof Error ? error.message : "Network error while saving clear.",
-          ),
-        }));
-      });
+    enqueueHabitComplete(habitId, seq, today);
   },
   uncompleteHabitForToday: (habitId) => {
     const state = get();
     if (state.pendingHabitIds.includes(habitId)) {
       return;
     }
+
+    completeFlushQueue.delete(habitId);
 
     const today = getTodayDateKey();
     const snapshot = projectData(state);
@@ -1585,6 +1719,99 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             ...current,
             ...nextData,
             pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
+          };
+        });
+      },
+    );
+  },
+  claimAllRewards: (kinds) => {
+    const state = get();
+    const snapshot = projectData(state);
+    const claimables = listClaimableRewards(snapshot).filter(
+      (item) => !kinds?.length || kinds.includes(item.kind),
+    );
+    if (!claimables.length) {
+      return;
+    }
+
+    const pendingKeys = claimables.map((item) => item.id);
+    if (
+      state.pendingClaimIds.includes("claim-all") ||
+      pendingKeys.some((key) => state.pendingClaimIds.includes(key))
+    ) {
+      return;
+    }
+
+    const mutation = applyClaimAllRewards(snapshot, kinds);
+    if (!mutation.ok) {
+      set((current) => ({
+        ...current,
+        ...pushWarningState(current, "Claim blocked", mutation.error),
+      }));
+      return;
+    }
+
+    const seqKey = kinds?.length ? `claim-all:${kinds.join(",")}` : "claim-all";
+    const seq = nextShopMutationSeq(seqKey);
+    const resolution = resolveGameState(withLiveHabitMembership(mutation.data));
+    const persisted = persistLocalOnly(resolution.data);
+    bumpCloudSavePayload(persisted);
+
+    const seasonCount = claimables.filter((item) => item.kind === "season").length;
+
+    set((current) => ({
+      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      pendingClaimIds: [...current.pendingClaimIds, "claim-all", ...pendingKeys],
+      rewardToasts: [
+        ...current.rewardToasts,
+        ...mutation.rewardToasts,
+        ...resolution.rewardToasts,
+      ],
+      floatingRewards: [
+        ...current.floatingRewards,
+        ...resolution.floatingRewards,
+      ],
+      celebration:
+        seasonCount > 1
+          ? createCelebration(
+              "season-level",
+              `Claimed ${seasonCount} season rewards`,
+              "Season track blessings gathered.",
+            )
+          : claimables.length > 1
+            ? createCelebration(
+                "quest-chapter",
+                `Claimed ${claimables.length} rewards`,
+                "All waiting blessings gathered.",
+              )
+            : resolution.celebration ?? current.celebration,
+    }));
+
+    void runClaimAgainstCloud(
+      snapshot,
+      ["claim-all", ...pendingKeys],
+      seqKey,
+      seq,
+      () => claimAllRewardsRequest(kinds),
+      (result) => {
+        set((current) => {
+          const nextData = persistLocalOnly({
+            ...projectData(current),
+            wallet: result.wallet,
+            userProgress: result.userProgress,
+            challenges: result.challenges ?? current.challenges,
+            questArcs: result.questArcs ?? current.questArcs,
+            seasonPass: result.seasonPass ?? current.seasonPass,
+            weeklyBoss: result.weeklyBoss ?? current.weeklyBoss,
+            rewardSystems: result.rewardSystems ?? current.rewardSystems,
+            shopItems: result.shopItems ?? current.shopItems,
+          });
+          bumpCloudSavePayload(nextData);
+          const clearKeys = new Set(["claim-all", ...pendingKeys]);
+          return {
+            ...current,
+            ...nextData,
+            pendingClaimIds: current.pendingClaimIds.filter((id) => !clearKeys.has(id)),
           };
         });
       },

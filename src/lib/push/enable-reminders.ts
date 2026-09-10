@@ -7,10 +7,7 @@ import {
   subscribeToHabitQuestPush,
   unsubscribeFromHabitQuestPush,
 } from "~/lib/push/client";
-import {
-  describePushReminderSchedule,
-  FIXED_REMINDER_LOCAL_TIME,
-} from "~/lib/push/timezone";
+import { describePushReminderSchedule } from "~/lib/push/timezone";
 import {
   removePushSubscriptionRequest,
   savePushSubscriptionRequest,
@@ -54,12 +51,12 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
     };
   }
 
+  const currentTime = useHabitQuestStore.getState().settings.reminderTime;
   updateSettings({
     remindersEnabled: true,
-    reminderTime: FIXED_REMINDER_LOCAL_TIME,
   });
 
-  const schedule = describePushReminderSchedule();
+  const schedule = describePushReminderSchedule(currentTime);
 
   if (!canUseWebPush() || !getVapidPublicKeyFromEnv()) {
     return {

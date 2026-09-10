@@ -14,13 +14,22 @@ import {
   disableHabitQuestReminders,
   enableHabitQuestReminders,
 } from "~/lib/push/enable-reminders";
-import { describePushReminderSchedule } from "~/lib/push/timezone";
+import {
+  describePushReminderSchedule,
+  formatReminderClockLabel,
+  snapReminderTimeToHour,
+} from "~/lib/push/timezone";
 import { APP_VERSION } from "~/lib/app-version";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { getDueHabitsForDate, getTodayDateKey } from "~/lib/habitquest/utils";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 const isDev = process.env.NODE_ENV === "development";
+
+const REMINDER_HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => {
+  const value = `${String(hour).padStart(2, "0")}:00`;
+  return { value, label: formatReminderClockLabel(value) };
+});
 
 export function SettingsPage() {
   const [backupNote, setBackupNote] = useState<string | null>(null);
@@ -148,9 +157,28 @@ export function SettingsPage() {
       <GlassCard>
         <h2 className="section-title text-2xl text-white">Daily reminder</h2>
         <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
-          HabitQuest can remind you {describePushReminderSchedule()}. Cue times on habits sort
-          today&apos;s list — they are not alarms.
+          HabitQuest can remind you {describePushReminderSchedule(settings.reminderTime)}. Cue
+          times on habits sort today&apos;s list — they are not alarms.
         </p>
+        <label className="mt-5 grid gap-2">
+          <span className="text-sm text-[var(--color-text-muted)]">Reminder time</span>
+          <select
+            value={snapReminderTimeToHour(settings.reminderTime)}
+            onChange={(event) => {
+              updateSettings({ reminderTime: event.target.value });
+              setReminderNote(
+                `Reminder set for ${formatReminderClockLabel(event.target.value)}.`,
+              );
+            }}
+            className="max-w-xs rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50"
+          >
+            {REMINDER_HOUR_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value} className="bg-slate-950 text-white">
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           type="button"
           disabled={busy}

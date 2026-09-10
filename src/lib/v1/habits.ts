@@ -8,7 +8,7 @@ import {
   persistHabitCreate,
   persistHabitDelete,
   persistHabitUpdate,
-  persistTodayHabitCompletion,
+  persistTodayHabitCompletions,
   removeTodayHabitCompletion,
 } from "~/lib/db/habitquest-repository";
 import {
@@ -29,6 +29,17 @@ export type HabitActionResult =
       habitId: string;
       date: string;
       completion: HabitCompletion | null;
+      rewardSystems: Pick<RewardSystems, "todayCombo" | "comboDate">;
+      updatedAt: string;
+    }
+  | { status: "unauthenticated" }
+  | { status: "error"; error: string };
+
+export type HabitBatchActionResult =
+  | {
+      status: "ok";
+      date: string;
+      completions: Array<{ habitId: string; completion: HabitCompletion }>;
       rewardSystems: Pick<RewardSystems, "todayCombo" | "comboDate">;
       updatedAt: string;
     }
@@ -100,6 +111,41 @@ export async function completeHabit(
     return { status: "error", error: "dateKey must be YYYY-MM-DD." };
   }
 
+  const batch = await completeHabits([habitId], dateKey);
+  if (batch.status !== "ok") {
+    return batch;
+  }
+
+  const entry = batch.completions.find((item) => item.habitId === habitId);
+  if (!entry) {
+    return { status: "error", error: "Missing completion." };
+  }
+
+  return {
+    status: "ok",
+    habitId,
+    date: batch.date,
+    completion: entry.completion,
+    rewardSystems: batch.rewardSystems,
+    updatedAt: batch.updatedAt,
+  };
+}
+
+/**
+ * Complete many habits for one local calendar day in a single load + write.
+ */
+export async function completeHabits(
+  habitIdsInput: string[],
+  dateKey: string,
+): Promise<HabitBatchActionResult> {
+  const habitIds = [...new Set(habitIdsInput.filter((id) => typeof id === "string" && id))];
+  if (!habitIds.length) {
+    return { status: "error", error: "habitIds are required." };
+  }
+  if (!isValidDateKey(dateKey)) {
+    return { status: "error", error: "dateKey must be YYYY-MM-DD." };
+  }
+
   const user = await getCurrentUser();
   if (!user) {
     return { status: "unauthenticated" };
@@ -114,22 +160,36 @@ export async function completeHabit(
       return { status: "error", error: "No cloud save found." };
     }
 
-    const mutation = applyCompleteHabitForToday(existing.data, habitId, dateKey);
-    if (!mutation.ok || !mutation.completion) {
-      return { status: "error", error: mutation.ok ? "Missing completion." : mutation.error };
+    let working = existing.data;
+    const prepared: HabitCompletion[] = [];
+    const errors: string[] = [];
+
+    for (const habitId of habitIds) {
+      const mutation = applyCompleteHabitForToday(working, habitId, dateKey);
+      if (!mutation.ok || !mutation.completion) {
+        errors.push(mutation.ok ? `${habitId}: Missing completion.` : `${habitId}: ${mutation.error}`);
+        continue;
+      }
+      working = mutation.data;
+      prepared.push(mutation.completion);
     }
 
-    const saved = await persistTodayHabitCompletion(
-      database,
-      user.id,
-      mutation.completion,
-    );
+    if (!prepared.length) {
+      return {
+        status: "error",
+        error: errors[0] ?? "No habits could be cleared.",
+      };
+    }
+
+    const saved = await persistTodayHabitCompletions(database, user.id, prepared);
 
     return {
       status: "ok",
-      habitId,
       date: dateKey,
-      completion: mutation.completion,
+      completions: prepared.map((completion) => ({
+        habitId: completion.habitId,
+        completion,
+      })),
       rewardSystems: {
         todayCombo: saved.todayCombo,
         comboDate: saved.comboDate,
@@ -137,9 +197,10 @@ export async function completeHabit(
       updatedAt: saved.updatedAt,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to complete habit.";
-    // Duplicate key = already completed (race / double-submit) — reconcile as success.
-    if (/duplicate|uniq_completions/i.test(message)) {
+    const message = error instanceof Error ? error.message : "Failed to complete habits.";
+    // Duplicate key = some already completed — fall back to single-path reconcile for one id.
+    if (/duplicate|uniq_completions/i.test(message) && habitIds.length === 1) {
+      const habitId = habitIds[0]!;
       const refreshed = await loadNormalizedSave(database, user.id, catalog);
       const existingCompletion = refreshed?.data.completions.find(
         (entry) => entry.habitId === habitId && entry.date === dateKey,
@@ -150,9 +211,8 @@ export async function completeHabit(
 
       return {
         status: "ok",
-        habitId,
         date: dateKey,
-        completion: existingCompletion,
+        completions: [{ habitId, completion: existingCompletion }],
         rewardSystems: {
           todayCombo: refreshed.data.rewardSystems.todayCombo,
           comboDate: refreshed.data.rewardSystems.comboDate,

@@ -17,6 +17,10 @@ function getFocusable(root: HTMLElement) {
   );
 }
 
+function focusWithoutScroll(node: HTMLElement) {
+  node.focus({ preventScroll: true });
+}
+
 /**
  * Focus trap, Escape to close, and body scroll lock for modal dialogs.
  */
@@ -42,10 +46,13 @@ export function useDialogA11y(
     const previouslyFocused =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
+    const scrollY = window.scrollY;
     document.body.style.overflow = "hidden";
 
     const initial = getFocusable(container);
-    (initial[0] ?? container).focus();
+    // preventScroll avoids jumping the page to the dialog's DOM position
+    // (e.g. habit menus rendered below a long list).
+    focusWithoutScroll(initial[0] ?? container);
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -68,10 +75,10 @@ export function useDialogA11y(
       const last = items[items.length - 1]!;
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
-        last.focus();
+        focusWithoutScroll(last);
       } else if (!event.shiftKey && document.activeElement === last) {
         event.preventDefault();
-        first.focus();
+        focusWithoutScroll(first);
       }
     }
 
@@ -79,7 +86,13 @@ export function useDialogA11y(
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
-      previouslyFocused?.focus();
+      if (previouslyFocused) {
+        focusWithoutScroll(previouslyFocused);
+      }
+      // Some browsers still nudge scroll while overflow was locked; restore it.
+      if (Math.abs(window.scrollY - scrollY) > 1) {
+        window.scrollTo(0, scrollY);
+      }
     };
   }, [active, panelRef]);
 }

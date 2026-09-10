@@ -2,10 +2,11 @@ import {
   buildDailyReminderCopy,
   buildHabitCueReminderCopy,
 } from "~/lib/habitquest/reminder-copy";
-import { describeStackFormula, getEarliestCueTime } from "~/lib/habitquest/habit-loop";
+import { describeStackFormula } from "~/lib/habitquest/habit-loop";
+import { DEFAULT_REMINDER_LOCAL_TIME, normalizeReminderTime } from "~/lib/push/timezone";
 import type { Habit } from "~/types/habitquest";
 
-const DIGEST_FALLBACK_TIME = "08:00";
+const DIGEST_FALLBACK_TIME = DEFAULT_REMINDER_LOCAL_TIME;
 
 const REMINDER_FIRED_KEY = "habitquest::reminder-fired";
 const HABIT_REMINDER_FIRED_KEY = "habitquest::habit-reminder-fired";
@@ -169,7 +170,7 @@ export function fireHabitCueReminder(
   }
 }
 
-/** Digest time: earliest due cue, else fixed 08:00. */
-export function resolveDigestReminderTime(dueHabits: Habit[]) {
-  return getEarliestCueTime(dueHabits) ?? DIGEST_FALLBACK_TIME;
+/** Digest time: Settings reminder time (default 08:00). */
+export function resolveDigestReminderTime(preferredTime?: string | null) {
+  return normalizeReminderTime(preferredTime, DIGEST_FALLBACK_TIME);
 }

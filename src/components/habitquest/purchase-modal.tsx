@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useRef } from "react";
+import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
 import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import type { ShopItem } from "~/types/habitquest";
 
@@ -60,7 +61,14 @@ function PurchaseDialog({
           {item.name}
         </h2>
         <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
-          Spend {item.price} coins on this {item.category}. Purchases save to your account.
+          Spend{" "}
+          <CurrencyAmount
+            kind="coins"
+            value={item.price}
+            size={14}
+            className="align-middle font-medium text-amber-100"
+          />{" "}
+          on this {item.category}. Purchases save to your account.
         </p>
 
         <div className="mt-6 grid grid-cols-2 gap-3 sm:flex">

@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { AvatarWithFrame } from "~/components/habitquest/cosmetic-art";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { CoinIcon } from "~/components/habitquest/icons/coin-icon";
 import { cn } from "~/lib/ui/cn";
 import { formatNumber, getProfileDisplay } from "~/lib/habitquest/utils";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
@@ -248,12 +249,13 @@ export function Navigation() {
               key={spendableCoins}
               initial={{ scale: 0.95, opacity: 0.6 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="hq-chip-gold rounded-full border px-2.5 py-1.5 text-[11px] sm:px-4 sm:py-2 sm:text-sm"
+              className="hq-chip-gold inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
               title="Spendable coins (preview rewards lock in tonight)"
             >
-              <span className="sm:hidden">{hydrated ? formatNumber(spendableCoins) : "..."}c</span>
-              <span className="hidden sm:inline">
-                Coins: {hydrated ? formatNumber(spendableCoins) : "..."}
+              <CoinIcon size={14} className="sm:hidden" title="Coins" />
+              <CoinIcon size={16} className="hidden sm:block" title="Coins" />
+              <span className="tabular-nums">
+                {hydrated ? formatNumber(spendableCoins) : "..."}
               </span>
             </motion.div>
             <Link

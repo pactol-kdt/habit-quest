@@ -1,4 +1,5 @@
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { CoinIcon } from "~/components/habitquest/icons/coin-icon";
 import { SETTLEMENT_LOCK_HINT } from "~/lib/habitquest/constants";
 
 interface DailyRewardCardProps {
@@ -43,7 +44,10 @@ export function DailyRewardCard({
               </p>
             </div>
             <div className="text-right">
-              <p className="text-lg font-semibold text-amber-100">+{dailyLoginCoins}</p>
+              <p className="inline-flex items-center justify-end gap-1.5 text-lg font-semibold text-amber-100">
+                <CoinIcon size={16} title="Coins" />
+                +{dailyLoginCoins}
+              </p>
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
                 {loginClaimed ? "Paid today" : "Pays on open"}
               </p>
@@ -60,7 +64,10 @@ export function DailyRewardCard({
               </p>
             </div>
             <div className="text-right">
-              <p className="text-lg font-semibold text-amber-100">+{dailyCompletionCoins}</p>
+              <p className="inline-flex items-center justify-end gap-1.5 text-lg font-semibold text-amber-100">
+                <CoinIcon size={16} title="Coins" />
+                +{dailyCompletionCoins}
+              </p>
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
                 {completionClaimed
                   ? "Banked"

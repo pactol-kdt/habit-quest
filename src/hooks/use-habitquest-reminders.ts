@@ -24,6 +24,7 @@ import { useHabitQuestStore } from "~/store/habitquest-store";
 
 function tryFireReminders(input: {
   displayName: string;
+  reminderTime?: string | null;
   habits: ReturnType<typeof useHabitQuestStore.getState>["habits"];
   completions: ReturnType<typeof useHabitQuestStore.getState>["completions"];
 }) {
@@ -59,7 +60,7 @@ function tryFireReminders(input: {
   }
 
   if (!hasReminderFiredToday(today)) {
-    const digestTime = resolveDigestReminderTime(incomplete);
+    const digestTime = resolveDigestReminderTime(input.reminderTime);
     if (shouldFireReminder(digestTime)) {
       const stackHint =
         describeStackFormula(incomplete[0]!, input.habits) ??
@@ -80,6 +81,7 @@ export function useHabitQuestReminders() {
   const hydrated = useHabitQuestStore((state) => state.hydrated);
   const authUser = useHabitQuestStore((state) => state.authUser);
   const remindersEnabled = useHabitQuestStore((state) => state.settings.remindersEnabled);
+  const reminderTime = useHabitQuestStore((state) => state.settings.reminderTime);
   const displayName = useHabitQuestStore((state) => state.settings.displayName);
   const habits = useHabitQuestStore((state) => state.habits);
   const completions = useHabitQuestStore((state) => state.completions);
@@ -125,13 +127,13 @@ export function useHabitQuestReminders() {
     }
 
     function tick() {
-      tryFireReminders({ displayName, habits, completions });
+      tryFireReminders({ displayName, reminderTime, habits, completions });
     }
 
     tick();
     const intervalId = window.setInterval(tick, 30_000);
     return () => window.clearInterval(intervalId);
-  }, [completions, displayName, habits, hydrated, remindersEnabled]);
+  }, [completions, displayName, habits, hydrated, reminderTime, remindersEnabled]);
 }
 
 /** Used by Settings "Send test" — bypasses once-per-day gate. */
@@ -157,6 +159,7 @@ export function tryFireDueReminderNow(input: {
   const state = useHabitQuestStore.getState();
   return tryFireReminders({
     displayName: input.displayName,
+    reminderTime: input.reminderTime ?? state.settings.reminderTime,
     habits: state.habits,
     completions: state.completions,
   });

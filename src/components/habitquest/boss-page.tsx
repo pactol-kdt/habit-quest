@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
 import { BOSS_CLEAR_COINS, BOSS_CLEAR_EXP, BOSS_DAMAGE, SETTLEMENT_LOCK_HINT } from "~/lib/habitquest/constants";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
@@ -112,8 +113,12 @@ export function BossPage() {
             </div>
             <div className="col-span-2 rounded-3xl border border-white/10 bg-white/4 p-4 sm:col-span-1">
               <p className="text-sm text-[var(--color-text-muted)]">Clear bounty</p>
-              <p className="mt-1 text-2xl font-semibold text-white">
-                {BOSS_CLEAR_COINS}c · {BOSS_CLEAR_EXP} XP
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-lg font-semibold text-white sm:text-2xl">
+                <CurrencyAmount kind="coins" value={BOSS_CLEAR_COINS} size={18} className="text-white" />
+                <span aria-hidden className="text-[var(--color-text-muted)]">
+                  ·
+                </span>
+                <CurrencyAmount kind="exp" value={BOSS_CLEAR_EXP} size={18} className="text-white" />
               </p>
             </div>
           </div>

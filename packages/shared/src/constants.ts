@@ -1,4 +1,5 @@
 import type { HabitDifficulty, ShopRarity, UnlockFeature, UserSettings } from "./types";
+import { DEFAULT_REMINDER_LOCAL_TIME } from "./reminder-time";
 
 export const STORAGE_KEY = "habitquest::save";
 /** Cached session user for optimistic refresh paint (non-secret profile fields only). */
@@ -22,7 +23,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   displayName: "",
   onboardingCompleted: false,
   remindersEnabled: false,
-  reminderTime: "08:00",
+  reminderTime: DEFAULT_REMINDER_LOCAL_TIME,
 };
 
 export const DIFFICULTY_EXP: Record<HabitDifficulty, number> = {

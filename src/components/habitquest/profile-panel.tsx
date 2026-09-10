@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AvatarWithFrame } from "~/components/habitquest/cosmetic-art";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { CoinIcon } from "~/components/habitquest/icons/coin-icon";
 import { formatNumber, getProfileDisplay } from "~/lib/habitquest/utils";
 import type { HabitQuestData } from "~/types/habitquest";
 
@@ -46,7 +47,10 @@ export function ProfilePanel({ data }: ProfilePanelProps) {
 
       <div className="mt-5 grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-white/10 bg-white/4 p-4">
-          <p className="text-sm text-[var(--color-text-muted)]">Coin wallet</p>
+          <p className="inline-flex items-center gap-1.5 text-sm text-[var(--color-text-muted)]">
+            <CoinIcon size={14} title="Coins" />
+            Coin wallet
+          </p>
           <p className="mt-1 text-2xl font-semibold text-amber-100">
             {formatNumber(data.wallet.totalCoins)}
           </p>

@@ -63,6 +63,41 @@ export function mergeHabitCompletionIntoState(
   };
 }
 
+export type HabitBatchCompletionSyncResult = {
+  date: string;
+  completions: Array<{ habitId: string; completion: HabitCompletion | null }>;
+  rewardSystems: Pick<RewardSystems, "todayCombo" | "comboDate">;
+};
+
+/** Merge many same-day clear results from a batch complete response. */
+export function mergeHabitCompletionsIntoState(
+  current: HabitQuestData,
+  result: HabitBatchCompletionSyncResult,
+): HabitQuestData {
+  const touched = new Set(result.completions.map((entry) => entry.habitId));
+  const completionsWithout = current.completions.filter(
+    (entry) => !(touched.has(entry.habitId) && entry.date === result.date),
+  );
+  const added = result.completions
+    .map((entry) => entry.completion)
+    .filter((entry): entry is HabitCompletion => Boolean(entry));
+  const completions = [...added, ...completionsWithout];
+
+  return {
+    ...current,
+    completions,
+    rewardSystems: reconcileTodayCombo(
+      {
+        ...(current.rewardSystems ?? createDefaultRewardSystems()),
+        todayCombo: result.rewardSystems.todayCombo,
+        comboDate: result.rewardSystems.comboDate,
+      },
+      completions,
+      result.date,
+    ),
+  };
+}
+
 function createToast(
   type: RewardToast["type"],
   title: string,

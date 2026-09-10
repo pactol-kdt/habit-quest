@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.6.0 - Local Reminder Hours and Claim All
+
+### Added
+- Settings reminder time picker (player-local hour); push digest and follow-up use that time instead of a fixed UTC schedule.
+- Claim all for ready challenge, quest, season, and boss rewards.
+- Shared coin and EXP icons across reward and progress surfaces.
+
+### Changed
+- Background push uses 24 Hobby-safe daily crons (one per UTC hour) and matches each user's local reminder hour (+14h follow-up if habits are still due).
+- Enabling push no longer resets `reminderTime` to 08:00.
+- Clearing several habits in one go syncs through a single batch write.
+- Locked achievements show a clearer silhouette treatment instead of plain Locked labels.
+- Habit cards no longer force a minimum width that breaks the mobile habits page.
+
 ## 0.5.0 - Guest Play and Home Clarity
 
 ### Added

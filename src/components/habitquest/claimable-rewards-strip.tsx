@@ -38,12 +38,17 @@ export function ClaimableRewardsStrip() {
   const claimChallengeReward = useHabitQuestStore((state) => state.claimChallengeReward);
   const claimQuestArcReward = useHabitQuestStore((state) => state.claimQuestArcReward);
   const claimSeasonPassLevel = useHabitQuestStore((state) => state.claimSeasonPassLevel);
+  const claimAllRewards = useHabitQuestStore((state) => state.claimAllRewards);
   const claimBossReward = useHabitQuestStore((state) => state.claimBossReward);
   const pendingClaimIds = useHabitQuestStore((state) => state.pendingClaimIds);
 
   if (!claimables.length) {
     return null;
   }
+
+  const claimingAll = pendingClaimIds.includes("claim-all");
+  const anyPending =
+    claimingAll || claimables.some((item) => pendingClaimIds.includes(item.id));
 
   return (
     <GlassCard className="rounded-[1.75rem] border-amber-300/25 bg-amber-300/8">
@@ -59,14 +64,26 @@ export function ClaimableRewardsStrip() {
             These blessings are already banked — claim them when you are ready.
           </p>
         </div>
-        <span className="self-start rounded-full border border-amber-300/30 bg-amber-300/15 px-3 py-1 text-xs uppercase tracking-[0.18em] text-amber-100">
-          {claimables.length} ready
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="self-start rounded-full border border-amber-300/30 bg-amber-300/15 px-3 py-1 text-xs uppercase tracking-[0.18em] text-amber-100">
+            {claimables.length} ready
+          </span>
+          {claimables.length > 1 ? (
+            <button
+              type="button"
+              disabled={anyPending}
+              onClick={() => claimAllRewards()}
+              className="min-h-10 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {claimingAll ? "Claiming all…" : "Claim all"}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         {claimables.map((item) => {
-          const pending = pendingClaimIds.includes(item.id);
+          const pending = claimingAll || pendingClaimIds.includes(item.id);
           return (
             <div
               key={item.id}

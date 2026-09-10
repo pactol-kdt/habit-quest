@@ -552,32 +552,45 @@ export async function persistTodayHabitCompletion(
   userId: string,
   completion: HabitCompletion,
 ) {
+  return persistTodayHabitCompletions(database, userId, [completion]);
+}
+
+/** Surgical write for many same-day clears — one transaction + one combo recount. */
+export async function persistTodayHabitCompletions(
+  database: Database,
+  userId: string,
+  completions: HabitCompletion[],
+) {
+  if (!completions.length) {
+    throw new Error("No completions to persist.");
+  }
+
   const updatedAt = new Date().toISOString();
+  const date = completions[0]!.date;
 
   return database.transaction(async (tx) => {
-    await tx.insert(habitCompletions).values({
-      id: completion.id,
-      userId,
-      habitId: completion.habitId,
-      date: completion.date,
-      expEarned: completion.expEarned,
-      streakBonusExp: completion.streakBonusExp,
-      completedAt: completion.completedAt,
-      crit: Boolean(completion.crit),
-    });
+    await tx.insert(habitCompletions).values(
+      completions.map((completion) => ({
+        id: completion.id,
+        userId,
+        habitId: completion.habitId,
+        date: completion.date,
+        expEarned: completion.expEarned,
+        streakBonusExp: completion.streakBonusExp,
+        completedAt: completion.completedAt,
+        crit: Boolean(completion.crit),
+      })),
+    );
 
     const rows = await tx
       .select({ id: habitCompletions.id })
       .from(habitCompletions)
       .where(
-        and(
-          eq(habitCompletions.userId, userId),
-          eq(habitCompletions.date, completion.date),
-        ),
+        and(eq(habitCompletions.userId, userId), eq(habitCompletions.date, date)),
       );
 
     const todayCombo = rows.length;
-    const comboDate = todayCombo > 0 ? completion.date : null;
+    const comboDate = todayCombo > 0 ? date : null;
 
     await tx
       .update(rewardSystems)
@@ -921,7 +934,9 @@ type EconomyBundle = {
   streakFreezes?: number;
   seasonPassCompletions?: number;
   challenge?: { challengeKey: string; startsAt: string; claimed: boolean };
+  challenges?: Array<{ challengeKey: string; startsAt: string; claimed: boolean }>;
   quest?: { questKey: string; claimed: boolean };
+  quests?: Array<{ questKey: string; claimed: boolean }>;
   seasonClaimedLevels?: number[];
   bossRewardClaimed?: boolean;
 };
@@ -971,27 +986,35 @@ export async function persistEconomyClaim(
         .where(eq(rewardSystems.userId, userId));
     }
 
-    if (bundle.challenge) {
+    const challengeUpdates = [
+      ...(bundle.challenge ? [bundle.challenge] : []),
+      ...(bundle.challenges ?? []),
+    ];
+    for (const challenge of challengeUpdates) {
       await tx
         .update(userChallenges)
-        .set({ claimed: bundle.challenge.claimed })
+        .set({ claimed: challenge.claimed })
         .where(
           and(
             eq(userChallenges.userId, userId),
-            eq(userChallenges.challengeKey, bundle.challenge.challengeKey),
-            eq(userChallenges.startsAt, bundle.challenge.startsAt),
+            eq(userChallenges.challengeKey, challenge.challengeKey),
+            eq(userChallenges.startsAt, challenge.startsAt),
           ),
         );
     }
 
-    if (bundle.quest) {
+    const questUpdates = [
+      ...(bundle.quest ? [bundle.quest] : []),
+      ...(bundle.quests ?? []),
+    ];
+    for (const quest of questUpdates) {
       await tx
         .update(userQuestArcs)
-        .set({ claimed: bundle.quest.claimed })
+        .set({ claimed: quest.claimed })
         .where(
           and(
             eq(userQuestArcs.userId, userId),
-            eq(userQuestArcs.questKey, bundle.quest.questKey),
+            eq(userQuestArcs.questKey, quest.questKey),
           ),
         );
     }

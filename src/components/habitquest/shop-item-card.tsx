@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { CosmeticPreview } from "~/components/habitquest/cosmetic-art";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
 import { RARITY_STYLES } from "~/lib/habitquest/constants";
 import { cn } from "~/lib/ui/cn";
 import type { ShopCategory, ShopItem } from "~/types/habitquest";
@@ -62,7 +63,9 @@ export function ShopItemCard({
         <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
           <span className="rounded-full bg-white/5 px-3 py-1">{item.category}</span>
           <span className="rounded-full bg-white/5 px-3 py-1">Lv {item.requiredLevel}</span>
-          <span className="rounded-full bg-white/5 px-3 py-1">{item.price} coins</span>
+          <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 normal-case tracking-normal">
+            <CurrencyAmount kind="coins" value={item.price} size={13} />
+          </span>
         </div>
 
         <div className="mt-5">

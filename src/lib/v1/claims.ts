@@ -10,13 +10,16 @@ import {
 } from "~/lib/db/habitquest-repository";
 import {
   applyBuyStreakFreeze,
+  applyClaimAllRewards,
   applyClaimBossReward,
   applyClaimChallengeReward,
   applyClaimQuestArcReward,
   applyClaimSeasonPassLevel,
   applyCompleteOnboarding,
   applyUpdateSettings,
+  type ClaimableKind,
 } from "~/lib/habitquest/reward-claim-mutations";
+import { listClaimableRewards } from "~/lib/habitquest/claimables";
 import type {
   CoinWallet,
   HabitQuestData,
@@ -262,6 +265,113 @@ export async function claimSeasonPassLevelAction(level: number): Promise<ClaimAc
     return {
       status: "error",
       error: error instanceof Error ? error.message : "Failed to claim season reward.",
+    };
+  }
+}
+
+const CLAIMABLE_KINDS = new Set<ClaimableKind>(["challenge", "quest", "season", "boss"]);
+
+function normalizeClaimKinds(kinds?: string[]): ClaimableKind[] | undefined {
+  if (!kinds?.length) {
+    return undefined;
+  }
+  const filtered = [...new Set(kinds)].filter(
+    (kind): kind is ClaimableKind => CLAIMABLE_KINDS.has(kind as ClaimableKind),
+  );
+  return filtered.length ? filtered : undefined;
+}
+
+/**
+ * Claim every ready reward in one load + one economy write (fixes wallet races).
+ */
+export async function claimAllRewardsAction(
+  kindsInput?: string[],
+): Promise<ClaimActionResult> {
+  try {
+    const kinds = normalizeClaimKinds(kindsInput);
+    const user = await getCurrentUser();
+    if (!user) {
+      return { status: "unauthenticated" };
+    }
+
+    const database = await ensureDatabase();
+    const catalog = await loadCatalogFromDb(database);
+    const existing = await loadNormalizedSave(database, user.id, catalog);
+    if (!existing) {
+      return {
+        status: "error",
+        error: "No cloud save found. Syncing your progress and try claiming again.",
+      };
+    }
+
+    const claimables = listClaimableRewards(existing.data).filter(
+      (item) => !kinds || kinds.includes(item.kind),
+    );
+    if (!claimables.length) {
+      return { status: "error", error: "No rewards ready to claim." };
+    }
+
+    const mutation = applyClaimAllRewards(existing.data, kinds);
+    if (!mutation.ok) {
+      return { status: "error", error: mutation.error };
+    }
+
+    const beforeChallenges = new Map(
+      existing.data.challenges.map((entry) => [entry.id, entry] as const),
+    );
+    const beforeQuests = new Map(
+      existing.data.questArcs.map((entry) => [entry.id, entry] as const),
+    );
+
+    const challenges = mutation.data.challenges
+      .filter((entry) => entry.claimed && !beforeChallenges.get(entry.id)?.claimed)
+      .map((entry) => ({
+        challengeKey: entry.key,
+        startsAt: entry.startsAt,
+        claimed: true as const,
+      }));
+    const quests = mutation.data.questArcs
+      .filter((entry) => entry.claimed && !beforeQuests.get(entry.id)?.claimed)
+      .map((entry) => ({
+        questKey: entry.key,
+        claimed: true as const,
+      }));
+
+    const seasonChanged =
+      mutation.data.seasonPass.claimedLevels.length !==
+      existing.data.seasonPass.claimedLevels.length;
+    const bossChanged =
+      mutation.data.weeklyBoss.rewardClaimed && !existing.data.weeklyBoss.rewardClaimed;
+
+    const saved = await persistEconomyClaim(database, user.id, {
+      ...economyFromMutation(mutation.data, mutation),
+      challenges: challenges.length ? challenges : undefined,
+      quests: quests.length ? quests : undefined,
+      seasonClaimedLevels: seasonChanged
+        ? mutation.data.seasonPass.claimedLevels
+        : undefined,
+      seasonPassCompletions: seasonChanged
+        ? mutation.data.rewardSystems.seasonPassCompletions
+        : undefined,
+      bossRewardClaimed: bossChanged ? true : undefined,
+    });
+
+    return {
+      status: "ok",
+      wallet: mutation.wallet,
+      userProgress: mutation.userProgress,
+      challenges: mutation.data.challenges,
+      questArcs: mutation.data.questArcs,
+      seasonPass: mutation.data.seasonPass,
+      weeklyBoss: mutation.data.weeklyBoss,
+      rewardSystems: mutation.data.rewardSystems,
+      shopItems: mutation.data.shopItems,
+      updatedAt: saved.updatedAt,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      error: error instanceof Error ? error.message : "Failed to claim rewards.",
     };
   }
 }

@@ -1,21 +1,30 @@
-/** In-tab digest fallback: 08:00 in the user's local timezone. */
-export const FIXED_REMINDER_LOCAL_TIME = "08:00";
+import {
+  DEFAULT_REMINDER_LOCAL_TIME,
+  FOLLOW_UP_OFFSET_HOURS,
+  addHoursToReminderTime,
+  describeReminderSchedule,
+  formatReminderClockLabel,
+  normalizeReminderTime,
+  snapReminderTimeToHour,
+} from "@habitquest/shared";
 
-/** Background Web Push digest: 00:00 UTC (08:00 in UTC+8). */
-export const FIXED_PUSH_UTC_TIME = "00:00";
+/** @deprecated Prefer DEFAULT_REMINDER_LOCAL_TIME — kept for existing imports. */
+export const FIXED_REMINDER_LOCAL_TIME = DEFAULT_REMINDER_LOCAL_TIME;
 
-/** Background Web Push follow-up: 14:00 UTC (22:00 in UTC+8). */
-export const FOLLOW_UP_PUSH_UTC_TIME = "14:00";
+export {
+  DEFAULT_REMINDER_LOCAL_TIME,
+  FOLLOW_UP_OFFSET_HOURS,
+  addHoursToReminderTime,
+  describeReminderSchedule,
+  formatReminderClockLabel,
+  normalizeReminderTime,
+  snapReminderTimeToHour,
+};
 
-export const PUSH_UTC_SLOTS = [
-  { time: FIXED_PUSH_UTC_TIME, kind: "digest" as const },
-  { time: FOLLOW_UP_PUSH_UTC_TIME, kind: "followup" as const },
-] as const;
+export type PushSlotKind = "digest" | "followup";
 
-export type PushUtcSlotKind = (typeof PUSH_UTC_SLOTS)[number]["kind"];
-
-export type ActivePushUtcSlot = {
-  kind: PushUtcSlotKind;
+export type ActiveLocalPushSlot = {
+  kind: PushSlotKind;
   time: string;
   slotKey: string;
 };
@@ -58,13 +67,12 @@ export function getClockMinutesInTimeZone(timeZone: string, now = new Date()) {
 }
 
 function parseReminderMinutes(reminderTime: string) {
-  const [hoursRaw, minutesRaw] = reminderTime.split(":");
-  const hours = Number(hoursRaw);
-  const minutes = Number(minutesRaw);
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+  const normalized = normalizeReminderTime(reminderTime, "");
+  if (!normalized) {
     return null;
   }
-  return hours * 60 + minutes;
+  const [hoursRaw, minutesRaw] = normalized.split(":");
+  return Number(hoursRaw) * 60 + Number(minutesRaw);
 }
 
 /** True once local time has reached the reminder minute (tab catch-up). */
@@ -81,7 +89,8 @@ export function shouldFireReminderInTimeZone(
 }
 
 /**
- * True only during the reminder's local hour (e.g. 08:00–08:59).
+ * True only during the reminder's local hour window
+ * (e.g. 08:00 → 08:00–08:59).
  */
 export function isWithinReminderHourInTimeZone(
   reminderTime: string,
@@ -96,80 +105,48 @@ export function isWithinReminderHourInTimeZone(
   return currentMinutes >= targetMinutes && currentMinutes < targetMinutes + 60;
 }
 
-export function getActivePushSlotUtc(now = new Date()): ActivePushUtcSlot | null {
-  const dateKey = getDateKeyInTimeZone("UTC", now);
-  for (const slot of PUSH_UTC_SLOTS) {
-    if (isWithinReminderHourInTimeZone(slot.time, "UTC", now)) {
-      return {
-        kind: slot.kind,
-        time: slot.time,
-        slotKey: `${dateKey}T${slot.time.slice(0, 2)}`,
-      };
-    }
+/**
+ * Resolve the active digest / follow-up slot for a player's local reminder time.
+ * Follow-up is digest + FOLLOW_UP_OFFSET_HOURS on the same local clock.
+ */
+export function getActiveLocalPushSlot(
+  reminderTime: string,
+  timeZone: string,
+  now = new Date(),
+): ActiveLocalPushSlot | null {
+  const digest = normalizeReminderTime(reminderTime);
+  const followUp = addHoursToReminderTime(digest, FOLLOW_UP_OFFSET_HOURS);
+  const localDateKey = getDateKeyInTimeZone(timeZone || "UTC", now);
+
+  if (isWithinReminderHourInTimeZone(digest, timeZone, now)) {
+    return {
+      kind: "digest",
+      time: digest,
+      slotKey: `${localDateKey}:d`,
+    };
   }
+
+  if (isWithinReminderHourInTimeZone(followUp, timeZone, now)) {
+    return {
+      kind: "followup",
+      time: followUp,
+      slotKey: `${localDateKey}:f`,
+    };
+  }
+
   return null;
 }
 
-/** True during 00:00–00:59 or 14:00–14:59 UTC. */
-export function isWithinPushHourUtc(now = new Date()) {
-  return getActivePushSlotUtc(now) !== null;
-}
-
-function resolveTimeZone(timeZone?: string) {
-  if (timeZone && timeZone.trim()) {
-    return timeZone.trim();
-  }
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    return "UTC";
-  }
-}
-
-/** Clock label for a fixed UTC HH:mm slot, in the player's timezone. */
-export function formatUtcHhMmInTimeZone(
-  utcHHmm: string,
-  timeZone?: string,
-  now = new Date(),
-) {
-  const [hoursRaw, minutesRaw] = utcHHmm.split(":");
-  const hours = Number(hoursRaw);
-  const minutes = Number(minutesRaw);
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-    return utcHHmm;
-  }
-
-  const instant = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hours, minutes, 0),
-  );
-
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      timeZone: resolveTimeZone(timeZone),
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(instant);
-  } catch {
-    return utcHHmm;
-  }
-}
-
-export function getPushReminderLocalTimes(timeZone?: string, now = new Date()) {
-  return {
-    digest: formatUtcHhMmInTimeZone(FIXED_PUSH_UTC_TIME, timeZone, now),
-    followUp: formatUtcHhMmInTimeZone(FOLLOW_UP_PUSH_UTC_TIME, timeZone, now),
-  };
-}
-
-/** Player-facing schedule. Never mention UTC. */
-export function describePushReminderSchedule(timeZone?: string, now = new Date()) {
-  const { digest, followUp } = getPushReminderLocalTimes(timeZone, now);
-  return `around ${digest}, then a follow-up around ${followUp} if anything is still due`;
+/** Player-facing schedule from their chosen local time. Never mention UTC. */
+export function describePushReminderSchedule(reminderTime?: string | null) {
+  return describeReminderSchedule(reminderTime);
 }
 
 /**
- * Once-per-slot gate. Legacy `YYYY-MM-DD` values count as the midnight digest
- * for that UTC day so a deploy does not double-send 00:00.
+ * Once-per-slot gate. Accepts:
+ * - current keys: `YYYY-MM-DD:d` / `YYYY-MM-DD:f`
+ * - legacy bare `YYYY-MM-DD` as digest for that date
+ * - legacy UTC `YYYY-MM-DDTHH` exact match only
  */
 export function hasSentPushSlot(lastSlot: string | null | undefined, slotKey: string) {
   if (!lastSlot) {
@@ -178,7 +155,8 @@ export function hasSentPushSlot(lastSlot: string | null | undefined, slotKey: st
   if (lastSlot === slotKey) {
     return true;
   }
-  const dateKey = slotKey.slice(0, 10);
-  const hour = slotKey.slice(11);
-  return lastSlot === dateKey && hour === "00";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(lastSlot) && slotKey === `${lastSlot}:d`) {
+    return true;
+  }
+  return false;
 }

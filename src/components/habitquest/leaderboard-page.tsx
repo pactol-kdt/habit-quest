@@ -5,6 +5,7 @@ import type { LevelLeaderboardEntry } from "~/app/actions/leaderboard";
 import { getLeaderboardRequest } from "~/lib/v1/requests";
 import { AvatarWithFrame } from "~/components/habitquest/cosmetic-art";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { ExpIcon } from "~/components/habitquest/icons/exp-icon";
 import { StreakFlame } from "~/components/habitquest/streak-flame";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { getBuiltinCatalog } from "~/lib/habitquest/catalog";
@@ -186,8 +187,11 @@ export function LeaderboardPage() {
                       </span>
                     </p>
                   </div>
-                  <p className="mt-1 truncate text-xs text-[var(--color-text-muted)]">
-                    {formatNumber(you.totalExp)} EXP among {totalPlayers} players
+                  <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-[var(--color-text-muted)]">
+                    <ExpIcon size={12} title="EXP" />
+                    <span className="truncate">
+                      {formatNumber(you.totalExp)} among {totalPlayers} players
+                    </span>
                   </p>
                 </div>
               </div>

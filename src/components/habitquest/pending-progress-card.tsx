@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { CoinIcon } from "~/components/habitquest/icons/coin-icon";
+import { ExpIcon } from "~/components/habitquest/icons/exp-icon";
 import { SETTLEMENT_LOCK_HINT, PREVIEW_LABEL } from "~/lib/habitquest/constants";
 import { formatNumber, getTodayDateKey } from "~/lib/habitquest/utils";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
@@ -54,13 +56,19 @@ export function PendingProgressCard() {
 
       <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         <div className="rounded-2xl border border-white/10 bg-white/4 p-3 sm:rounded-3xl sm:p-4">
-          <p className="text-xs text-[var(--color-text-muted)] sm:text-sm">{PREVIEW_LABEL} EXP</p>
+          <p className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] sm:text-sm">
+            <ExpIcon size={13} title="EXP" />
+            {PREVIEW_LABEL} EXP
+          </p>
           <p className="mt-1 text-xl font-semibold sm:text-2xl" style={{ color: "var(--color-cyan)" }}>
             {formatNumber(previewExp)}
           </p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/4 p-3 sm:rounded-3xl sm:p-4">
-          <p className="text-xs text-[var(--color-text-muted)] sm:text-sm">{PREVIEW_LABEL} coins</p>
+          <p className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] sm:text-sm">
+            <CoinIcon size={13} title="Coins" />
+            {PREVIEW_LABEL} coins
+          </p>
           <p className="mt-1 text-xl font-semibold sm:text-2xl" style={{ color: "var(--color-gold)" }}>
             {formatNumber(previewCoins)}
           </p>

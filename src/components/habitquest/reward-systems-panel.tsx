@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
+import { ExpIcon } from "~/components/habitquest/icons/exp-icon";
 import {
   COMBO_COIN_THRESHOLDS,
   COMBO_EXP_PER_EXTRA_CLEAR,
@@ -99,14 +101,24 @@ export function RewardSystemsPanel() {
             </button>
           </div>
           <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--color-text-muted)]">
-            <span className="rounded-full bg-white/5 px-3 py-1">
-              Combo today: {todayCombo}
-              {comboPreview.exp > 0
-                ? ` · +${comboPreview.exp} EXP in preview (+${COMBO_EXP_PER_EXTRA_CLEAR}/extra clear)`
-                : ""}
-              {comboPreview.coins > 0
-                ? ` · +${comboPreview.coins}c at ${COMBO_COIN_THRESHOLDS.join("/")}`
-                : ""}
+            <span className="inline-flex flex-wrap items-center gap-1.5 rounded-full bg-white/5 px-3 py-1">
+              <span>Combo today: {todayCombo}</span>
+              {comboPreview.exp > 0 ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <CurrencyAmount kind="exp" value={comboPreview.exp} prefix="+" size={12} />
+                  <span className="text-[var(--color-text-muted)]">
+                    in preview (+{COMBO_EXP_PER_EXTRA_CLEAR}/extra clear)
+                  </span>
+                </>
+              ) : null}
+              {comboPreview.coins > 0 ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <CurrencyAmount kind="coins" value={comboPreview.coins} prefix="+" size={12} />
+                  <span>at {COMBO_COIN_THRESHOLDS.join("/")}</span>
+                </>
+              ) : null}
             </span>
             <span className="rounded-full bg-white/5 px-3 py-1">
               Shields: {rewardSystems.streakShieldDates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).length}
@@ -168,7 +180,10 @@ export function RewardSystemsPanel() {
               <p className="mt-1 text-lg font-semibold text-white">{recap.completions}</p>
             </div>
             <div>
-              <p className="text-[var(--color-text-muted)]">EXP</p>
+              <p className="inline-flex items-center gap-1.5 text-[var(--color-text-muted)]">
+                <ExpIcon size={13} title="EXP" />
+                EXP
+              </p>
               <p className="mt-1 text-lg font-semibold text-white">{formatNumber(recap.exp)}</p>
             </div>
             <div>

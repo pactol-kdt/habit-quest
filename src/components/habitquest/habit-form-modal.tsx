@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ExpIcon } from "~/components/habitquest/icons/exp-icon";
 import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import { DIFFICULTY_LABELS, RECURRENCE_LABELS, WEEKDAY_LABELS } from "~/lib/habitquest/constants";
 import {
@@ -385,8 +386,9 @@ function HabitFormDialog({
                     )}
                   >
                     <span className="block">{label}</span>
-                    <span className="mt-0.5 block text-[11px] opacity-70">
-                      {getDifficultyExp(key as HabitDifficulty)} EXP
+                    <span className="mt-0.5 inline-flex items-center justify-center gap-1 text-[11px] opacity-70">
+                      <ExpIcon size={11} />
+                      {getDifficultyExp(key as HabitDifficulty)}
                     </span>
                   </button>
                 ))}

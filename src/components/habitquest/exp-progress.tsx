@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { ExpIcon } from "~/components/habitquest/icons/exp-icon";
 import { formatNumber } from "~/lib/habitquest/utils";
 
 interface ExpProgressProps {
@@ -25,8 +26,9 @@ export function ExpProgress({
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex items-center justify-between gap-3 text-xs text-[var(--color-text-muted)]">
           <span>Level {level}</span>
-          <span>
-            {formatNumber(currentExp)} / {formatNumber(requiredExp)} EXP
+          <span className="inline-flex items-center gap-1.5 tabular-nums">
+            <ExpIcon size={12} title="EXP" />
+            {formatNumber(currentExp)} / {formatNumber(requiredExp)}
           </span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-white/6 ring-1 ring-white/8">
@@ -45,8 +47,9 @@ export function ExpProgress({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-4 text-sm text-[var(--color-text-muted)]">
         <span>Level {level} progress</span>
-        <span>
-          {formatNumber(currentExp)} / {formatNumber(requiredExp)} EXP
+        <span className="inline-flex items-center gap-1.5 tabular-nums">
+          <ExpIcon size={14} title="EXP" />
+          {formatNumber(currentExp)} / {formatNumber(requiredExp)}
         </span>
       </div>
       <div className="h-4 overflow-hidden rounded-full bg-white/6 ring-1 ring-white/8">

@@ -29,12 +29,13 @@ export function NotificationPermissionPrompt() {
   const hydrated = useHabitQuestStore((state) => state.hydrated);
   const authUser = useHabitQuestStore((state) => state.authUser);
   const remindersEnabled = useHabitQuestStore((state) => state.settings.remindersEnabled);
+  const reminderTime = useHabitQuestStore((state) => state.settings.reminderTime);
   const completions = useHabitQuestStore((state) => state.completions);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const schedule = describePushReminderSchedule();
+  const schedule = describePushReminderSchedule(reminderTime);
   const hasCleared = completions.length > 0;
 
   useDialogA11y(

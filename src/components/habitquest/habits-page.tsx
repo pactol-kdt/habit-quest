@@ -64,7 +64,7 @@ export function HabitsPage() {
 
   if (!hydrated) {
     return (
-      <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
+      <div className="grid min-w-0 gap-4 pt-4 md:gap-6 md:pt-6">
         <div className="glass-panel h-40 animate-pulse rounded-[2rem]" />
       </div>
     );
@@ -73,10 +73,10 @@ export function HabitsPage() {
   const hero = PAGE_HEROES.habits;
 
   return (
-    <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
-      <GlassCard className="rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
+    <div className="grid min-w-0 gap-4 pt-4 md:gap-6 md:pt-6">
+      <GlassCard className="min-w-0 overflow-hidden rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
+        <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
               {hero.eyebrow}
             </p>
@@ -107,8 +107,8 @@ export function HabitsPage() {
         </div>
       </GlassCard>
 
-      <GlassCard>
-        <div className="scrollbar-none -mx-1 mb-5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+      <GlassCard className="min-w-0 overflow-hidden">
+        <div className="scrollbar-none -mx-1 mb-5 flex max-w-full snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 touch-pan-x sm:flex-wrap sm:overflow-visible sm:pb-0">
           {(
             [
               ["all", `All (${habits.length})`],

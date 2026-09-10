@@ -14,6 +14,8 @@ import { HabitFormModal } from "~/components/habitquest/habit-form-modal";
 import { HabitList } from "~/components/habitquest/habit-list";
 import { PendingProgressCard } from "~/components/habitquest/pending-progress-card";
 import { ClaimableRewardsStrip } from "~/components/habitquest/claimable-rewards-strip";
+import { CoinIcon } from "~/components/habitquest/icons/coin-icon";
+import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
 import { LockInTipBanner } from "~/components/habitquest/lock-in-tip-banner";
 import { RewardSystemsPanel } from "~/components/habitquest/reward-systems-panel";
 import { UnlockTracker } from "~/components/habitquest/unlock-tracker";
@@ -279,14 +281,26 @@ export function HabitQuestApp() {
                 <div className="hidden h-8 w-px shrink-0 bg-white/10 sm:block" aria-hidden />
                 <div className="flex shrink-0 items-center justify-between gap-4 text-sm sm:flex-col sm:items-end sm:justify-center sm:text-right">
                   <span className="text-[var(--color-text-muted)]">Spendable</span>
-                  <span className="text-lg font-semibold text-amber-100">
-                    {formatNumber(spendableCoins)} coins
+                  <span className="inline-flex items-center gap-1.5 text-lg font-semibold text-amber-100">
+                    <CoinIcon size={16} title="Coins" />
+                    {formatNumber(spendableCoins)}
                   </span>
                 </div>
               </div>
-              <p className="mt-3 text-sm text-pink-100/90">
-                Combo x{todayCombo || 0}
-                {comboPreview.exp > 0 ? ` · +${comboPreview.exp} EXP` : ""}
+              <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-pink-100/90">
+                <span>Combo x{todayCombo || 0}</span>
+                {comboPreview.exp > 0 ? (
+                  <>
+                    <span aria-hidden>·</span>
+                    <CurrencyAmount
+                      kind="exp"
+                      value={comboPreview.exp}
+                      prefix="+"
+                      size={13}
+                      className="text-pink-100/90"
+                    />
+                  </>
+                ) : null}
                 {nextMilestone
                   ? ` · next coin at ${nextMilestone}`
                   : todayCombo >= 8

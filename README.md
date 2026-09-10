@@ -43,13 +43,13 @@ npm run build && npm start
 Push reminders:
 
 1. Enable in **Settings → Daily reminder** (grants notification permission + stores a push subscription + timezone).
-2. HabitQuest sends a digest around **00:00 UTC** and a follow-up around **14:00 UTC** if habits are still due (fixed — no time picker). In UTC+8 that is 08:00 and 22:00.
+2. Pick your **reminder time** (player-local clock, default 8:00 AM). HabitQuest sends a digest in that hour and a follow-up 14 hours later if habits are still due.
 3. Host must run HTTPS (or localhost for dev).
 4. Local smoke test: `curl http://localhost:3000/api/cron/reminders`
 
 **Vercel Cron (Hobby-safe)**
 
-`vercel.json` registers two daily crons: `0 0 * * *` (00:00 UTC digest) and `0 14 * * *` (14:00 UTC follow-up). Each slot sends at most once per UTC day. The follow-up is skipped when the local due list is already clear.
+`vercel.json` registers **24 daily crons** (one per UTC hour: `0 0` … `0 23`). Hobby forbids a single `0 * * * *` expression, but 24 once-per-day jobs give the same coverage. Each run notifies users whose local reminder (or follow-up) hour matches. Each slot sends at most once per local day. The follow-up is skipped when the local due list is already clear.
 
 Hobby timing can drift up to ~59 minutes within that UTC hour.
 

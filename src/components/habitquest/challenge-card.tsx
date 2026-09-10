@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
 import { cn } from "~/lib/ui/cn";
 import type { Challenge } from "~/types/habitquest";
 
@@ -56,11 +57,11 @@ export function ChallengeCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[var(--color-text-muted)]">
-            +{challenge.reward.coins} coins
+          <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[var(--color-text-muted)]">
+            <CurrencyAmount kind="coins" value={challenge.reward.coins} prefix="+" size={13} />
           </span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[var(--color-text-muted)]">
-            +{challenge.reward.exp} EXP
+          <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[var(--color-text-muted)]">
+            <CurrencyAmount kind="exp" value={challenge.reward.exp} prefix="+" size={13} />
           </span>
           {showTitleChip ? (
             <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1.5 text-amber-100">
@@ -68,8 +69,8 @@ export function ChallengeCard({
             </span>
           ) : null}
           {hasTitleReward && titleAlreadyOwned ? (
-            <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-emerald-100">
-              Title owned · +{repeatBonus} bonus coins
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-emerald-100">
+              Title owned · <CurrencyAmount kind="coins" value={repeatBonus} prefix="+" size={12} /> bonus
             </span>
           ) : null}
         </div>

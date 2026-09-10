@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { CoinIcon } from "~/components/habitquest/icons/coin-icon";
 import { ProfilePanel } from "~/components/habitquest/profile-panel";
 import { PurchaseModal } from "~/components/habitquest/purchase-modal";
 import { ShopItemCard } from "~/components/habitquest/shop-item-card";
@@ -66,8 +67,10 @@ export function ShopPage() {
               {hero.support}
             </p>
           </div>
-          <div className="self-start rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm text-amber-100 lg:self-auto">
-            Balance: {wallet.totalCoins} spendable
+          <div className="inline-flex items-center gap-2 self-start rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm text-amber-100 lg:self-auto">
+            <CoinIcon size={15} title="Coins" />
+            <span className="tabular-nums">{wallet.totalCoins}</span>
+            <span className="text-amber-100/70">spendable</span>
           </div>
         </div>
       </GlassCard>

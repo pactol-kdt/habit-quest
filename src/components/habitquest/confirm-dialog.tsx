@@ -1,7 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 
 interface ConfirmDialogProps {
@@ -19,7 +20,20 @@ export function ConfirmDialog({
   onClose,
   children,
 }: ConfirmDialogProps) {
-  return (
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
+  // Portal to body so position:fixed is viewport-relative.
+  // Ancestors like .glass-panel (backdrop-filter) or overflow-hidden
+  // otherwise trap fixed dialogs inside the card.
+  return createPortal(
     <AnimatePresence>
       {open ? (
         <ConfirmDialogPanel
@@ -30,7 +44,8 @@ export function ConfirmDialog({
           {children}
         </ConfirmDialogPanel>
       ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 

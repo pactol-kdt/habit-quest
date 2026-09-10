@@ -15,4 +15,5 @@ export * from "./catalog";
 export * from "./seed";
 export * from "./streak-fire-tier";
 export * from "./reminder-copy";
+export * from "./reminder-time";
 export * from "./save-integrity";

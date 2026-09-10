@@ -15,10 +15,10 @@ import {
 } from "~/lib/habitquest/reminder-copy";
 import { describeStackFormula } from "~/lib/habitquest/habit-loop";
 import {
-  getActivePushSlotUtc,
+  getActiveLocalPushSlot,
   getDateKeyInTimeZone,
   hasSentPushSlot,
-  type PushUtcSlotKind,
+  type PushSlotKind,
 } from "~/lib/push/timezone";
 import { isWebPushConfigured, sendWebPush, type PushPayload } from "~/lib/push/web-push";
 import type { Habit, HabitDifficulty, HabitRecurrence } from "~/types/habitquest";
@@ -29,7 +29,7 @@ function buildReminderPayload(
   displayName: string,
   dueCount: number,
   stackHint?: string | null,
-  kind: PushUtcSlotKind = "digest",
+  kind: PushSlotKind = "digest",
 ): PushPayload {
   const { title, body } =
     kind === "followup"
@@ -189,6 +189,7 @@ export async function dispatchDuePushReminders(database: Database, now = new Dat
     .select({
       userId: userSettings.userId,
       displayName: userSettings.displayName,
+      reminderTime: userSettings.reminderTime,
       reminderTimezone: userSettings.reminderTimezone,
       lastPushReminderDate: userSettings.lastPushReminderDate,
     })
@@ -198,9 +199,10 @@ export async function dispatchDuePushReminders(database: Database, now = new Dat
   let sentUsers = 0;
   let skipped = 0;
   let failed = 0;
-  const slot = getActivePushSlotUtc(now);
 
   for (const user of candidates) {
+    const timeZone = user.reminderTimezone || "UTC";
+    const slot = getActiveLocalPushSlot(user.reminderTime || "08:00", timeZone, now);
     if (!slot || hasSentPushSlot(user.lastPushReminderDate, slot.slotKey)) {
       skipped += 1;
       continue;
@@ -217,7 +219,7 @@ export async function dispatchDuePushReminders(database: Database, now = new Dat
       continue;
     }
 
-    const localDateKey = getDateKeyInTimeZone(user.reminderTimezone || "UTC", now);
+    const localDateKey = getDateKeyInTimeZone(timeZone, now);
     const incomplete = await loadIncompleteDueHabits(database, user.userId, localDateKey);
     if (slot.kind === "followup" && incomplete.length === 0) {
       skipped += 1;
