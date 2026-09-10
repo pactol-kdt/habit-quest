@@ -137,6 +137,30 @@ describe("comeback claim idempotency (merge)", () => {
   });
 });
 
+describe("streak freeze merge", () => {
+  it("keeps a locally spent freeze when cloud still shows it unused", () => {
+    const cloud = createSeedData();
+    const local = createSeedData();
+    local.rewardSystems = {
+      ...local.rewardSystems,
+      streakFreezes: 0,
+      streakShieldDates: ["2026-08-06"],
+      lastFreezeUsedDate: "2026-08-06",
+    };
+    local.wallet = {
+      ...local.wallet,
+      totalCoins: cloud.wallet.totalCoins + 1,
+      lifetimeCoinsEarned: cloud.wallet.lifetimeCoinsEarned + 1,
+    };
+
+    const merged = mergeCloudSaveWithLocalDraft(cloud, local, "2026-08-07");
+    assert.equal(merged.shouldPush, true);
+    assert.equal(merged.data.rewardSystems.streakFreezes, 0);
+    assert.ok(merged.data.rewardSystems.streakShieldDates.includes("2026-08-06"));
+    assert.equal(merged.data.rewardSystems.lastFreezeUsedDate, "2026-08-06");
+  });
+});
+
 describe("habit complete / undo mutators", () => {
   it("complete then undo restores no completion for today", () => {
     const base = createSeedData();

@@ -220,25 +220,108 @@ export function applyCritMultiplier(baseExp: number, isCrit: boolean) {
   return isCrit ? Math.round(baseExp * CRIT_MULTIPLIER) : baseExp;
 }
 
+function isDateKey(entry: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(entry);
+}
+
+function uniqueSortedDateKeys(dates: string[]) {
+  return Array.from(new Set(dates.filter(isDateKey))).sort();
+}
+
+/**
+ * One-day hole that is blocking the current streak. Ignores today's clears so
+ * coming back and completing still spends a freeze on yesterday.
+ */
+function findCurrentStreakMissedDate(activityDates: string[], today: string) {
+  const dates = uniqueSortedDateKeys(activityDates.filter((date) => date <= today));
+  if (!dates.length) {
+    return null;
+  }
+
+  const last = dates[dates.length - 1]!;
+  const daysSince = getDaysBetween(last, today);
+  if (daysSince === 2) {
+    return shiftDateKey(last, 1);
+  }
+  if (daysSince > 1) {
+    return null;
+  }
+
+  for (let index = dates.length - 1; index > 0; index -= 1) {
+    const previous = dates[index - 1]!;
+    const current = dates[index]!;
+    const gap = getDaysBetween(previous, current);
+    if (gap === 1) {
+      continue;
+    }
+    if (gap === 2) {
+      return shiftDateKey(previous, 1);
+    }
+    return null;
+  }
+
+  return null;
+}
+
+export function mergeRewardFreezeState(
+  local: RewardSystems,
+  cloud: RewardSystems,
+): Pick<RewardSystems, "streakFreezes" | "streakShieldDates" | "lastFreezeUsedDate"> {
+  const streakShieldDates = Array.from(
+    new Set([...local.streakShieldDates, ...cloud.streakShieldDates]),
+  );
+  const localShields = getActiveShieldDates(local).length;
+  const cloudShields = getActiveShieldDates(cloud).length;
+  const streakFreezes =
+    localShields === cloudShields
+      ? Math.min(local.streakFreezes, cloud.streakFreezes)
+      : localShields > cloudShields
+        ? local.streakFreezes
+        : cloud.streakFreezes;
+
+  return {
+    streakFreezes,
+    streakShieldDates,
+    lastFreezeUsedDate:
+      local.lastFreezeUsedDate && cloud.lastFreezeUsedDate
+        ? local.lastFreezeUsedDate >= cloud.lastFreezeUsedDate
+          ? local.lastFreezeUsedDate
+          : cloud.lastFreezeUsedDate
+        : (local.lastFreezeUsedDate ?? cloud.lastFreezeUsedDate),
+  };
+}
+
 export function reconcileStreakShields(
   systems: RewardSystems,
   completions: HabitCompletion[],
   today = getTodayDateKey(),
 ): { systems: RewardSystems; freezeUsed: boolean; protectedDate: string | null } {
-  const completionDates = Array.from(new Set(completions.map((entry) => entry.date))).sort();
-  const lastCompleted = completionDates[completionDates.length - 1] ?? null;
-
-  if (!lastCompleted) {
+  const activityDates = [
+    ...completions.map((entry) => entry.date),
+    ...getActiveShieldDates(systems),
+  ];
+  const missedDate = findCurrentStreakMissedDate(activityDates, today);
+  if (!missedDate) {
     return { systems, freezeUsed: false, protectedDate: null };
   }
 
-  const gap = getDaysBetween(lastCompleted, today);
-  if (gap !== 2 || systems.streakFreezes <= 0) {
+  if (systems.streakShieldDates.includes(missedDate)) {
     return { systems, freezeUsed: false, protectedDate: null };
   }
 
-  const missedDate = shiftDateKey(lastCompleted, 1);
-  if (systems.streakShieldDates.includes(missedDate) || systems.lastFreezeUsedDate === missedDate) {
+  // Freeze was spent but the shield date was dropped (stale cloud merge).
+  if (systems.lastFreezeUsedDate === missedDate) {
+    return {
+      systems: {
+        ...systems,
+        streakShieldDates: [...systems.streakShieldDates, missedDate],
+      },
+      freezeUsed: false,
+      protectedDate: missedDate,
+    };
+  }
+
+  if (systems.streakFreezes <= 0) {
     return { systems, freezeUsed: false, protectedDate: null };
   }
 

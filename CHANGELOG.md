@@ -4,6 +4,7 @@
 
 ### Fixed
 - Streak no longer drops when a stale cloud save or a deleted habit wipes completion days. Today's clears count toward the streak; EXP still locks in at midnight.
+- A streak freeze now bridges a one-day miss even after you clear habits on the day you return, so 10 days + one protected miss + 10 days stays a 21-day streak.
 
 ## 0.6.0 - Local Reminder Hours and Claim All
 

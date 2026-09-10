@@ -8,6 +8,7 @@ import {
 import { normalizeHabitRecord } from "~/lib/habitquest/habit-loop";
 import type { HabitQuestCatalog } from "~/lib/habitquest/catalog";
 import { createSeedData } from "~/lib/habitquest/seed";
+import { mergeRewardFreezeState } from "~/lib/habitquest/rewards";
 import { getTodayDateKey } from "~/lib/habitquest/utils";
 import type { AuthUser } from "~/lib/auth/session-types";
 import type {
@@ -340,9 +341,13 @@ export function mergeCloudSaveWithLocalDraft(
     local.rewardSystems.progressSettledThroughDate,
     cloud.rewardSystems.progressSettledThroughDate,
   );
+  const mergedFreeze = mergeRewardFreezeState(local.rewardSystems, cloud.rewardSystems);
   const localRewardSystemsAhead =
     mergedLastComebackDate !== cloud.rewardSystems.lastComebackDate ||
-    mergedProgressSettledThroughDate !== cloud.rewardSystems.progressSettledThroughDate;
+    mergedProgressSettledThroughDate !== cloud.rewardSystems.progressSettledThroughDate ||
+    mergedFreeze.lastFreezeUsedDate !== cloud.rewardSystems.lastFreezeUsedDate ||
+    mergedFreeze.streakShieldDates.length !== cloud.rewardSystems.streakShieldDates.length ||
+    mergedFreeze.streakFreezes !== cloud.rewardSystems.streakFreezes;
   // Local midnight settlement wrote coins/EXP that cloud has not received yet.
   const localSettlementOwnsProgress =
     Boolean(local.rewardSystems.progressSettledThroughDate) &&
@@ -524,10 +529,9 @@ export function mergeCloudSaveWithLocalDraft(
         ...cloud.rewardSystems,
         lastComebackDate: mergedLastComebackDate,
         progressSettledThroughDate: mergedProgressSettledThroughDate,
-        streakFreezes: Math.max(
-          local.rewardSystems.streakFreezes,
-          cloud.rewardSystems.streakFreezes,
-        ),
+        streakFreezes: mergedFreeze.streakFreezes,
+        streakShieldDates: mergedFreeze.streakShieldDates,
+        lastFreezeUsedDate: mergedFreeze.lastFreezeUsedDate,
         seasonPassCompletions: Math.max(
           local.rewardSystems.seasonPassCompletions,
           cloud.rewardSystems.seasonPassCompletions,

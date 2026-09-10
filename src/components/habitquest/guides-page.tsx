@@ -34,7 +34,7 @@ const GUIDE_SECTIONS = [
   },
   {
     title: "Streaks & freezes",
-    body: `Complete at least one habit each day to keep your streak. Freezes auto-spend when you miss exactly one day and return the next morning. Earn freezes at ${FREEZE_MILESTONES_LABEL}-day milestones, or buy one for ${STREAK_FREEZE_COST} coins (max ${MAX_STREAK_FREEZES} held).`,
+    body: `Complete at least one habit each day to keep your streak. Freezes auto-spend when you miss exactly one day and return the next morning — that protected day still counts, so 10 days + one freeze + 10 days is a 21-day streak. Earn freezes at ${FREEZE_MILESTONES_LABEL}-day milestones, or buy one for ${STREAK_FREEZE_COST} coins (max ${MAX_STREAK_FREEZES} held).`,
   },
   {
     title: "Comeback bonus",
