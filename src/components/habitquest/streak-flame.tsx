@@ -7,23 +7,28 @@ import { streakFlameClass } from "~/lib/habitquest/streak-fire-tier";
 
 interface StreakFlameProps {
   tier: StreakFireTier;
-  size?: "sm" | "lg";
+  size?: "xs" | "sm" | "lg";
   className?: string;
 }
+
+const FLAME_SIZE_CLASS = {
+  xs: "hq-streak-flame-xs",
+  sm: "hq-streak-flame-sm",
+  lg: "hq-streak-flame-lg",
+} as const;
 
 export function StreakFlame({ tier, size = "lg", className }: StreakFlameProps) {
   const uid = useId().replace(/:/g, "");
   const outerId = `streak-flame-outer-${uid}`;
   const innerId = `streak-flame-inner-${uid}`;
   const glowId = `streak-flame-glow-${uid}`;
-  const isLarge = size === "lg";
 
   return (
     <div
       aria-hidden
       className={cn(
         streakFlameClass(tier),
-        isLarge ? "hq-streak-flame-lg" : "hq-streak-flame-sm",
+        FLAME_SIZE_CLASS[size],
         className,
       )}
     >

@@ -234,6 +234,8 @@ export async function loadNormalizedSave(
           comboDate: rewardRows[0].comboDate,
           progressSettledThroughDate: rewardRows[0].progressSettledThroughDate ?? null,
           seasonPassCompletions: rewardRows[0].seasonPassCompletions ?? 0,
+          weeklyBossCompletions: rewardRows[0].weeklyBossCompletions ?? 0,
+          lastCountedBossWeekKey: rewardRows[0].lastCountedBossWeekKey ?? null,
         }
       : undefined,
     questArcs: [...questByKey.entries()].map(([key, row]) => ({
@@ -522,6 +524,8 @@ export async function replaceNormalizedSave(
     partyWeeklyTarget: 20,
     progressSettledThroughDate: normalized.rewardSystems.progressSettledThroughDate,
     seasonPassCompletions: normalized.rewardSystems.seasonPassCompletions,
+    weeklyBossCompletions: normalized.rewardSystems.weeklyBossCompletions,
+    lastCountedBossWeekKey: normalized.rewardSystems.lastCountedBossWeekKey,
   });
 
   if (normalized.questArcs.length) {
@@ -951,6 +955,8 @@ type EconomyBundle = {
   newOwnedItemIds: string[];
   streakFreezes?: number;
   seasonPassCompletions?: number;
+  weeklyBossCompletions?: number;
+  lastCountedBossWeekKey?: string | null;
   challenge?: { challengeKey: string; startsAt: string; claimed: boolean };
   challenges?: Array<{ challengeKey: string; startsAt: string; claimed: boolean }>;
   quest?: { questKey: string; claimed: boolean };
@@ -1001,6 +1007,23 @@ export async function persistEconomyClaim(
       await tx
         .update(rewardSystems)
         .set({ seasonPassCompletions: bundle.seasonPassCompletions })
+        .where(eq(rewardSystems.userId, userId));
+    }
+
+    if (
+      bundle.weeklyBossCompletions !== undefined ||
+      bundle.lastCountedBossWeekKey !== undefined
+    ) {
+      await tx
+        .update(rewardSystems)
+        .set({
+          ...(bundle.weeklyBossCompletions !== undefined
+            ? { weeklyBossCompletions: bundle.weeklyBossCompletions }
+            : {}),
+          ...(bundle.lastCountedBossWeekKey !== undefined
+            ? { lastCountedBossWeekKey: bundle.lastCountedBossWeekKey }
+            : {}),
+        })
         .where(eq(rewardSystems.userId, userId));
     }
 

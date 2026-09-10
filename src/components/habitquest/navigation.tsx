@@ -7,8 +7,10 @@ import { useEffect, useRef, useState } from "react";
 import { AvatarWithFrame } from "~/components/habitquest/cosmetic-art";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { CoinIcon } from "~/components/habitquest/icons/coin-icon";
+import { StreakFlame } from "~/components/habitquest/streak-flame";
 import { cn } from "~/lib/ui/cn";
 import { formatNumber, getProfileDisplay } from "~/lib/habitquest/utils";
+import { getStreakFireTier } from "~/lib/habitquest/streak-fire-tier";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
 import { useClaimableRewards } from "~/hooks/use-claimable-rewards";
 import { useHabitQuestStore } from "~/store/habitquest-store";
@@ -32,6 +34,7 @@ const progressNav: NavLink[] = [
 ];
 
 const accountNav: NavLink[] = [
+  { href: "/profile", label: "Profile" },
   { href: "/guides", label: "Guides" },
   { href: "/settings", label: "Settings" },
   { href: "/admin", label: "Admin", adminOnly: true },
@@ -161,6 +164,10 @@ export function Navigation() {
   const { userProgress } = useEffectiveProgress();
   const claimables = useClaimableRewards();
   const spendableCoins = wallet.totalCoins;
+  const currentStreak = userProgress.currentStreak;
+  const streakTier = getStreakFireTier(currentStreak);
+  const streakLabel =
+    currentStreak === 1 ? "1-day streak" : `${currentStreak}-day streak`;
   const profile = getProfileDisplay(shopItems, equippedItems);
   const displayName = settings.displayName.trim() || profile.title?.name || "Unranked Adventurer";
   const isAdmin = authUser?.role === "admin";
@@ -183,8 +190,25 @@ export function Navigation() {
                 alt=""
                 className="h-8 w-8 rounded-lg border border-white/10 object-cover sm:h-9 sm:w-9 md:h-10 md:w-10"
               />
-              <span className="section-title text-base sm:text-lg md:text-2xl">HabitQuest</span>
+              <span className="section-title sr-only text-lg xl:not-sr-only xl:inline xl:text-2xl">
+                HabitQuest
+              </span>
             </Link>
+            <motion.div
+              key={currentStreak}
+              initial={{ scale: 0.95, opacity: 0.6 }}
+              animate={{ scale: 1, opacity: 1 }}
+              title={hydrated ? streakLabel : "Streak"}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-orange-300/25 bg-orange-400/10 px-2 py-1.5 text-[11px] text-orange-50 sm:gap-1.5 sm:px-2.5 sm:text-sm"
+            >
+              <StreakFlame tier={streakTier} size="xs" />
+              <span className="tabular-nums font-semibold">
+                {hydrated ? currentStreak : "..."}
+              </span>
+              <span className="sr-only">
+                {hydrated ? ` ${currentStreak === 1 ? "day" : "days"} streak` : " streak"}
+              </span>
+            </motion.div>
             <nav className="hidden items-center gap-2 lg:flex">
               {primaryNav.map((item) => {
                 const active = pathname === item.href;
@@ -259,8 +283,8 @@ export function Navigation() {
               </span>
             </motion.div>
             <Link
-              href="/settings"
-              aria-label={`Settings for ${displayName}`}
+              href="/profile"
+              aria-label={`Profile for ${displayName}`}
               className="flex min-w-0 max-w-[7.5rem] items-center gap-1.5 rounded-full border border-white/10 bg-white/5 p-1 transition hover:border-white/20 sm:max-w-none sm:gap-3 sm:py-2 sm:pl-2 sm:pr-4"
             >
               <AvatarWithFrame

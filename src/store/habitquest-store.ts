@@ -72,6 +72,7 @@ import {
   reconcileStreakShields,
   reconcileWeeklyBoss,
   reconcileTodayCombo,
+  recordWeeklyBossCompletion,
   syncQuestArcs,
 } from "~/lib/habitquest/rewards";
 import { getEffectiveUserProgress, settleHabitDayProgress } from "~/lib/habitquest/day-settlement";
@@ -399,9 +400,17 @@ function applyChallengeReward(
 }
 
 function ensureRewardFields(data: HabitQuestData): HabitQuestData {
+  const defaults = createDefaultRewardSystems();
+  const rewardSystems = {
+    ...defaults,
+    ...(data.rewardSystems ?? {}),
+    seasonPassCompletions: data.rewardSystems?.seasonPassCompletions ?? 0,
+    weeklyBossCompletions: data.rewardSystems?.weeklyBossCompletions ?? 0,
+    lastCountedBossWeekKey: data.rewardSystems?.lastCountedBossWeekKey ?? null,
+  };
   return {
     ...data,
-    rewardSystems: data.rewardSystems ?? createDefaultRewardSystems(),
+    rewardSystems,
     questArcs: data.questArcs?.length ? data.questArcs : createQuestArcs(),
     seasonPass: data.seasonPass ?? createSeasonPass(),
     weeklyBoss: data.weeklyBoss ?? createWeeklyBoss(),
@@ -416,9 +425,10 @@ function ensureRewardFields(data: HabitQuestData): HabitQuestData {
 
 function normalizePersistentData(data: HabitQuestData) {
   const withRewards = ensureRewardFields(data);
-  const rewardSystems = reconcileTodayCombo(
-    withRewards.rewardSystems,
-    withRewards.completions,
+  const rewardSystems = recordWeeklyBossCompletion(
+    reconcileTodayCombo(withRewards.rewardSystems, withRewards.completions),
+    withRewards.weeklyBoss.weekKey,
+    withRewards.weeklyBoss.defeated,
   );
   return {
     ...withRewards,
@@ -1856,6 +1866,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             wallet: result.wallet,
             userProgress: result.userProgress,
             weeklyBoss: result.weeklyBoss ?? current.weeklyBoss,
+            rewardSystems: result.rewardSystems ?? current.rewardSystems,
           });
           bumpCloudSavePayload(nextData);
           return {

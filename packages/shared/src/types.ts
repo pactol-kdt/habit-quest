@@ -187,6 +187,10 @@ export interface RewardSystems {
   progressSettledThroughDate: string | null;
   /** Lifetime months where the season finale (L30) was claimed. Never reset on month roll. */
   seasonPassCompletions: number;
+  /** Lifetime weeks the raid boss was actually dropped. Never reset on week roll. */
+  weeklyBossCompletions: number;
+  /** Week key already counted in weeklyBossCompletions, if any. */
+  lastCountedBossWeekKey: string | null;
 }
 
 export interface QuestArc {

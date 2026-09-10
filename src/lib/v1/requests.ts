@@ -66,6 +66,19 @@ export async function resetPasswordRequest(token: string, password: string) {
   return { ok: true as const };
 }
 
+export async function changePasswordRequest(
+  currentPassword: string,
+  nextPassword: string,
+): Promise<AuthCommandResult> {
+  const result = await v1Request<{ user: AuthUser }>("/auth/change-password", {
+    json: { currentPassword, nextPassword },
+  });
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+  return { ok: true, user: result.data.user };
+}
+
 export async function completeHabitRequest(habitId: string, dateKey: string): Promise<HabitActionResult> {
   return asCommand<HabitActionResult>(
     await v1Request(`/habits/${encodeURIComponent(habitId)}/complete`, {

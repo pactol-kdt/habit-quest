@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 - Profile Page and Streak Integrity
+
+### Added
+- Compact current streak in the top bar (flame + count). The HabitQuest title hides below extra-wide screens so the chip has room.
+- Dedicated Profile page with activity graph, identity, change password, and lifetime season / boss honor medals.
+
+### Changed
+- Settings keeps reminders and About. Account & sync and Backup were removed; activity, display name, honors, and sign out live on Profile.
 
 ### Fixed
 - Streak no longer drops when a stale cloud save or a deleted habit wipes completion days. Today's clears count toward the streak; EXP still locks in at midnight.

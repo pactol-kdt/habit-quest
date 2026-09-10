@@ -22,6 +22,7 @@ describe("v1 command error status", () => {
     assert.equal(statusForCommandError("Admin access required."), 403);
     assert.equal(statusForCommandError("dateKey must be YYYY-MM-DD."), 400);
     assert.equal(statusForCommandError("habitId is required."), 400);
+    assert.equal(statusForCommandError("Invalid current password."), 400);
   });
 
   it("maps domain rule failures to 409", () => {

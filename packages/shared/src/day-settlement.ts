@@ -12,6 +12,7 @@ import {
   maybeApplyComeback,
   reconcileSeasonPass,
   reconcileWeeklyBoss,
+  recordWeeklyBossCompletion,
   syncQuestArcs,
 } from "./rewards";
 import {
@@ -320,10 +321,14 @@ export function settleHabitDayProgress(
 ): DaySettlementResult {
   let data: HabitQuestData = {
     ...input,
-    rewardSystems: {
-      ...input.rewardSystems,
-      progressSettledThroughDate: input.rewardSystems.progressSettledThroughDate ?? null,
-    },
+    rewardSystems: recordWeeklyBossCompletion(
+      {
+        ...input.rewardSystems,
+        progressSettledThroughDate: input.rewardSystems.progressSettledThroughDate ?? null,
+      },
+      input.weeklyBoss.weekKey,
+      input.weeklyBoss.defeated,
+    ),
   };
 
   const celebrations: CelebrationEvent[] = [];
@@ -340,10 +345,14 @@ export function settleHabitDayProgress(
 
     data.seasonPass = rebuildSeasonXpFromSettledCompletions(data, settledThrough);
     data.weeklyBoss = rebuildBossFromSettledCompletions(data, settledThrough);
-    data.rewardSystems = {
-      ...data.rewardSystems,
-      progressSettledThroughDate: settledThrough,
-    };
+    data.rewardSystems = recordWeeklyBossCompletion(
+      {
+        ...data.rewardSystems,
+        progressSettledThroughDate: settledThrough,
+      },
+      data.weeklyBoss.weekKey,
+      data.weeklyBoss.defeated,
+    );
 
     const settledCompletions = data.completions.filter(
       (completion) => completion.date <= settledThrough,
@@ -535,6 +544,11 @@ export function settleHabitDayProgress(
       settledThroughDate: dateKey >= weekBoss.weekKey ? dateKey : weekBoss.settledThroughDate,
     };
     if (bossHit.defeatedNow) {
+      data.rewardSystems = recordWeeklyBossCompletion(
+        data.rewardSystems,
+        data.weeklyBoss.weekKey,
+        true,
+      );
       celebrations.push(
         createCelebration(
           "boss-clear",

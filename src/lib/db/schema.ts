@@ -256,6 +256,8 @@ export const rewardSystems = pgTable("reward_systems", {
   partyWeeklyTarget: integer("party_weekly_target").notNull().default(20),
   progressSettledThroughDate: varchar("progress_settled_through_date", { length: 10 }),
   seasonPassCompletions: integer("season_pass_completions").notNull().default(0),
+  weeklyBossCompletions: integer("weekly_boss_completions").notNull().default(0),
+  lastCountedBossWeekKey: varchar("last_counted_boss_week_key", { length: 10 }),
 });
 
 export const userQuestArcs = pgTable(

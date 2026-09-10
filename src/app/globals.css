@@ -499,6 +499,19 @@ body::after {
   height: 2.75rem;
 }
 
+.hq-streak-flame-xs {
+  width: 1.15rem;
+  height: 1.4rem;
+}
+
+.hq-streak-flame-xs .hq-streak-flame-aura {
+  inset: 12%;
+}
+
+.hq-streak-flame-xs .hq-streak-flame-sparks {
+  display: none;
+}
+
 .hq-streak-flame-svg {
   position: relative;
   z-index: 2;

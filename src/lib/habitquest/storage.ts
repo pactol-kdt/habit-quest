@@ -265,6 +265,13 @@ export function normalizeHabitQuestData(
       seasonPassCompletions:
         parsed.rewardSystems?.seasonPassCompletions ??
         fallback.rewardSystems.seasonPassCompletions,
+      weeklyBossCompletions:
+        parsed.rewardSystems?.weeklyBossCompletions ??
+        fallback.rewardSystems.weeklyBossCompletions,
+      lastCountedBossWeekKey:
+        parsed.rewardSystems?.lastCountedBossWeekKey ??
+        fallback.rewardSystems.lastCountedBossWeekKey ??
+        null,
     },
     questArcs: mergeQuestArcs(parsed.questArcs, fallback.questArcs),
     seasonPass: {
@@ -535,6 +542,14 @@ export function mergeCloudSaveWithLocalDraft(
         seasonPassCompletions: Math.max(
           local.rewardSystems.seasonPassCompletions,
           cloud.rewardSystems.seasonPassCompletions,
+        ),
+        weeklyBossCompletions: Math.max(
+          local.rewardSystems.weeklyBossCompletions,
+          cloud.rewardSystems.weeklyBossCompletions,
+        ),
+        lastCountedBossWeekKey: pickLaterDateKey(
+          local.rewardSystems.lastCountedBossWeekKey,
+          cloud.rewardSystems.lastCountedBossWeekKey,
         ),
         todayCombo,
         comboDate: todayCombo > 0 ? today : null,

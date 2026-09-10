@@ -112,10 +112,15 @@ export const PAGE_HEROES = {
     title: "How it works",
     support: "Short answers for stacking, streaks, bosses, and rewards.",
   },
+  profile: {
+    eyebrow: "Profile",
+    title: "Your legend",
+    support: "Activity, identity, honors, and account.",
+  },
   settings: {
     eyebrow: "Settings",
     title: "Your setup",
-    support: "Profile, sync, and preferences.",
+    support: "Reminders and app details.",
   },
 } as const;
 

@@ -5,6 +5,7 @@ import {
   getActiveShieldDates,
   mergeRewardFreezeState,
   reconcileStreakShields,
+  recordWeeklyBossCompletion,
 } from "./rewards.ts";
 import { getStreakStats } from "./utils.ts";
 import type { HabitCompletion } from "./types.ts";
@@ -118,5 +119,26 @@ describe("mergeRewardFreezeState", () => {
     assert.equal(merged.streakFreezes, 0);
     assert.ok(merged.streakShieldDates.includes("2026-09-11"));
     assert.equal(merged.lastFreezeUsedDate, "2026-09-11");
+  });
+});
+
+describe("recordWeeklyBossCompletion", () => {
+  it("counts a defeated week once", () => {
+    const first = recordWeeklyBossCompletion(createDefaultRewardSystems(), "2026-09-07", true);
+    assert.equal(first.weeklyBossCompletions, 1);
+    assert.equal(first.lastCountedBossWeekKey, "2026-09-07");
+
+    const sameWeek = recordWeeklyBossCompletion(first, "2026-09-07", true);
+    assert.equal(sameWeek.weeklyBossCompletions, 1);
+
+    const nextWeek = recordWeeklyBossCompletion(first, "2026-09-14", true);
+    assert.equal(nextWeek.weeklyBossCompletions, 2);
+    assert.equal(nextWeek.lastCountedBossWeekKey, "2026-09-14");
+  });
+
+  it("ignores a week that is not defeated", () => {
+    const next = recordWeeklyBossCompletion(createDefaultRewardSystems(), "2026-09-07", false);
+    assert.equal(next.weeklyBossCompletions, 0);
+    assert.equal(next.lastCountedBossWeekKey, null);
   });
 });

@@ -7,6 +7,7 @@ import {
 } from "./constants";
 import { listClaimableRewards, type ClaimableKind } from "./claimables";
 import { normalizeReminderTime } from "./reminder-time";
+import { recordWeeklyBossCompletion } from "./rewards";
 import { createId, createExpEntry, getTodayDateKey, isFeatureUnlocked, syncProgress } from "./utils";
 import type {
   CoinWallet,
@@ -313,6 +314,11 @@ export function applyClaimBossReward(data: HabitQuestData): ClaimMutationResult 
       ...data.userProgress,
       expHistory: [...data.userProgress.expHistory],
     },
+    rewardSystems: recordWeeklyBossCompletion(
+      data.rewardSystems,
+      data.weeklyBoss.weekKey,
+      data.weeklyBoss.defeated,
+    ),
   };
 
   const label = `${data.weeklyBoss.name} clear`;

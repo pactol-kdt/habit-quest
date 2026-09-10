@@ -24,8 +24,9 @@ const progressLinks = [
 ] as const;
 
 const accountLinks = [
+  { href: "/profile", label: "Profile", hint: "Activity & honors" },
   { href: "/guides", label: "Guides", hint: "How HabitQuest works" },
-  { href: "/settings", label: "Settings", hint: "Profile & reminders" },
+  { href: "/settings", label: "Settings", hint: "Reminders" },
 ] as const;
 
 type SheetId = "progress" | "more" | null;
@@ -35,7 +36,12 @@ function isProgressPath(pathname: string) {
 }
 
 function isMorePath(pathname: string) {
-  return pathname === "/guides" || pathname === "/settings" || pathname === "/admin";
+  return (
+    pathname === "/profile" ||
+    pathname === "/guides" ||
+    pathname === "/settings" ||
+    pathname === "/admin"
+  );
 }
 
 export function MobileBottomNav() {

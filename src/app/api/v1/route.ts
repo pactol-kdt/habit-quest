@@ -9,6 +9,7 @@ const RESOURCES = {
   signUp: "POST /api/v1/auth/sign-up",
   signIn: "POST /api/v1/auth/sign-in",
   signOut: "POST /api/v1/auth/sign-out",
+  changePassword: "POST /api/v1/auth/change-password",
   habits: "GET /api/v1/habits",
   createHabit: "POST /api/v1/habits",
   updateHabit: "PATCH /api/v1/habits/:habitId",

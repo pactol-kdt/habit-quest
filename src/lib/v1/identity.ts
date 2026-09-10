@@ -161,3 +161,46 @@ export async function updateAccountDisplayName(displayName: string) {
     },
   };
 }
+
+export async function changePassword(
+  currentPassword: string,
+  nextPassword: string,
+): Promise<AuthCommandResult> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { ok: false, error: "Not signed in." };
+  }
+
+  if (currentPassword.length < 1) {
+    return { ok: false, error: "Enter your current password." };
+  }
+
+  if (nextPassword.length < 8) {
+    return { ok: false, error: "Password must be at least 8 characters." };
+  }
+
+  if (currentPassword === nextPassword) {
+    return { ok: false, error: "Choose a different password." };
+  }
+
+  const database = await ensureDatabase();
+  const rows = await database
+    .select({ id: users.id, passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, user.id))
+    .limit(1);
+  const account = rows[0];
+  if (!account || !(await verifyPassword(currentPassword, account.passwordHash))) {
+    return { ok: false, error: "Invalid current password." };
+  }
+
+  await database
+    .update(users)
+    .set({
+      passwordHash: await hashPassword(nextPassword),
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(users.id, user.id));
+
+  return { ok: true, user };
+}

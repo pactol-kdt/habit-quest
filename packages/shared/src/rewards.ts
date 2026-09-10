@@ -43,6 +43,28 @@ export function createDefaultRewardSystems(): RewardSystems {
     comboDate: null,
     progressSettledThroughDate: null,
     seasonPassCompletions: 0,
+    weeklyBossCompletions: 0,
+    lastCountedBossWeekKey: null,
+  };
+}
+
+export function recordWeeklyBossCompletion(
+  systems: RewardSystems,
+  weekKey: string,
+  defeated: boolean,
+): RewardSystems {
+  if (!defeated || systems.lastCountedBossWeekKey === weekKey) {
+    return {
+      ...systems,
+      weeklyBossCompletions: systems.weeklyBossCompletions ?? 0,
+      lastCountedBossWeekKey: systems.lastCountedBossWeekKey ?? null,
+    };
+  }
+
+  return {
+    ...systems,
+    weeklyBossCompletions: (systems.weeklyBossCompletions ?? 0) + 1,
+    lastCountedBossWeekKey: weekKey,
   };
 }
 

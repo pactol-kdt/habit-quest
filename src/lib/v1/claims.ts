@@ -354,6 +354,12 @@ export async function claimAllRewardsAction(
         ? mutation.data.rewardSystems.seasonPassCompletions
         : undefined,
       bossRewardClaimed: bossChanged ? true : undefined,
+      weeklyBossCompletions: bossChanged
+        ? mutation.data.rewardSystems.weeklyBossCompletions
+        : undefined,
+      lastCountedBossWeekKey: bossChanged
+        ? mutation.data.rewardSystems.lastCountedBossWeekKey
+        : undefined,
     });
 
     return {
@@ -398,6 +404,8 @@ export async function claimBossRewardAction(): Promise<ClaimActionResult> {
     const saved = await persistEconomyClaim(database, user.id, {
       ...economyFromMutation(mutation.data, mutation),
       bossRewardClaimed: true,
+      weeklyBossCompletions: mutation.data.rewardSystems.weeklyBossCompletions,
+      lastCountedBossWeekKey: mutation.data.rewardSystems.lastCountedBossWeekKey,
     });
 
     return {
@@ -405,6 +413,7 @@ export async function claimBossRewardAction(): Promise<ClaimActionResult> {
       wallet: mutation.wallet,
       userProgress: mutation.userProgress,
       weeklyBoss: mutation.data.weeklyBoss,
+      rewardSystems: mutation.data.rewardSystems,
       updatedAt: saved.updatedAt,
     };
   } catch (error) {

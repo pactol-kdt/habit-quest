@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AuthPanel } from "~/components/habitquest/auth-panel";
-import { ContributionGraph } from "~/components/habitquest/contribution-graph";
+import { useState } from "react";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { sendTestReminderNow } from "~/hooks/use-habitquest-reminders";
 import {
@@ -32,19 +30,12 @@ const REMINDER_HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => {
 });
 
 export function SettingsPage() {
-  const [backupNote, setBackupNote] = useState<string | null>(null);
   const [devNote, setDevNote] = useState<string | null>(null);
   const [reminderNote, setReminderNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const { hydrated, settings, updateSettings, projectSave, habits, completions, authUser } =
-    useHabitQuestStore((state) => state);
-  const [displayNameDraft, setDisplayNameDraft] = useState(settings.displayName);
+  const { hydrated, settings, updateSettings, habits } = useHabitQuestStore((state) => state);
   const hero = PAGE_HEROES.settings;
-
-  useEffect(() => {
-    setDisplayNameDraft(settings.displayName);
-  }, [settings.displayName]);
 
   if (!hydrated) {
     return (
@@ -52,15 +43,6 @@ export function SettingsPage() {
         <div className="glass-panel h-48 animate-pulse rounded-[2rem]" />
       </div>
     );
-  }
-
-  function commitDisplayName() {
-    const next = displayNameDraft.trim().slice(0, 32);
-    setDisplayNameDraft(next);
-    if (next === settings.displayName) {
-      return;
-    }
-    updateSettings({ displayName: next });
   }
 
   async function handleDevTestNotification() {
@@ -92,29 +74,6 @@ export function SettingsPage() {
     }
   }
 
-  function downloadSnapshot() {
-    try {
-      const payload = {
-        exportedAt: new Date().toISOString(),
-        note: "Read-only snapshot for your records. HabitQuest restores from your signed-in account, not this file.",
-        save: projectSave(),
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      const stamp = new Date().toISOString().slice(0, 10);
-      anchor.href = url;
-      anchor.download = `habitquest-snapshot-${stamp}.json`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      setBackupNote("Snapshot downloaded. Your live progress still syncs from your account.");
-    } catch {
-      setBackupNote("Could not build a snapshot in this browser.");
-    }
-  }
-
   return (
     <div className="grid min-w-0 gap-4 pt-4 md:gap-6 md:pt-6">
       <GlassCard className="rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
@@ -127,31 +86,6 @@ export function SettingsPage() {
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base">
           {hero.support}
         </p>
-      </GlassCard>
-
-      <AuthPanel />
-
-      <GlassCard>
-        <h2 className="section-title text-2xl text-white">Profile</h2>
-        <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-          Display name appears in navigation and the dashboard greeting.
-        </p>
-        <label className="mt-5 grid gap-2">
-          <span className="text-sm text-[var(--color-text-muted)]">Display name</span>
-          <input
-            value={displayNameDraft}
-            onChange={(event) => setDisplayNameDraft(event.target.value.slice(0, 32))}
-            onBlur={commitDisplayName}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur();
-              }
-            }}
-            maxLength={32}
-            placeholder="Adventurer"
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50"
-          />
-        </label>
       </GlassCard>
 
       <GlassCard>
@@ -208,10 +142,6 @@ export function SettingsPage() {
         {reminderNote ? <p className="mt-3 text-sm text-cyan-100">{reminderNote}</p> : null}
       </GlassCard>
 
-      <GlassCard className="min-w-0 overflow-hidden">
-        <ContributionGraph completions={completions} />
-      </GlassCard>
-
       {isDev ? (
         <GlassCard>
           <h2 className="section-title text-2xl text-white">Dev · Test notification</h2>
@@ -234,23 +164,6 @@ export function SettingsPage() {
           {devNote ? <p className="mt-3 text-sm text-cyan-100">{devNote}</p> : null}
         </GlassCard>
       ) : null}
-
-      <GlassCard>
-        <h2 className="section-title text-2xl text-white">Backup</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)]">
-          {authUser
-            ? "Your signed-in account is the source of truth. There is no import flow — downloading a JSON snapshot is only for your own records if you want a local copy."
-            : "Progress on this device lives in the browser. Create an account to keep it. A JSON snapshot is only for your own records."}
-        </p>
-        <button
-          type="button"
-          onClick={downloadSnapshot}
-          className="mt-5 rounded-full border border-white/10 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
-        >
-          Download JSON snapshot
-        </button>
-        {backupNote ? <p className="mt-3 text-sm text-cyan-100">{backupNote}</p> : null}
-      </GlassCard>
 
       <GlassCard>
         <h2 className="section-title text-2xl text-white">About</h2>
