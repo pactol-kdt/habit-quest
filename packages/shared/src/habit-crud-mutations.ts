@@ -1,10 +1,5 @@
 import { clearBrokenStackLinks, canLinkStackAfter, wouldCreateStackCycle } from "./habit-loop";
-import {
-  createId,
-  getTodayDateKey,
-  normalizeFormValues,
-  removeCompletionsFromProgress,
-} from "./utils";
+import { createId, normalizeFormValues } from "./utils";
 import type { Habit, HabitFormValues, HabitQuestData } from "./types";
 
 export type HabitCrudResult =
@@ -154,60 +149,23 @@ export function applyUpdateHabit(
 export function applyDeleteHabit(
   data: HabitQuestData,
   habitId: string,
-  today = getTodayDateKey(),
 ): HabitCrudResult {
   const habit = data.habits.find((entry) => entry.id === habitId);
   if (!habit) {
     return { ok: false, error: "Habit not found." };
   }
 
-  const removedCompletions = data.completions.filter(
-    (completion) => completion.habitId === habitId,
-  );
-  const titleMap = new Map(data.habits.map((entry) => [entry.id, entry.title] as const));
-  const settledThrough = data.rewardSystems.progressSettledThroughDate;
-  const settledRemovals = removedCompletions.filter((completion) =>
-    settledThrough ? completion.date <= settledThrough : completion.date < today,
-  );
-  const remainingCompletions = data.completions.filter(
-    (completion) => completion.habitId !== habitId,
-  );
-
-  let nextData: HabitQuestData = {
-    ...data,
-    habits: clearBrokenStackLinks(
-      data.habits.filter((entry) => entry.id !== habitId),
-      habitId,
-    ),
-    completions: remainingCompletions,
-  };
-
-  const previousExpIds = new Set(data.userProgress.expHistory.map((entry) => entry.id));
-
-  if (settledRemovals.length) {
-    nextData = removeCompletionsFromProgress(
-      {
-        ...nextData,
-        completions: [...remainingCompletions, ...settledRemovals],
-      },
-      settledRemovals,
-      titleMap,
-    );
-    nextData = {
-      ...nextData,
-      completions: remainingCompletions,
-    };
-  }
-
-  const removedExpHistoryIds = [...previousExpIds].filter(
-    (id) => !nextData.userProgress.expHistory.some((entry) => entry.id === id),
-  );
-
   return {
     ok: true,
-    data: nextData,
+    data: {
+      ...data,
+      habits: clearBrokenStackLinks(
+        data.habits.filter((entry) => entry.id !== habitId),
+        habitId,
+      ),
+    },
     habit: null,
     habitId,
-    removedExpHistoryIds,
+    removedExpHistoryIds: [],
   };
 }

@@ -298,6 +298,42 @@ describe("habit CRUD mutators", () => {
       false,
     );
   });
+
+  it("keeps completion history so deleting a habit does not rewind the streak", () => {
+    const base = createSeedData();
+    const created = applyCreateHabit(base, {
+      title: "Sole morning habit",
+      description: "",
+      difficulty: "easy",
+      recurrence: "daily",
+      customDays: [],
+    });
+    assert.equal(created.ok, true);
+    if (!created.ok || !created.habit) {
+      return;
+    }
+
+    const withHistory = {
+      ...created.data,
+      completions: [
+        {
+          id: "c-old",
+          habitId: created.habitId,
+          date: "2026-09-01",
+          expEarned: 10,
+          streakBonusExp: 0,
+          completedAt: "2026-09-01T12:00:00.000Z",
+        },
+      ],
+    };
+    const deleted = applyDeleteHabit(withHistory, created.habitId);
+    assert.equal(deleted.ok, true);
+    if (!deleted.ok) {
+      return;
+    }
+    assert.equal(deleted.data.completions.length, 1);
+    assert.equal(deleted.data.completions[0]?.habitId, created.habitId);
+  });
 });
 
 describe("claimable rewards listing", () => {

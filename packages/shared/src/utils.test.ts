@@ -6,6 +6,8 @@ import {
   getContributionActivity,
   getContributionYears,
   getPeriodStreakDays,
+  getStreakStats,
+  getTodayDateKey,
   isHabitDueOnDate,
   reconcileChallenges,
   removeCompletionsFromProgress,
@@ -260,5 +262,57 @@ describe("contribution activity", () => {
     assert.equal(busy?.level, 4);
     assert.equal(light?.count, 1);
     assert.equal(light?.level, 2);
+  });
+});
+
+function makeCompletion(date: string, habitId = "habit_1"): HabitCompletion {
+  return {
+    id: `c_${habitId}_${date}`,
+    habitId,
+    date,
+    expEarned: 10,
+    streakBonusExp: 0,
+    completedAt: `${date}T12:00:00.000Z`,
+  };
+}
+
+function addDays(dateKey: string, days: number) {
+  const date = new Date(`${dateKey}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return getTodayDateKey(date);
+}
+
+describe("getStreakStats", () => {
+  it("counts consecutive unique days ending today or yesterday", () => {
+    const today = "2026-09-09";
+    const completions = [0, 1, 2, 3, 4].map((offset) =>
+      makeCompletion(addDays(today, -offset)),
+    );
+    assert.equal(getStreakStats(completions, today).currentStreak, 5);
+    assert.equal(getStreakStats(completions, addDays(today, 1)).currentStreak, 5);
+  });
+
+  it("restarts after a gap instead of counting through it", () => {
+    const today = "2026-09-21";
+    // 11 unique days, then a missed day, then 9 recent days — the 20→9 drop.
+    const older = Array.from({ length: 11 }, (_, index) =>
+      makeCompletion(addDays("2026-09-01", index)),
+    );
+    const recent = Array.from({ length: 9 }, (_, index) =>
+      makeCompletion(addDays(today, -(8 - index))),
+    );
+    const stats = getStreakStats([...older, ...recent], today);
+    assert.equal(stats.currentStreak, 9);
+    assert.equal(stats.bestStreak, 11);
+  });
+
+  it("goes to zero when the last clear is more than one day ago", () => {
+    const completions = [makeCompletion("2026-09-01")];
+    assert.equal(getStreakStats(completions, "2026-09-03").currentStreak, 0);
+  });
+
+  it("lets a shield date fill a one-day miss", () => {
+    const completions = [makeCompletion("2026-09-07"), makeCompletion("2026-09-09")];
+    assert.equal(getStreakStats(completions, "2026-09-09", ["2026-09-08"]).currentStreak, 3);
   });
 });

@@ -98,7 +98,7 @@ export function getPendingComboPreview(data: HabitQuestData, today = getTodayDat
 
 /**
  * Player level / EXP stay settled until midnight lock-in.
- * Pending habit EXP is preview-only via getPendingHabitExp — not applied here.
+ * Streak is attendance — today's pending clears still count.
  */
 export function getEffectiveUserProgress(
   data: HabitQuestData,
@@ -110,7 +110,7 @@ export function getEffectiveUserProgress(
     : data.completions.filter((completion) => completion.date < today);
   const shields = getActiveShieldDates(data.rewardSystems);
 
-  return syncProgress(
+  const settled = syncProgress(
     data.userProgress,
     settledCompletions,
     {
@@ -121,6 +121,24 @@ export function getEffectiveUserProgress(
     shields,
     today,
   );
+  const attendance = syncProgress(
+    data.userProgress,
+    data.completions,
+    {
+      totalCompletedHabits: settled.totalCompletedHabits,
+      totalExp: settled.totalExp,
+      expHistory: settled.expHistory,
+    },
+    shields,
+    today,
+  );
+
+  return {
+    ...settled,
+    currentStreak: attendance.currentStreak,
+    bestStreak: Math.max(settled.bestStreak, attendance.bestStreak),
+    lastCompletedDate: attendance.lastCompletedDate,
+  };
 }
 
 export function getEffectiveSeasonPass(

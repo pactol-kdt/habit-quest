@@ -3,6 +3,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import { SAVE_VERSION, UNLOCK_LABELS } from "~/lib/habitquest/constants";
 import type { HabitQuestCatalog } from "~/lib/habitquest/catalog";
+import { mergeCompletionsForFullSave } from "~/lib/habitquest/save-integrity";
 import { normalizeHabitQuestData } from "~/lib/habitquest/storage";
 import { db } from "~/lib/db";
 import { loadCatalogFromDb } from "~/lib/db/catalog-repository";
@@ -279,7 +280,7 @@ export async function replaceNormalizedSave(
   data: HabitQuestData,
 ) {
   const updatedAt = new Date().toISOString();
-  const normalized = normalizeHabitQuestData(data);
+  const incoming = normalizeHabitQuestData(data);
 
   // Habit membership is owned by surgical create/update/delete APIs.
   // Full saves must not delete-all + reinsert — stale client snapshots were
@@ -295,6 +296,27 @@ export async function replaceNormalizedSave(
     .where(eq(saveMeta.userId, userId))
     .limit(1);
   const isInitialCloudSeed = existingHabitIds.size === 0 && existingMeta.length === 0;
+
+  const existingCompletionRows = isInitialCloudSeed
+    ? []
+    : await database.select().from(habitCompletions).where(eq(habitCompletions.userId, userId));
+  // Completions are owned like habits: a stale full-save must not drop days
+  // the cloud already has (that was wiping streaks by 10+ days).
+  const normalized = {
+    ...incoming,
+    completions: mergeCompletionsForFullSave(
+      existingCompletionRows.map((row) => ({
+        id: row.id,
+        habitId: row.habitId,
+        date: row.date,
+        expEarned: row.expEarned,
+        streakBonusExp: row.streakBonusExp,
+        completedAt: row.completedAt,
+        crit: row.crit || undefined,
+      })),
+      incoming.completions,
+    ),
+  };
 
   await database.delete(habitCompletions).where(eq(habitCompletions.userId, userId));
   await database.delete(expHistory).where(eq(expHistory.userId, userId));
@@ -846,7 +868,7 @@ export async function persistHabitUpdate(
   });
 }
 
-/** Surgical habit delete + optional settled progress clawback. */
+/** Surgical habit delete. Completion history stays so streaks don't rewind. */
 export async function persistHabitDelete(
   database: Database,
   userId: string,
@@ -862,12 +884,8 @@ export async function persistHabitDelete(
   removedExpHistoryIds: string[],
 ) {
   const updatedAt = new Date().toISOString();
+  // Completions stay so unique streak dates survive deleting a habit.
   return database.transaction(async (tx) => {
-    await tx
-      .delete(habitCompletions)
-      .where(
-        and(eq(habitCompletions.userId, userId), eq(habitCompletions.habitId, habitId)),
-      );
     await tx
       .update(habits)
       .set({ stackAfterHabitId: null })

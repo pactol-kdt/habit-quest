@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx --yes tsx --test packages/shared/src/utils.test.ts packages/shared/src/habit-loop.test.ts packages/shared/src/economy-balance.test.ts packages/shared/src/shop-mutations.test.ts src/lib/habitquest/focused-api.test.ts src/lib/habitquest/reminders.test.ts src/lib/v1/http.test.ts src/lib/auth/opaque-token.test.ts"
+    "test": "npx --yes tsx --test packages/shared/src/utils.test.ts packages/shared/src/habit-loop.test.ts packages/shared/src/economy-balance.test.ts packages/shared/src/shop-mutations.test.ts packages/shared/src/save-integrity.test.ts packages/shared/src/day-settlement.test.ts src/lib/habitquest/focused-api.test.ts src/lib/habitquest/reminders.test.ts src/lib/v1/http.test.ts src/lib/auth/opaque-token.test.ts"
   },
   "dependencies": {
     "@habitquest/shared": "*",

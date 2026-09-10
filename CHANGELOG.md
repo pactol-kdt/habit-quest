@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixed
+- Streak no longer drops when a stale cloud save or a deleted habit wipes completion days. Today's clears count toward the streak; EXP still locks in at midnight.
+
 ## 0.6.0 - Local Reminder Hours and Claim All
 
 ### Added

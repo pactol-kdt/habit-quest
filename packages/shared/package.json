@@ -9,6 +9,6 @@
   },
   "types": "./src/index.ts",
   "scripts": {
-    "test": "npx --yes tsx --test src/utils.test.ts src/habit-loop.test.ts src/economy-balance.test.ts src/shop-mutations.test.ts"
+    "test": "npx --yes tsx --test src/utils.test.ts src/habit-loop.test.ts src/economy-balance.test.ts src/shop-mutations.test.ts src/save-integrity.test.ts src/day-settlement.test.ts"
   }
 }

@@ -67,7 +67,6 @@ import {
   createQuestArcs,
   createSeasonPass,
   createWeeklyBoss,
-  getActiveShieldDates,
   maybeGrantStreakFreeze,
   reconcileSeasonPass,
   reconcileStreakShields,
@@ -75,7 +74,7 @@ import {
   reconcileTodayCombo,
   syncQuestArcs,
 } from "~/lib/habitquest/rewards";
-import { settleHabitDayProgress } from "~/lib/habitquest/day-settlement";
+import { getEffectiveUserProgress, settleHabitDayProgress } from "~/lib/habitquest/day-settlement";
 import { createSeedData } from "~/lib/habitquest/seed";
 import {
   loadHabitQuestData,
@@ -92,7 +91,6 @@ import {
   getTodayDateKey,
   hasClaimedDailyReward,
   reconcileChallenges,
-  syncProgress,
   unlockAchievements,
 } from "~/lib/habitquest/utils";
 import type {
@@ -295,22 +293,13 @@ function syncWithShields(
   data: HabitQuestData,
   extra: Partial<HabitQuestData["userProgress"]> = {},
 ) {
-  const through = data.rewardSystems.progressSettledThroughDate;
-  const settledCompletions = through
-    ? data.completions.filter((completion) => completion.date <= through)
-    : data.completions.filter((completion) => completion.date < getTodayDateKey());
-
-  return syncProgress(
-    data.userProgress,
-    settledCompletions,
-    {
-      totalCompletedHabits: settledCompletions.length,
-      totalExp: data.userProgress.totalExp,
-      expHistory: data.userProgress.expHistory,
+  return getEffectiveUserProgress({
+    ...data,
+    userProgress: {
+      ...data.userProgress,
       ...extra,
     },
-    getActiveShieldDates(data.rewardSystems),
-  );
+  });
 }
 
 function appendCoins(

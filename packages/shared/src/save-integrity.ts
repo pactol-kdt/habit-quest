@@ -3,8 +3,8 @@ import {
   DIFFICULTY_EXP,
   STREAK_BONUSES,
 } from "./constants";
-import { getLevelState, getTodayDateKey } from "./utils";
-import type { HabitQuestData } from "./types";
+import { getDaysBetween, getLevelState, getTodayDateKey } from "./utils";
+import type { HabitCompletion, HabitQuestData } from "./types";
 
 const MAX_STREAK_BONUS = Math.max(0, ...Object.values(STREAK_BONUSES));
 const MAX_SINGLE_SYNC_EXP_DELTA = 50_000;
@@ -38,6 +38,23 @@ export function sanitizeSaveForSync(data: HabitQuestData): HabitQuestData {
   };
 }
 
+/**
+ * Full-save snapshots must not erase completion history they forgot.
+ * Incoming rows win on the same habit+date; extras already in the cloud stay.
+ */
+export function mergeCompletionsForFullSave(
+  existing: HabitCompletion[],
+  incoming: HabitCompletion[],
+): HabitCompletion[] {
+  const incomingKeys = new Set(
+    incoming.map((completion) => `${completion.habitId}:${completion.date}`),
+  );
+  const preserved = existing.filter(
+    (completion) => !incomingKeys.has(`${completion.habitId}:${completion.date}`),
+  );
+  return [...incoming, ...preserved];
+}
+
 export function validateSaveIntegrity(
   data: HabitQuestData,
   previous: HabitQuestData | null,
@@ -66,11 +83,11 @@ export function validateSaveIntegrity(
     return { ok: false, error: "Level does not match total EXP." };
   }
 
-  // Allow settled-through up to server "today" so client local-yesterday
-  // is accepted when the host clock is still on the previous UTC day.
+  // Allow settled-through up to local tomorrow so UTC+N clients are accepted
+  // when the host clock is still on the previous UTC day.
   if (
     rewardSystems.progressSettledThroughDate &&
-    rewardSystems.progressSettledThroughDate > today
+    getDaysBetween(today, rewardSystems.progressSettledThroughDate) > 1
   ) {
     return {
       ok: false,
@@ -85,11 +102,9 @@ export function validateSaveIntegrity(
     if (!/^\d{4}-\d{2}-\d{2}$/.test(completion.date)) {
       return { ok: false, error: "Completion dates must use YYYY-MM-DD." };
     }
-    if (completion.date > today) {
+    // Same +1 day grace as settled-through: UTC+8 midnight is still "yesterday" in UTC.
+    if (getDaysBetween(today, completion.date) > 1) {
       return { ok: false, error: "Completions cannot be dated in the future." };
-    }
-    if (!habitIds.has(completion.habitId)) {
-      return { ok: false, error: "Completion references an unknown habit." };
     }
 
     const key = `${completion.habitId}:${completion.date}`;
