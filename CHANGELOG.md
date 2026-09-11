@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0 - Branded Password Reset
+
+### Added
+- Branded password-reset email (Cinzel + Space Grotesk, HabitQuest logo, light/dark via `prefers-color-scheme`).
+- Optional `EMAIL_TLS_INSECURE=1` for local Resend sends behind corporate SSL inspection.
+
+### Changed
+- Password reset is enabled. Set `RESEND_API_KEY` / `EMAIL_FROM` (and `APP_URL` in production) to email reset links; without a key the URL is logged in the server console.
+
 ## 0.7.0 - Profile Page and Streak Integrity
 
 ### Added

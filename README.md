@@ -30,7 +30,7 @@ Variables:
 - `CRON_SECRET` — protects `/api/cron/reminders` (required in production; Vercel Cron sends it as Bearer)
 - `ADMIN_EMAIL` — optional; that email becomes admin on signup (first account is always admin)
 - `APP_URL` — public origin for password-reset links (defaults to the request origin)
-- `RESEND_API_KEY` / `EMAIL_FROM` — optional Resend mailer for password reset. Reset is currently disabled (`PASSWORD_RESET_ENABLED` in `src/lib/auth/password-reset-enabled.ts`). Without a key, the reset URL is logged in the server console. Resend’s test sender (`onboarding@resend.dev`) can only deliver to the Resend account email until a domain is verified.
+- `RESEND_API_KEY` / `EMAIL_FROM` — optional Resend mailer for password reset (feature is enabled). Without a key, the reset URL is logged in the server console. Resend’s test sender (`onboarding@resend.dev`) can only deliver to the Resend account email until a domain is verified.
 
 Production setup:
 

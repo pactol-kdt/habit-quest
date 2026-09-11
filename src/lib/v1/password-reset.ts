@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 import { createOpaqueToken, hashOpaqueToken } from "~/lib/auth/opaque-token";
 import { hashPassword } from "~/lib/auth/password";
 import { sendTransactionalEmail } from "~/lib/email/resend";
+import { getHabitQuestLogoAttachment } from "~/lib/email/brand-assets";
+import { buildPasswordResetEmail } from "~/lib/email/templates/password-reset";
 import { ensureDatabase } from "~/lib/db";
 import { passwordResetTokens, users } from "~/lib/db/schema";
 
@@ -48,7 +50,7 @@ export async function requestPasswordReset(emailInput: string, origin: string) {
 
   const database = await ensureDatabase();
   const rows = await database
-    .select({ id: users.id, email: users.email })
+    .select({ id: users.id, email: users.email, displayName: users.displayName })
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
@@ -71,16 +73,20 @@ export async function requestPasswordReset(emailInput: string, origin: string) {
   });
 
   const resetUrl = `${origin}/reset-password?token=${token}`;
+  const mail = buildPasswordResetEmail({
+    resetUrl,
+    origin,
+    email: user.email,
+    displayName: user.displayName,
+    expiresInHours: 1,
+  });
+  const logo = await getHabitQuestLogoAttachment();
   const mailed = await sendTransactionalEmail({
     to: user.email,
-    subject: "Reset your HabitQuest password",
-    text: [
-      "Use this link to choose a new HabitQuest password. It expires in 1 hour.",
-      "",
-      resetUrl,
-      "",
-      "If you didn't ask for this, you can ignore this email.",
-    ].join("\n"),
+    subject: mail.subject,
+    text: mail.text,
+    html: mail.html,
+    inlineImages: [logo],
   });
 
   if (!mailed.ok) {
