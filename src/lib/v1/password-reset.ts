@@ -73,27 +73,33 @@ export async function requestPasswordReset(emailInput: string, origin: string) {
   });
 
   const resetUrl = `${origin}/reset-password?token=${token}`;
-  const mail = buildPasswordResetEmail({
-    resetUrl,
-    origin,
-    email: user.email,
-    displayName: user.displayName,
-    expiresInHours: 1,
-  });
-  const logo = await getHabitQuestLogoAttachment();
-  const mailed = await sendTransactionalEmail({
-    to: user.email,
-    subject: mail.subject,
-    text: mail.text,
-    html: mail.html,
-    inlineImages: [logo],
-  });
+  try {
+    const logo = await getHabitQuestLogoAttachment();
+    const mail = buildPasswordResetEmail({
+      resetUrl,
+      origin,
+      email: user.email,
+      displayName: user.displayName,
+      expiresInHours: 1,
+      inlineLogo: Boolean(logo),
+    });
+    const mailed = await sendTransactionalEmail({
+      to: user.email,
+      subject: mail.subject,
+      text: mail.text,
+      html: mail.html,
+      ...(logo ? { inlineImages: [logo] } : {}),
+    });
 
-  if (!mailed.ok) {
-    console.error("[habitquest] Password reset email failed:", mailed.error);
-  }
+    if (!mailed.ok) {
+      console.error("[habitquest] Password reset email failed:", mailed.error);
+    }
 
-  if (!mailed.ok || !mailed.delivered) {
+    if (!mailed.ok || !mailed.delivered) {
+      console.info(`[habitquest] Password reset URL for ${user.email}: ${resetUrl}`);
+    }
+  } catch (error) {
+    console.error("[habitquest] Password reset email threw:", error);
     console.info(`[habitquest] Password reset URL for ${user.email}: ${resetUrl}`);
   }
 

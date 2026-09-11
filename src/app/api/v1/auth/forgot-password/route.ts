@@ -19,19 +19,24 @@ export async function POST(request: Request) {
     return jsonError(PASSWORD_RESET_DISABLED_MESSAGE, 404);
   }
 
-  const body = await readJsonBody(request);
-  if (!body.ok) {
-    return jsonError(body.error, 400);
-  }
-  if (!isRecord(body.data)) {
-    return jsonError("email is required.", 400);
-  }
+  try {
+    const body = await readJsonBody(request);
+    if (!body.ok) {
+      return jsonError(body.error, 400);
+    }
+    if (!isRecord(body.data)) {
+      return jsonError("email is required.", 400);
+    }
 
-  const email = asNonEmptyString(body.data.email);
-  if (!email) {
-    return jsonError("email is required.", 400);
-  }
+    const email = asNonEmptyString(body.data.email);
+    if (!email) {
+      return jsonError("email is required.", 400);
+    }
 
-  const result = await requestPasswordReset(email, resolveAppOrigin(request));
-  return jsonOk({ message: result.message });
+    const result = await requestPasswordReset(email, resolveAppOrigin(request));
+    return jsonOk({ message: result.message });
+  } catch (error) {
+    console.error("[habitquest] forgot-password failed:", error);
+    return jsonError("Could not start password reset. Try again in a moment.", 500);
+  }
 }

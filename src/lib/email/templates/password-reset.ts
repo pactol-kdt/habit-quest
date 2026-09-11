@@ -1,6 +1,9 @@
 import "server-only";
 
-import { habitQuestLogoCidSrc } from "~/lib/email/brand-assets";
+import {
+  habitQuestLogoCidSrc,
+  habitQuestLogoPublicSrc,
+} from "~/lib/email/brand-assets";
 
 export type PasswordResetEmailContent = {
   subject: string;
@@ -35,13 +38,18 @@ export function buildPasswordResetEmail(options: {
   email: string;
   displayName?: string;
   expiresInHours?: number;
+  /** When true, HTML references cid:habitquest-logo (attachment required). */
+  inlineLogo?: boolean;
 }): PasswordResetEmailContent {
   const expiresInHours = options.expiresInHours ?? 1;
   const name = greetingName(options.displayName, options.email);
   const safeName = escapeHtml(name);
   const safeUrl = escapeHtml(options.resetUrl);
   const safeOrigin = escapeHtml(options.origin);
-  const logoSrc = habitQuestLogoCidSrc();
+  const logoSrc = options.inlineLogo
+    ? habitQuestLogoCidSrc()
+    : habitQuestLogoPublicSrc(options.origin);
+  const safeLogoSrc = escapeHtml(logoSrc);
 
   const subject = "Reset your HabitQuest password";
 
@@ -130,7 +138,7 @@ export function buildPasswordResetEmail(options: {
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="vertical-align:middle;padding-right:14px;">
-                    <img class="hq-logo" src="${logoSrc}" width="48" height="48" alt="HabitQuest" style="display:block;width:48px;height:48px;border-radius:12px;border:1px solid rgba(15,23,42,0.10);object-fit:cover;" />
+                    <img class="hq-logo" src="${safeLogoSrc}" width="48" height="48" alt="HabitQuest" style="display:block;width:48px;height:48px;border-radius:12px;border:1px solid rgba(15,23,42,0.10);object-fit:cover;" />
                   </td>
                   <td style="vertical-align:middle;">
                     <div class="hq-eyebrow" style="font-family:${FONT_DISPLAY};font-size:12px;font-weight:600;letter-spacing:0.28em;text-transform:uppercase;color:#64748b;">HabitQuest</div>

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1 - Password Reset Production Fix
+
+### Fixed
+- Password-reset emails no longer 500 on Vercel: logo loads from the public URL when the filesystem/`sharp` path is unavailable, and mail failures are caught instead of crashing the route.
+
 ## 0.8.0 - Branded Password Reset
 
 ### Added

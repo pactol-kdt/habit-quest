@@ -2,7 +2,6 @@ import "server-only";
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import sharp from "sharp";
 
 export type InlineEmailImage = {
   filename: string;
@@ -12,30 +11,40 @@ export type InlineEmailImage = {
 };
 
 const LOGO_CONTENT_ID = "habitquest-logo";
-let cachedLogo: InlineEmailImage | null = null;
+let cachedLogo: InlineEmailImage | null | undefined;
 
-/** Resized HabitQuest mark for CID-inline email embedding. */
-export async function getHabitQuestLogoAttachment(): Promise<InlineEmailImage> {
-  if (cachedLogo) {
+/**
+ * Best-effort local logo for CID embedding (useful on localhost where
+ * remote `/brand/...` URLs are not reachable from email clients).
+ * On Vercel/serverless the public folder is often not on disk — returns null.
+ */
+export async function getHabitQuestLogoAttachment(): Promise<InlineEmailImage | null> {
+  if (cachedLogo !== undefined) {
     return cachedLogo;
   }
 
-  const logoPath = path.join(process.cwd(), "public", "brand", "habitquest-logo.png");
-  const source = await readFile(logoPath);
-  const resized = await sharp(source)
-    .resize(96, 96, { fit: "cover" })
-    .png({ compressionLevel: 9 })
-    .toBuffer();
-
-  cachedLogo = {
-    filename: "habitquest-logo.png",
-    contentId: LOGO_CONTENT_ID,
-    contentBase64: resized.toString("base64"),
-    contentType: "image/png",
-  };
-  return cachedLogo;
+  try {
+    const logoPath = path.join(process.cwd(), "public", "brand", "habitquest-logo.png");
+    const source = await readFile(logoPath);
+    // Keep the PNG as-is (no sharp) so serverless runtimes without native
+    // sharp binaries still work when the file happens to be present.
+    cachedLogo = {
+      filename: "habitquest-logo.png",
+      contentId: LOGO_CONTENT_ID,
+      contentBase64: source.toString("base64"),
+      contentType: "image/png",
+    };
+    return cachedLogo;
+  } catch {
+    cachedLogo = null;
+    return null;
+  }
 }
 
 export function habitQuestLogoCidSrc() {
   return `cid:${LOGO_CONTENT_ID}`;
+}
+
+export function habitQuestLogoPublicSrc(origin: string) {
+  return `${origin.replace(/\/$/, "")}/brand/habitquest-logo.png`;
 }
