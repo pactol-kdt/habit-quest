@@ -94,7 +94,7 @@ function SettlementRecapDialog({
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <RecapStat label="Streak" value={`${recap.streak}d`} />
-              <RecapStat label="Clears settled" value={String(recap.clears)} />
+              <RecapStat label="Finished today" value={String(recap.clears)} />
               <RecapStat
                 label="EXP locked"
                 value={formatNumber(

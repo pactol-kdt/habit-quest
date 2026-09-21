@@ -44,7 +44,7 @@ export function useHabitQuestHydration() {
         extractLocal: false,
       });
 
-      if (boot.status === "guest") {
+      if (boot.status === "guest" || (boot.status === "error" && !boot.user?.id)) {
         setCloudSyncEnabled(false);
         setAuthUser(null);
         if (isGuestPlayEnabled()) {
@@ -85,7 +85,9 @@ export function useHabitQuestHydration() {
         return;
       }
 
-      // Sync error with no local cache: stay signed in, show empty boot via checked flag.
+      // Sync error with no local cache: show auth gate instead of an endless boot screen.
+      setCloudSyncEnabled(false);
+      setAuthUser(null);
       setAuthChecked(true);
     })();
   }, [applyAuthenticatedSave, setAuthChecked, setAuthUser]);

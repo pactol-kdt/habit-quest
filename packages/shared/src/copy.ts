@@ -79,7 +79,7 @@ export const PAGE_HEROES = {
   habits: {
     eyebrow: "Habits",
     title: "All habits",
-    support: "Stack triggers. Clear loops. Build your run.",
+    support: "Stack a cue. Finish the loop. Build your run.",
   },
   shop: {
     eyebrow: "Shop",
@@ -88,33 +88,35 @@ export const PAGE_HEROES = {
       "Spend coins on titles, frames, avatars, and themes. Buyable tiers unlock in order — own the previous one first.",
   },
   leaderboard: {
-    eyebrow: "Arena",
+    eyebrow: "Streaks",
     title: "Streak board",
-    support: "Climb by streak. Show the world your consistency.",
+    support: "Climb by streak. See how your consistency stacks up.",
   },
   boss: {
-    eyebrow: "Raid",
-    title: "Weekly boss",
-    support: "Every clear deals damage. Drop the HP bar this week.",
+    eyebrow: "Week",
+    title: "Weekly challenge",
+    support:
+      "Each habit fills this week's bar. A 15-clear contract sits on the same page.",
   },
   season: {
     eyebrow: "Season",
-    title: "Season pass",
-    support: "Climb to level 30 on season XP, then claim the finale to clear the month.",
+    title: "Season rewards",
+    support:
+      "Earn season XP, climb the track, and claim gifts. The monthly climb and quest chapters live here too.",
   },
   achievements: {
-    eyebrow: "Trophies",
+    eyebrow: "Milestones",
     title: "Achievements",
-    support: "Milestones unlocked on your journey.",
+    support: "Milestones unlocked as you build the habit.",
   },
   guides: {
     eyebrow: "Guide",
     title: "How it works",
-    support: "Short answers for stacking, streaks, bosses, and rewards.",
+    support: "Short answers for stacking, streaks, weekly goals, and rewards.",
   },
   profile: {
     eyebrow: "Profile",
-    title: "Your legend",
+    title: "Your profile",
     support: "Activity, identity, honors, and account.",
   },
   settings: {
@@ -138,18 +140,18 @@ export const TUTORIAL_LESSONS = [
   },
   {
     id: "clear",
-    eyebrow: "Clear",
-    title: "Tap to clear today",
-    body: "Home is today's due list. Tap a habit to clear it. Miss-tap? Undo anytime until the day locks in.",
-    points: ["Habits is the full roster — stack, edit, and browse there.", "One clear is a full win."],
+    eyebrow: "Done",
+    title: "Tap to finish today",
+    body: "Home is today's due list. Tap a habit when you're done. Miss-tap? Undo anytime today.",
+    points: ["Habits is the full roster — stack, edit, and browse there.", "One finish is a full win."],
   },
   {
     id: "lockin",
-    eyebrow: "Lock-in",
-    title: "Preview until midnight",
-    body: "The clear is remembered now. EXP, season XP, combo coins, and boss damage stay in Preview until midnight on next open — so undos stay safe.",
+    eyebrow: "Today",
+    title: "Rewards land now",
+    body: "A Done grants EXP, season XP, and weekly-bar progress immediately. Undo anytime today if you tapped by mistake. Opening tomorrow still catches up days you missed.",
     points: [
-      "Streak counts as soon as you clear.",
+      "Streak counts as soon as you finish.",
       "Spendable coins in the nav are already yours.",
     ],
   },
@@ -157,7 +159,7 @@ export const TUTORIAL_LESSONS = [
     id: "loop",
     eyebrow: "Daily loop",
     title: "Then do it again tomorrow",
-    body: "Clear what's due. Keep the streak with at least one clear a day. Spend coins in Shop. Guides has the full rulebook.",
-    points: ["Boss, season, and achievements unlock as you level.", "Replay this anytime from Habits."],
+    body: "Finish what's due. Keep the streak with at least one finish a day. Spend coins in Shop. Guides has the full rulebook.",
+    points: ["Week, Season, and Shop live in the map when you want them.", "Replay this anytime from Habits."],
   },
 ] as const;

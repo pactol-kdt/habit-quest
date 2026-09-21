@@ -76,7 +76,7 @@ export function StreakDisplay({
               </div>
             ) : currentStreak === 0 ? (
               <p className="max-w-xs text-sm leading-6 text-[var(--color-text-muted)] sm:text-right">
-                Clear a habit today to start your streak.
+                Finish a habit today to start your streak.
               </p>
             ) : (
               <p className={cn("max-w-xs text-sm leading-6 sm:text-right", toneClass)}>

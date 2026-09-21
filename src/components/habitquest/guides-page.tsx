@@ -22,7 +22,7 @@ const CRIT_PERCENT = Math.round(CRIT_CHANCE * 100);
 const GUIDE_SECTIONS = [
   {
     title: "The habit loop",
-    body: "Every lasting habit is trigger → motivation → response → reward. HabitQuest lets you design the loop: stack a trigger onto something you already do, name the motivation (identity or feeling), set a bare minimum response, then enjoy the intrinsic win plus pending EXP that banks at midnight.",
+    body: "Every lasting habit is trigger → motivation → response → reward. HabitQuest lets you design the loop: stack a trigger onto something you already do, name the motivation (identity or feeling), set a bare minimum response, then enjoy the intrinsic win plus EXP that lands when you tap Done.",
   },
   {
     title: "Habit stacking",
@@ -30,7 +30,7 @@ const GUIDE_SECTIONS = [
   },
   {
     title: "Triggers & reminders",
-    body: "Time and place are optional cues — when and where you usually do the habit. They sort today's list. They are not a guaranteed alarm. Phone push uses the daily reminder time you set in Settings (default 8:00 AM), plus a follow-up later if habits are still due — not at each habit's cue. Times follow your timezone.",
+    body: "Time and place are optional cues — when and where you usually do the habit. They sort today's list. If reminders are on, phone push fires during that cue's hour while the habit is still due (around the hour, not the exact minute). Habits without a time get a 6:00 AM digest. Times follow your timezone.",
   },
   {
     title: "Streaks & freezes",
@@ -41,32 +41,24 @@ const GUIDE_SECTIONS = [
     body: `After a gap of ${COMEBACK_MIN_GAP_DAYS}+ days, your first clear of the day grants a comeback bonus (+${COMEBACK_COINS} coins, +${COMEBACK_EXP} EXP). Comebacks can only trigger about once per week.`,
   },
   {
-    title: "Quest arcs",
-    body: "Unlock at level 3. Progress chapters by completing habits, hard clears, or holding streaks. Claim chapter rewards for coins, EXP, and exclusive themes.",
+    title: "Weekly challenge",
+    body: "Open Week. Each habit fills this week's bar (harder habits fill more) — claim when it's full. The same page has a 15-clear contract for coins, EXP, and a title on first clear; later clears keep coins & EXP plus a small repeat bonus. Undo a Done today if you tapped by mistake.",
   },
   {
-    title: "Weekly & monthly challenges",
-    body: "Weekly Contract (level 3): complete 15 habits this week. Monthly Ascension (level 7): earn 2000 EXP this month. First clear unlocks an exclusive title; later clears keep coins & EXP plus a small repeat bonus.",
+    title: "Undo today",
+    body: "A Done grants EXP, season XP, combo, perfect-day coins, and weekly-bar progress immediately. Undo anytime today to take them back. Opening on a later day still catches up days you missed.",
   },
   {
-    title: "Boss fight",
-    body: "Every habit clear deals boss damage (hard hits hardest). All of today's progress — EXP, season XP, comeback, combo, perfect-day coins, and boss damage — stays pending until end of day so undos are safe.",
-  },
-  {
-    title: "End-of-day lock-in",
-    body: "Completing habits logs a pending clear immediately. Stats preview includes today, but permanent EXP, season tiers, comeback, combo, perfect-day coins, quest progress, and boss HP only lock in at midnight on next open.",
-  },
-  {
-    title: "Critical clears",
+    title: "Critical finishes",
     body: `Each habit has a ${CRIT_PERCENT}% chance to crit for double EXP once per day. Undo and redo keep the same roll — you can't re-roll for a crit. Stack them with hard habits for bigger swings.`,
   },
   {
     title: "Combo bonus",
-    body: `Stack same-day clears for combo rewards: +${COMBO_EXP_PER_EXTRA_CLEAR} EXP per clear after the first, plus coins at ${COMBO_THRESHOLDS_LABEL} clears. Combo pays out when the day locks in.`,
+    body: `Stack same-day finishes for combo rewards: +${COMBO_EXP_PER_EXTRA_CLEAR} EXP per finish after the first, plus coins at ${COMBO_THRESHOLDS_LABEL} finishes. Combo pays out as you clear.`,
   },
   {
-    title: "Season Pass",
-    body: "Unlock at level 4. Habit clears contribute season XP (40 XP per level, track to level 30). Open Season Pass in the nav to review tiers and claim rewards. Claiming the finale clears the season and counts toward Seasons cleared. The pass resets each calendar month.",
+    title: "Season rewards",
+    body: "Available from level 1. Habit finishes contribute season XP (40 XP per level, track to level 30). Open Season to review tiers, claim rewards, and work the monthly climb (2000 EXP this month — title on first clear). Quest chapters unlock at level 3: complete habits, hard clears, or hold a streak, then claim coins, EXP, and exclusive themes. Claiming the finale finishes the season and counts toward Seasons finished. The track resets each calendar month.",
   },
   {
     title: "Themes",
@@ -74,15 +66,11 @@ const GUIDE_SECTIONS = [
   },
   {
     title: "Cosmetics",
-    body: "Titles, frames, and avatars fill out your Keep identity. Buyable cosmetics unlock progressively within each category (cheapest tier first). Exclusive titles from challenges, quests, and the season finale sit outside that ladder. Season Cleared comes from claiming the season finale. Mid-tier frames (Ink Line, Forge Ring, Aurora Filigree) sit between Bronze and Galaxy.",
-  },
-  {
-    title: "Daily rewards",
-    body: "Login grants +1 coin once per day. Perfect-day reward (+2 coins) requires finishing every habit due that day (and at least 3 due clears); it locks in at end of day with the rest of pending progress.",
+    body: "Titles, frames, and avatars fill out your profile. Buyable cosmetics unlock progressively within each category (cheapest tier first). Exclusive titles from challenges, quests, and the season finale sit outside that ladder. Season Cleared comes from claiming the season finale. Mid-tier frames (Ink Line, Forge Ring, Aurora Filigree) sit between Bronze and Galaxy.",
   },
   {
     title: "Account & sync",
-    body: "HabitQuest requires an account. While signed in, cloud PostgreSQL is authoritative and progress syncs automatically.",
+    body: "You can try HabitQuest as a guest on this device. Create an account to keep progress across devices — while signed in, cloud PostgreSQL is authoritative and progress syncs automatically.",
   },
 ];
 
@@ -106,13 +94,13 @@ export function GuidesPage() {
             href="/boss"
             className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
           >
-            Boss fight
+            Weekly challenge
           </Link>
           <Link
             href="/season"
             className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
           >
-            Season pass
+            Season
           </Link>
         </div>
       </GlassCard>

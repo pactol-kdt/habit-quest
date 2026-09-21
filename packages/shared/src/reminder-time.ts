@@ -1,8 +1,5 @@
-/** Default daily digest time (player-local clock). */
-export const DEFAULT_REMINDER_LOCAL_TIME = "08:00";
-
-/** Hours after the digest for the still-due follow-up push. */
-export const FOLLOW_UP_OFFSET_HOURS = 14;
+/** Fixed daily digest time for habits without a cue (player-local clock). */
+export const DEFAULT_REMINDER_LOCAL_TIME = "06:00";
 
 /**
  * Normalize to `HH:mm`. Invalid values fall back to `fallback`.
@@ -36,7 +33,7 @@ export function normalizeReminderTime(
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-/** Snap to the top of the hour (`HH:00`) for the settings picker + hourly cron. */
+/** Snap to the top of the hour (`HH:00`) for hourly cron matching. */
 export function snapReminderTimeToHour(
   value: string | null | undefined,
   fallback = DEFAULT_REMINDER_LOCAL_TIME,
@@ -58,7 +55,7 @@ export function addHoursToReminderTime(hhmm: string, hours: number): string {
   return `${String(nextHour).padStart(2, "0")}:${String(nextMinute).padStart(2, "0")}`;
 }
 
-/** Player-facing clock label, e.g. `8:00 AM`. */
+/** Player-facing clock label, e.g. `6:00 AM`. */
 export function formatReminderClockLabel(hhmm: string) {
   const normalized = normalizeReminderTime(hhmm);
   const [hourRaw, minuteRaw] = normalized.split(":");
@@ -69,8 +66,6 @@ export function formatReminderClockLabel(hhmm: string) {
   }).format(stamp);
 }
 
-export function describeReminderSchedule(reminderTime?: string | null) {
-  const digestTime = normalizeReminderTime(reminderTime);
-  const followUpTime = addHoursToReminderTime(digestTime, FOLLOW_UP_OFFSET_HOURS);
-  return `around ${formatReminderClockLabel(digestTime)}, then a follow-up around ${formatReminderClockLabel(followUpTime)} if anything is still due`;
+export function describeReminderSchedule(_reminderTime?: string | null) {
+  return `at ${formatReminderClockLabel(DEFAULT_REMINDER_LOCAL_TIME)} for habits without a time, and during each habit's hour if still due`;
 }

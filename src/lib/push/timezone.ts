@@ -1,6 +1,5 @@
 import {
   DEFAULT_REMINDER_LOCAL_TIME,
-  FOLLOW_UP_OFFSET_HOURS,
   addHoursToReminderTime,
   describeReminderSchedule,
   formatReminderClockLabel,
@@ -13,7 +12,6 @@ export const FIXED_REMINDER_LOCAL_TIME = DEFAULT_REMINDER_LOCAL_TIME;
 
 export {
   DEFAULT_REMINDER_LOCAL_TIME,
-  FOLLOW_UP_OFFSET_HOURS,
   addHoursToReminderTime,
   describeReminderSchedule,
   formatReminderClockLabel,
@@ -21,12 +19,24 @@ export {
   snapReminderTimeToHour,
 };
 
-export type PushSlotKind = "digest" | "followup";
+export type PushSlotKind = "digest" | "cue";
 
 export type ActiveLocalPushSlot = {
   kind: PushSlotKind;
   time: string;
   slotKey: string;
+};
+
+export type CueLikeHabit = {
+  id: string;
+  cueTime?: string | null;
+};
+
+export type PlannedPushSlot = {
+  kind: PushSlotKind;
+  slotKey: string;
+  hour: number;
+  habitIds: string[];
 };
 
 export function getDateKeyInTimeZone(timeZone: string, now = new Date()) {
@@ -66,6 +76,16 @@ export function getClockMinutesInTimeZone(timeZone: string, now = new Date()) {
   return hours * 60 + minutes;
 }
 
+/** Local clock hour 0–23. */
+export function getLocalHourInTimeZone(timeZone: string, now = new Date()) {
+  return Math.floor(getClockMinutesInTimeZone(timeZone, now) / 60);
+}
+
+/** @deprecated Prefer getLocalHourInTimeZone. */
+export function getActiveCueHour(timeZone: string, now = new Date()) {
+  return getLocalHourInTimeZone(timeZone, now);
+}
+
 function parseReminderMinutes(reminderTime: string) {
   const normalized = normalizeReminderTime(reminderTime, "");
   if (!normalized) {
@@ -73,6 +93,25 @@ function parseReminderMinutes(reminderTime: string) {
   }
   const [hoursRaw, minutesRaw] = normalized.split(":");
   return Number(hoursRaw) * 60 + Number(minutesRaw);
+}
+
+/** Hour 0–23 from `HH:mm`. Invalid / empty → null (not the digest default). */
+export function hourFromClockTime(value: string | null | undefined): number | null {
+  const normalized = normalizeReminderTime(value, "");
+  if (!normalized) {
+    return null;
+  }
+  const hour = Number(normalized.slice(0, 2));
+  return Number.isFinite(hour) ? hour : null;
+}
+
+export function digestSlotKey(dateKey: string) {
+  return `${dateKey}:d`;
+}
+
+export function cueSlotKey(dateKey: string, hour: number) {
+  const wrapped = ((hour % 24) + 24) % 24;
+  return `${dateKey}:c:${String(wrapped).padStart(2, "0")}`;
 }
 
 /** True once local time has reached the reminder minute (tab catch-up). */
@@ -106,35 +145,71 @@ export function isWithinReminderHourInTimeZone(
 }
 
 /**
- * Resolve the active digest / follow-up slot for a player's local reminder time.
- * Follow-up is digest + FOLLOW_UP_OFFSET_HOURS on the same local clock.
+ * Digest slot for the player's Settings reminder hour. Cue hours are separate.
  */
 export function getActiveLocalPushSlot(
   reminderTime: string,
   timeZone: string,
   now = new Date(),
 ): ActiveLocalPushSlot | null {
-  const digest = normalizeReminderTime(reminderTime);
-  const followUp = addHoursToReminderTime(digest, FOLLOW_UP_OFFSET_HOURS);
+  const digest = snapReminderTimeToHour(reminderTime);
+  const digestHour = hourFromClockTime(digest);
+  if (digestHour === null) {
+    return null;
+  }
+  if (getLocalHourInTimeZone(timeZone, now) !== digestHour) {
+    return null;
+  }
   const localDateKey = getDateKeyInTimeZone(timeZone || "UTC", now);
+  return {
+    kind: "digest",
+    time: digest,
+    slotKey: digestSlotKey(localDateKey),
+  };
+}
 
-  if (isWithinReminderHourInTimeZone(digest, timeZone, now)) {
-    return {
+/**
+ * Cue-hour batch + digest-for-uncued. Same-hour cues share one slot.
+ * Digest only includes incomplete habits that have no cue time.
+ */
+export function resolvePushSlotsForHour(input: {
+  incomplete: CueLikeHabit[];
+  reminderTime: string;
+  localDateKey: string;
+  localHour: number;
+}): PlannedPushSlot[] {
+  const slots: PlannedPushSlot[] = [];
+  const cued = input.incomplete.filter(
+    (habit) => hourFromClockTime(habit.cueTime) === input.localHour,
+  );
+  if (cued.length) {
+    slots.push({
+      kind: "cue",
+      slotKey: cueSlotKey(input.localDateKey, input.localHour),
+      hour: input.localHour,
+      habitIds: cued.map((habit) => habit.id),
+    });
+  }
+
+  const digestHour = hourFromClockTime(snapReminderTimeToHour(input.reminderTime));
+  if (digestHour !== input.localHour) {
+    return slots;
+  }
+
+  const cuedIds = new Set(cued.map((habit) => habit.id));
+  const uncued = input.incomplete.filter(
+    (habit) => hourFromClockTime(habit.cueTime) === null && !cuedIds.has(habit.id),
+  );
+  if (uncued.length) {
+    slots.push({
       kind: "digest",
-      time: digest,
-      slotKey: `${localDateKey}:d`,
-    };
+      slotKey: digestSlotKey(input.localDateKey),
+      hour: input.localHour,
+      habitIds: uncued.map((habit) => habit.id),
+    });
   }
 
-  if (isWithinReminderHourInTimeZone(followUp, timeZone, now)) {
-    return {
-      kind: "followup",
-      time: followUp,
-      slotKey: `${localDateKey}:f`,
-    };
-  }
-
-  return null;
+  return slots;
 }
 
 /** Player-facing schedule from their chosen local time. Never mention UTC. */
@@ -142,21 +217,6 @@ export function describePushReminderSchedule(reminderTime?: string | null) {
   return describeReminderSchedule(reminderTime);
 }
 
-/**
- * Once-per-slot gate. Accepts:
- * - current keys: `YYYY-MM-DD:d` / `YYYY-MM-DD:f`
- * - legacy bare `YYYY-MM-DD` as digest for that date
- * - legacy UTC `YYYY-MM-DDTHH` exact match only
- */
-export function hasSentPushSlot(lastSlot: string | null | undefined, slotKey: string) {
-  if (!lastSlot) {
-    return false;
-  }
-  if (lastSlot === slotKey) {
-    return true;
-  }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(lastSlot) && slotKey === `${lastSlot}:d`) {
-    return true;
-  }
-  return false;
+export function hasSentPushSlot(sentSlots: ReadonlySet<string>, slotKey: string) {
+  return sentSlots.has(slotKey);
 }

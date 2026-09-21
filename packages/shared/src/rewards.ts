@@ -142,22 +142,12 @@ export function createSeasonPass(monthKey = getStartOfCurrentMonthKey()): Season
   };
 }
 
-const BOSS_NAMES = [
-  "Sloth Wraith",
-  "Distraction Hydra",
-  "Doomscroll Serpent",
-  "Procrastination Golem",
-  "Chaos Imp",
-];
+const WEEKLY_CHALLENGE_NAME = "Weekly challenge";
 
 export function createWeeklyBoss(weekKey = getStartOfCurrentWeekKey()): WeeklyBossState {
-  const index = Math.abs(
-    weekKey.split("-").reduce((sum, part) => sum + Number(part), 0),
-  ) % BOSS_NAMES.length;
-
   return {
     weekKey,
-    name: BOSS_NAMES[index] ?? "Sloth Wraith",
+    name: WEEKLY_CHALLENGE_NAME,
     maxHp: BOSS_MAX_HP,
     currentHp: BOSS_MAX_HP,
     defeated: false,
@@ -507,6 +497,7 @@ export function reconcileWeeklyBoss(boss: WeeklyBossState, weekKey = getStartOfC
   if (boss.weekKey === weekKey) {
     return {
       ...boss,
+      name: WEEKLY_CHALLENGE_NAME,
       settledThroughDate: boss.settledThroughDate ?? null,
     };
   }
@@ -547,9 +538,13 @@ export function getBossDamageForDate(
 }
 
 export function getPendingBossDamage(
-  data: Pick<HabitQuestData, "habits" | "completions">,
+  data: Pick<HabitQuestData, "habits" | "completions" | "rewardSystems">,
   today = getTodayDateKey(),
 ) {
+  const through = data.rewardSystems.progressSettledThroughDate;
+  if (through && through >= today) {
+    return 0;
+  }
   return getBossDamageForDate(data, today);
 }
 

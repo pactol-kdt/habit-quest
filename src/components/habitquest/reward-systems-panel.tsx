@@ -5,9 +5,11 @@ import { GlassCard } from "~/components/habitquest/glass-card";
 import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
 import { ExpIcon } from "~/components/habitquest/icons/exp-icon";
 import {
+  CLAIM_AFTER_LOCKIN_HINT,
   COMBO_COIN_THRESHOLDS,
   COMBO_EXP_PER_EXTRA_CLEAR,
   MAX_STREAK_FREEZES,
+  PREVIEW_LABEL,
   SETTLEMENT_LOCK_HINT,
   STREAK_FREEZE_COST,
 } from "~/lib/habitquest/constants";
@@ -66,10 +68,10 @@ export function RewardSystemsPanel() {
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
           Reward Systems
         </p>
-        <h2 className="section-title mt-2 text-2xl text-white">Companions of momentum</h2>
+        <h2 className="section-title mt-2 text-2xl text-white">Streak tools & arcs</h2>
         <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-          Freezes, combos, and habit arcs. Today&apos;s habit progress stays in preview —
-          {` ${SETTLEMENT_LOCK_HINT}`} Boss fight and season pass live in their own halls.
+          Freezes, combos, and habit arcs. Today&apos;s habit progress stays in tonight&apos;s bank —
+          {` ${SETTLEMENT_LOCK_HINT}`} Weekly goal and season track live on their own pages.
         </p>
       </div>
 
@@ -108,7 +110,7 @@ export function RewardSystemsPanel() {
                   <span aria-hidden>·</span>
                   <CurrencyAmount kind="exp" value={comboPreview.exp} prefix="+" size={12} />
                   <span className="text-[var(--color-text-muted)]">
-                    in preview (+{COMBO_EXP_PER_EXTRA_CLEAR}/extra clear)
+                    in {PREVIEW_LABEL.toLowerCase()}&apos;s bank (+{COMBO_EXP_PER_EXTRA_CLEAR}/extra clear)
                   </span>
                 </>
               ) : null}
@@ -161,7 +163,7 @@ export function RewardSystemsPanel() {
                 </button>
               ) : activeArc.completed && !activeArc.claimed ? (
                 <p className="mt-3 text-xs text-amber-100/90">
-                  Chapter complete in preview — claim unlocks after lock-in. {SETTLEMENT_LOCK_HINT}
+                  Chapter complete for tonight — {CLAIM_AFTER_LOCKIN_HINT} {SETTLEMENT_LOCK_HINT}
                 </p>
               ) : null}
             </>

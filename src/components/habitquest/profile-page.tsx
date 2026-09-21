@@ -142,20 +142,30 @@ export function ProfilePage() {
             Change cosmetics
           </Link>
           {authUser ? (
-            <button
-              type="button"
-              onClick={() => setPasswordOpen(true)}
-              className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950"
-            >
-              Change password
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setPasswordOpen(true)}
+                className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950"
+              >
+                Change password
+              </button>
+              <button
+                type="button"
+                disabled={signOutPending}
+                onClick={onSignOut}
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-rose-300/40 hover:text-rose-100 disabled:opacity-60"
+              >
+                {signOutPending ? "Logging out…" : "Log out"}
+              </button>
+            </>
           ) : (
             <button
               type="button"
               onClick={() => exitGuestPlay()}
               className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100 transition hover:border-cyan-300/50"
             >
-              Save progress
+              Create account to keep progress
             </button>
           )}
         </div>
@@ -169,33 +179,16 @@ export function ProfilePage() {
         <HonorMedal
           tone="gold"
           count={rewardSystems.seasonPassCompletions ?? 0}
-          label="Seasons cleared"
+          label="Seasons finished"
           hint="Season finales claimed"
         />
         <HonorMedal
           tone="ember"
           count={rewardSystems.weeklyBossCompletions ?? 0}
-          label="Bosses felled"
-          hint="Weekly raids dropped"
+          label="Weekly goals won"
+          hint="Weekly challenges completed"
         />
       </div>
-
-      {authUser ? (
-        <GlassCard>
-          <h2 className="section-title text-2xl text-white">Account</h2>
-          <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            Signed in as {authUser.email}.
-          </p>
-          <button
-            type="button"
-            disabled={signOutPending}
-            onClick={onSignOut}
-            className="mt-5 rounded-full border border-white/10 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white disabled:opacity-60"
-          >
-            {signOutPending ? "Signing out…" : "Sign out"}
-          </button>
-        </GlassCard>
-      ) : null}
 
       <ChangePasswordDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
     </div>

@@ -12,7 +12,7 @@ export type ClaimableReward = {
 };
 
 /**
- * Settled rewards the player can claim now (not tonight's preview progress).
+ * Rewards the player can claim now.
  */
 export function listClaimableRewards(data: HabitQuestData): ClaimableReward[] {
   const items: ClaimableReward[] = [];
@@ -31,9 +31,14 @@ export function listClaimableRewards(data: HabitQuestData): ClaimableReward[] {
       items.push({
         id: `challenge:${challenge.id}`,
         kind: "challenge",
-        title: challenge.title,
-        detail: "Contract ready",
-        href: "/#contracts",
+        title:
+          challenge.period === "weekly"
+            ? "15 clears"
+            : challenge.period === "monthly"
+              ? "Monthly climb"
+              : challenge.title,
+        detail: "Ready to claim",
+        href: challenge.period === "weekly" ? "/boss#clears" : "/season#month",
       });
     }
   }
@@ -45,8 +50,8 @@ export function listClaimableRewards(data: HabitQuestData): ClaimableReward[] {
           id: `quest:${arc.id}`,
           kind: "quest",
           title: arc.title,
-          detail: "Quest chapter ready",
-          href: "/",
+          detail: "Chapter ready",
+          href: "/season#chapter",
         });
       }
     }
@@ -73,8 +78,8 @@ export function listClaimableRewards(data: HabitQuestData): ClaimableReward[] {
     items.push({
       id: "boss-reward",
       kind: "boss",
-      title: data.weeklyBoss.name,
-      detail: "Boss bounty ready",
+      title: "Weekly challenge",
+      detail: "Weekly reward ready",
       href: "/boss",
     });
   }

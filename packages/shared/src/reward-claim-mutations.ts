@@ -6,8 +6,8 @@ import {
   STREAK_FREEZE_COST,
 } from "./constants";
 import { listClaimableRewards, type ClaimableKind } from "./claimables";
-import { normalizeReminderTime } from "./reminder-time";
 import { recordWeeklyBossCompletion } from "./rewards";
+import { DEFAULT_REMINDER_LOCAL_TIME } from "./reminder-time";
 import { createId, createExpEntry, getTodayDateKey, isFeatureUnlocked, syncProgress } from "./utils";
 import type {
   CoinWallet,
@@ -227,7 +227,7 @@ export function applyClaimSeasonPassLevel(
   level: number,
 ): ClaimMutationResult {
   if (!isFeatureUnlocked(data.levelUnlocks, "season-pass")) {
-    return { ok: false, error: "Season Pass unlocks at level 4." };
+    return { ok: false, error: "Season Pass is not unlocked yet." };
   }
 
   const reward = data.seasonPass.rewards.find((entry) => entry.level === level);
@@ -321,7 +321,7 @@ export function applyClaimBossReward(data: HabitQuestData): ClaimMutationResult 
     ),
   };
 
-  const label = `${data.weeklyBoss.name} clear`;
+  const label = "Weekly challenge clear";
   const rewardToasts: RewardToast[] = [];
   grantCoins(next, BOSS_CLEAR_COINS);
   rewardToasts.push(
@@ -418,10 +418,7 @@ export function applyUpdateSettings(
       patch.displayName !== undefined
         ? patch.displayName.trim().slice(0, 32)
         : data.settings.displayName,
-    reminderTime:
-      patch.reminderTime !== undefined
-        ? normalizeReminderTime(patch.reminderTime, data.settings.reminderTime)
-        : data.settings.reminderTime,
+    reminderTime: DEFAULT_REMINDER_LOCAL_TIME,
   };
 
   return {

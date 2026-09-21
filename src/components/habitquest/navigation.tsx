@@ -22,19 +22,17 @@ type NavLink = {
 };
 
 const primaryNav: NavLink[] = [
-  { href: "/", label: "Dashboard" },
+  { href: "/", label: "Today" },
   { href: "/habits", label: "Habits" },
+  { href: "/boss", label: "Week" },
+  { href: "/season", label: "Season" },
 ];
 
-const progressNav: NavLink[] = [
-  { href: "/boss", label: "Boss Fight" },
-  { href: "/season", label: "Season Pass" },
-  { href: "/achievements", label: "Achievements" },
-  { href: "/leaderboard", label: "Leaderboard" },
-];
-
-const accountNav: NavLink[] = [
+const youNav: NavLink[] = [
   { href: "/profile", label: "Profile" },
+  { href: "/shop", label: "Shop" },
+  { href: "/achievements", label: "Achievements" },
+  { href: "/leaderboard", label: "Streak board" },
   { href: "/guides", label: "Guides" },
   { href: "/settings", label: "Settings" },
   { href: "/admin", label: "Admin", adminOnly: true },
@@ -158,7 +156,7 @@ function NavMenu({
 
 export function Navigation() {
   const pathname = usePathname();
-  const [openMenu, setOpenMenu] = useState<"progress" | "account" | null>(null);
+  const [openMenu, setOpenMenu] = useState<"you" | null>(null);
   const { hydrated, shopItems, equippedItems, settings, authUser, wallet, exitGuestPlay } =
     useHabitQuestStore((state) => state);
   const { userProgress } = useEffectiveProgress();
@@ -225,33 +223,14 @@ export function Navigation() {
               })}
 
               <NavMenu
-                label="Progress"
-                items={progressNav}
+                label="You"
+                items={youNav}
                 pathname={pathname}
                 isAdmin={isAdmin}
                 badgeCount={claimables.length}
-                open={openMenu === "progress"}
+                open={openMenu === "you"}
                 onToggle={() =>
-                  setOpenMenu((current) => (current === "progress" ? null : "progress"))
-                }
-                onClose={() => setOpenMenu(null)}
-              />
-
-              <Link
-                href="/shop"
-                className={navButtonClass(pathname === "/shop", false)}
-              >
-                Shop
-              </Link>
-
-              <NavMenu
-                label="Account"
-                items={accountNav}
-                pathname={pathname}
-                isAdmin={isAdmin}
-                open={openMenu === "account"}
-                onToggle={() =>
-                  setOpenMenu((current) => (current === "account" ? null : "account"))
+                  setOpenMenu((current) => (current === "you" ? null : "you"))
                 }
                 onClose={() => setOpenMenu(null)}
               />
@@ -264,27 +243,34 @@ export function Navigation() {
                 type="button"
                 onClick={() => exitGuestPlay()}
                 className="min-h-10 shrink-0 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2.5 py-1.5 text-[11px] text-cyan-100 transition hover:border-cyan-300/50 sm:px-3 sm:text-xs"
+                title="Create an account to keep this device's progress"
               >
-                <span className="sm:hidden">Save</span>
-                <span className="hidden sm:inline">Save progress</span>
+                <span className="sm:hidden">Keep</span>
+                <span className="hidden sm:inline">Create account to keep progress</span>
               </button>
             ) : null}
-            <motion.div
-              key={spendableCoins}
-              initial={{ scale: 0.95, opacity: 0.6 }}
-              animate={{ scale: 1, opacity: 1 }}
+            <Link
+              href="/shop"
               className="hq-chip-gold inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
-              title="Spendable coins (preview rewards lock in tonight)"
+              title="Open shop"
             >
-              <CoinIcon size={14} className="sm:hidden" title="Coins" />
-              <CoinIcon size={16} className="hidden sm:block" title="Coins" />
-              <span className="tabular-nums">
-                {hydrated ? formatNumber(spendableCoins) : "..."}
-              </span>
-            </motion.div>
+              <motion.span
+                key={spendableCoins}
+                initial={{ scale: 0.95, opacity: 0.6 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="inline-flex items-center gap-1.5"
+              >
+                <CoinIcon size={14} className="sm:hidden" title="Coins" />
+                <CoinIcon size={16} className="hidden sm:block" title="Coins" />
+                <span className="tabular-nums">
+                  {hydrated ? formatNumber(spendableCoins) : "..."}
+                </span>
+              </motion.span>
+            </Link>
             <Link
               href="/profile"
-              aria-label={`Profile for ${displayName}`}
+              aria-label={`Open profile for ${displayName}`}
+              title="Open profile"
               className="flex min-w-0 max-w-[7.5rem] items-center gap-1.5 rounded-full border border-white/10 bg-white/5 p-1 transition hover:border-white/20 sm:max-w-none sm:gap-3 sm:py-2 sm:pl-2 sm:pr-4"
             >
               <AvatarWithFrame
@@ -293,17 +279,18 @@ export function Navigation() {
                 className="h-9 w-9 shrink-0 border border-white/10 sm:h-11 sm:w-11"
               />
               <div className="min-w-0 flex-1 leading-tight pr-1.5 sm:pr-0">
+                <p className="truncate text-[10px] font-medium text-white sm:hidden">Profile</p>
                 <p className="hidden truncate text-sm font-medium text-white sm:block">
                   {displayName}
                 </p>
                 <p className="truncate text-[10px] text-[var(--color-text-muted)] sm:text-xs">
                   {profile.title?.name ? (
                     <>
-                      <span className="text-white/90 sm:text-[var(--color-text-muted)]">
+                      <span className="hidden text-white/90 sm:inline sm:text-[var(--color-text-muted)]">
                         {profile.title.name}
                       </span>
                       <span className="hidden sm:inline">{` • Level ${userProgress.level}`}</span>
-                      <span className="sm:hidden">{` · Lv ${userProgress.level}`}</span>
+                      <span className="sm:hidden">{`Lv ${userProgress.level}`}</span>
                     </>
                   ) : (
                     <>

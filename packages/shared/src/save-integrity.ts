@@ -16,10 +16,7 @@ const MAX_SINGLE_SYNC_COIN_EARN_DELTA = 10_000;
  * and removal of already-settled completions vs the previous cloud save.
  */
 export function sanitizeSaveForSync(data: HabitQuestData): HabitQuestData {
-  const expectedCoins = Math.max(
-    0,
-    data.wallet.lifetimeCoinsEarned - data.wallet.lifetimeCoinsSpent,
-  );
+  const expectedCoins = data.wallet.lifetimeCoinsEarned - data.wallet.lifetimeCoinsSpent;
   const expectedLevel = getLevelState(Math.max(0, data.userProgress.totalExp)).level;
 
   return {
@@ -63,7 +60,6 @@ export function validateSaveIntegrity(
   const { wallet, userProgress, completions, habits, rewardSystems } = data;
 
   if (
-    wallet.totalCoins < 0 ||
     wallet.lifetimeCoinsEarned < 0 ||
     wallet.lifetimeCoinsSpent < 0 ||
     userProgress.totalExp < 0

@@ -94,10 +94,10 @@ export function AuthGate() {
 
   const heading =
     mode === "signup"
-      ? "Begin your journey"
+      ? "Create your account"
       : mode === "forgot"
         ? "Reset your password"
-        : "Welcome back, adventurer";
+        : "Welcome back";
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-3 py-8 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-10">
@@ -119,7 +119,7 @@ export function AuthGate() {
         <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
           {mode === "forgot"
             ? "We'll email a reset link if this address has an account. The link expires in one hour."
-            : "Your habits travel with your account — pick up the path on any device."}
+            : "Your habits travel with your account — pick up on any device."}
         </p>
 
         {mode === "signup" && canExtract ? (

@@ -267,7 +267,7 @@ function LessonVisual({ lessonId }: { lessonId: (typeof TUTORIAL_LESSONS)[number
             <p className="mt-1 text-xs text-cyan-100/80">After pour coffee, I will stretch</p>
           </div>
           <span className="shrink-0 rounded-full hq-btn-accent px-3 py-1.5 text-xs font-semibold text-slate-950">
-            Clear
+            Done
           </span>
         </div>
       </div>
@@ -278,9 +278,9 @@ function LessonVisual({ lessonId }: { lessonId: (typeof TUTORIAL_LESSONS)[number
     return (
       <div className="mt-5 grid grid-cols-2 gap-2">
         <div className="rounded-[1.15rem] border border-cyan-300/20 bg-cyan-300/8 p-3">
-          <p className="text-xs text-[var(--color-text-muted)]">Preview EXP</p>
+          <p className="text-xs text-[var(--color-text-muted)]">EXP</p>
           <p className="mt-1 text-xl font-semibold text-cyan-100">25</p>
-          <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Banks tonight</p>
+          <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Yours now</p>
         </div>
         <div className="rounded-[1.15rem] border border-white/10 bg-white/5 p-3">
           <p className="text-xs text-[var(--color-text-muted)]">Spendable</p>

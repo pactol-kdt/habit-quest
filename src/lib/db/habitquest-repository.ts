@@ -2,6 +2,7 @@ import "server-only";
 
 import { and, eq } from "drizzle-orm";
 import { SAVE_VERSION, UNLOCK_LABELS } from "~/lib/habitquest/constants";
+import { DEFAULT_REMINDER_LOCAL_TIME } from "@habitquest/shared";
 import type { HabitQuestCatalog } from "~/lib/habitquest/catalog";
 import { mergeCompletionsForFullSave } from "~/lib/habitquest/save-integrity";
 import { normalizeHabitQuestData } from "~/lib/habitquest/storage";
@@ -173,7 +174,7 @@ export async function loadNormalizedSave(
           displayName: settingsRows[0].displayName,
           onboardingCompleted: settingsRows[0].onboardingCompleted,
           remindersEnabled: settingsRows[0].remindersEnabled,
-          reminderTime: settingsRows[0].reminderTime,
+          reminderTime: DEFAULT_REMINDER_LOCAL_TIME,
         }
       : undefined,
     equippedItems: equippedRows[0]
@@ -928,7 +929,7 @@ export async function persistUserSettings(
         displayName: settings.displayName,
         onboardingCompleted: settings.onboardingCompleted,
         remindersEnabled: settings.remindersEnabled,
-        reminderTime: settings.reminderTime,
+        reminderTime: DEFAULT_REMINDER_LOCAL_TIME,
       })
       .where(eq(userSettings.userId, userId));
     await touchSaveMeta(tx, userId, updatedAt);

@@ -55,13 +55,13 @@ export function ClaimableRewardsStrip() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.28em] text-amber-100/80">
-            Gifts waiting
+            Ready
           </p>
           <h2 className="section-title mt-2 text-2xl text-white">
-            {claimables.length} reward{claimables.length === 1 ? "" : "s"} waiting
+            {claimables.length} reward{claimables.length === 1 ? "" : "s"} to claim
           </h2>
           <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            These blessings are already banked — claim them when you are ready.
+            Claim when you want — nothing expires today.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

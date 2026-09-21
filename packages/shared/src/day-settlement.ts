@@ -1,4 +1,8 @@
-import { DAILY_COMPLETION_COINS, SETTLEMENT_LOCK_HINT } from "./constants";
+﻿import {
+  COMEBACK_COINS,
+  DAILY_COMPLETION_COINS,
+  SETTLEMENT_LOCK_HINT,
+} from "./constants";
 import { getComboRewards } from "./combo";
 import {
   addSeasonPassXp,
@@ -62,8 +66,13 @@ export function getSeasonXpForCompletion(expEarned: number) {
   return Math.max(10, Math.round(expEarned * 0.5));
 }
 
+const LIVE_DAY_SOURCES = new Set(["habit", "streak", "comeback", "combo"]);
+
 export function getPendingCompletions(data: HabitQuestData, today = getTodayDateKey()) {
-  return data.completions.filter((completion) => completion.date === today);
+  const through = data.rewardSystems.progressSettledThroughDate;
+  return data.completions.filter(
+    (completion) => completion.date === today && (!through || completion.date > through),
+  );
 }
 
 export function getPendingHabitExp(data: HabitQuestData, today = getTodayDateKey()) {
@@ -98,8 +107,8 @@ export function getPendingComboPreview(data: HabitQuestData, today = getTodayDat
 }
 
 /**
- * Player level / EXP stay settled until midnight lock-in.
- * Streak is attendance — today's pending clears still count.
+ * Player level / EXP follow the settlement cursor.
+ * After a live Done, the cursor includes today so HUD matches the tap.
  */
 export function getEffectiveUserProgress(
   data: HabitQuestData,
@@ -163,7 +172,7 @@ export function getEffectiveWeeklyBoss(
   };
 }
 
-/** Spendable coins only — combo/comeback coins bank at midnight. */
+/** Spendable coins include combo and comeback once a Done is applied. */
 export function getEffectiveWalletCoins(data: HabitQuestData, _today = getTodayDateKey()) {
   return data.wallet.totalCoins;
 }
@@ -311,9 +320,334 @@ function createToast(
   };
 }
 
+function rewindOpenDay(data: HabitQuestData, today: string): HabitQuestData {
+  const priorThrough = shiftDateKey(today, -1);
+  const grantedHabitClears = data.userProgress.expHistory.filter(
+    (entry) => entry.date === today && entry.source === "habit",
+  ).length;
+  const comboCoins = getComboRewards(grantedHabitClears).coins;
+
+  let removedExp = 0;
+  const expHistory = data.userProgress.expHistory.filter((entry) => {
+    if (entry.date === today && LIVE_DAY_SOURCES.has(entry.source)) {
+      removedExp += entry.amount;
+      return false;
+    }
+    return true;
+  });
+
+  let coinClawback = comboCoins;
+  let lastComebackDate = data.rewardSystems.lastComebackDate;
+  if (lastComebackDate === today) {
+    coinClawback += COMEBACK_COINS;
+    lastComebackDate = null;
+  }
+
+  let claimedPerfect = data.dailyRewards.claimedDailyCompletionRewardDate;
+  if (claimedPerfect === today) {
+    coinClawback += DAILY_COMPLETION_COINS;
+    claimedPerfect = null;
+  }
+
+  const next: HabitQuestData = {
+    ...data,
+    wallet: {
+      ...data.wallet,
+      totalCoins: data.wallet.totalCoins - coinClawback,
+      lifetimeCoinsEarned: Math.max(0, data.wallet.lifetimeCoinsEarned - coinClawback),
+    },
+    dailyRewards: {
+      ...data.dailyRewards,
+      claimedDailyCompletionRewardDate: claimedPerfect,
+    },
+    rewardSystems: {
+      ...data.rewardSystems,
+      lastComebackDate,
+    },
+    userProgress: {
+      ...data.userProgress,
+      totalExp: Math.max(0, data.userProgress.totalExp - removedExp),
+      expHistory,
+    },
+  };
+
+  next.seasonPass = rebuildSeasonXpFromSettledCompletions(next, priorThrough);
+  next.weeklyBoss = rebuildBossFromSettledCompletions(next, priorThrough);
+
+  if (
+    !next.weeklyBoss.defeated &&
+    next.rewardSystems.lastCountedBossWeekKey === next.weeklyBoss.weekKey &&
+    !next.weeklyBoss.rewardClaimed
+  ) {
+    next.rewardSystems = {
+      ...next.rewardSystems,
+      weeklyBossCompletions: Math.max(0, (next.rewardSystems.weeklyBossCompletions ?? 0) - 1),
+      lastCountedBossWeekKey: null,
+    };
+  }
+
+  return next;
+}
+
+function applyCalendarDaySettlement(
+  input: HabitQuestData,
+  dateKey: string,
+  recap: SettlementRecap | null,
+): {
+  data: HabitQuestData;
+  celebrations: CelebrationEvent[];
+  rewardToasts: RewardToast[];
+  floatingRewards: FloatingReward[];
+} {
+  let data = input;
+  const celebrations: CelebrationEvent[] = [];
+  const rewardToasts: RewardToast[] = [];
+  const floatingRewards: FloatingReward[] = [];
+  const dayCompletions = data.completions.filter((completion) => completion.date === dateKey);
+  const priorCompletions = data.completions.filter((completion) => completion.date < dateKey);
+
+  if (recap) {
+    recap.clears += dayCompletions.length;
+    recap.throughDate = dateKey;
+  }
+
+  if (dayCompletions.length) {
+    const alreadyGrantedComeback = data.userProgress.expHistory.some(
+      (entry) => entry.date === dateKey && entry.source === "comeback",
+    );
+    if (alreadyGrantedComeback) {
+      if (data.rewardSystems.lastComebackDate !== dateKey) {
+        data.rewardSystems = {
+          ...data.rewardSystems,
+          lastComebackDate: dateKey,
+        };
+      }
+    } else {
+      const comeback = maybeApplyComeback(data.rewardSystems, priorCompletions, dateKey);
+      data.rewardSystems = comeback.systems;
+      if (comeback.triggered) {
+        if (recap) {
+          recap.comebackCoins += comeback.coins;
+          recap.comebackExp += comeback.exp;
+        }
+        data.wallet = {
+          ...data.wallet,
+          totalCoins: data.wallet.totalCoins + comeback.coins,
+          lifetimeCoinsEarned: data.wallet.lifetimeCoinsEarned + comeback.coins,
+        };
+        data.userProgress = {
+          ...data.userProgress,
+          totalExp: data.userProgress.totalExp + comeback.exp,
+          expHistory: [
+            createExpEntry(comeback.exp, dateKey, "comeback", "Comeback bonus"),
+            ...data.userProgress.expHistory,
+          ],
+        };
+        floatingRewards.push(createFloating("coins", comeback.coins, "Comeback"));
+        floatingRewards.push(createFloating("exp", comeback.exp, "Comeback"));
+        celebrations.push(
+          createCelebration(
+            "comeback",
+            "Comeback secured",
+            `Welcome back — +${comeback.coins} coins and +${comeback.exp} EXP.`,
+          ),
+        );
+        rewardToasts.push(
+          createToast("unlock", "Comeback bonus", `+${comeback.coins} coins, +${comeback.exp} EXP`),
+        );
+      }
+    }
+  }
+
+  let dayHadExp = false;
+  for (const completion of dayCompletions) {
+    const habit = data.habits.find((entry) => entry.id === completion.habitId);
+    const habitLabel = habit?.title ?? "Habit";
+    dayHadExp = true;
+    if (recap) {
+      recap.habitExp += completion.expEarned + completion.streakBonusExp;
+    }
+
+    data.userProgress = {
+      ...data.userProgress,
+      totalExp: data.userProgress.totalExp + completion.expEarned,
+      expHistory: [
+        createExpEntry(
+          completion.expEarned,
+          dateKey,
+          "habit",
+          completion.crit ? `${habitLabel} critical hit` : `${habitLabel} completed`,
+        ),
+        ...data.userProgress.expHistory,
+      ],
+    };
+
+    if (completion.streakBonusExp > 0) {
+      data.userProgress = {
+        ...data.userProgress,
+        totalExp: data.userProgress.totalExp + completion.streakBonusExp,
+        expHistory: [
+          createExpEntry(completion.streakBonusExp, dateKey, "streak", "Streak bonus"),
+          ...data.userProgress.expHistory,
+        ],
+      };
+    }
+  }
+
+  const comboReward = getComboRewards(dayCompletions.length);
+  if (comboReward.exp > 0 || comboReward.coins > 0) {
+    if (recap) {
+      recap.comboExp += comboReward.exp;
+      recap.comboCoins += comboReward.coins;
+    }
+    if (comboReward.exp > 0) {
+      data.userProgress = {
+        ...data.userProgress,
+        totalExp: data.userProgress.totalExp + comboReward.exp,
+        expHistory: [
+          createExpEntry(comboReward.exp, dateKey, "combo", `Combo x${dayCompletions.length}`),
+          ...data.userProgress.expHistory,
+        ],
+      };
+      floatingRewards.push(createFloating("exp", comboReward.exp, "Combo"));
+    }
+    if (comboReward.coins > 0) {
+      data.wallet = {
+        ...data.wallet,
+        totalCoins: data.wallet.totalCoins + comboReward.coins,
+        lifetimeCoinsEarned: data.wallet.lifetimeCoinsEarned + comboReward.coins,
+      };
+      floatingRewards.push(createFloating("coins", comboReward.coins, "Combo"));
+    }
+    rewardToasts.push(
+      createToast(
+        "unlock",
+        "Combo",
+        `x${dayCompletions.length} clears — +${comboReward.exp} EXP` +
+          (comboReward.coins ? `, +${comboReward.coins} coins` : "") +
+          ".",
+      ),
+    );
+  }
+
+  const daySeasonXp = dayCompletions.reduce(
+    (sum, completion) => sum + getSeasonXpForCompletion(completion.expEarned),
+    0,
+  );
+  if (daySeasonXp > 0) {
+    const previousLevel = data.seasonPass.level;
+    data.seasonPass = addSeasonPassXp(reconcileSeasonPass(data.seasonPass), daySeasonXp);
+    if (data.seasonPass.level > previousLevel) {
+      celebrations.push(
+        createCelebration(
+          "season-level",
+          `Season Level ${data.seasonPass.level}`,
+          "Season track leveled up from today's clears.",
+        ),
+      );
+      rewardToasts.push(
+        createToast(
+          "unlock",
+          "Season level up",
+          `Season track reached level ${data.seasonPass.level}.`,
+        ),
+      );
+    }
+  }
+
+  const weekBoss = reconcileWeeklyBoss(data.weeklyBoss);
+  const dayBossDamage = getBossDamageForDate(data, dateKey);
+  const bossHit = applyBossDamage(weekBoss, dayBossDamage);
+  if (recap) {
+    recap.bossDamage += dayBossDamage;
+  }
+  data.weeklyBoss = {
+    ...bossHit.boss,
+    settledThroughDate: dateKey >= weekBoss.weekKey ? dateKey : weekBoss.settledThroughDate,
+  };
+  if (bossHit.defeatedNow) {
+    data.rewardSystems = recordWeeklyBossCompletion(
+      data.rewardSystems,
+      data.weeklyBoss.weekKey,
+      true,
+    );
+    celebrations.push(
+      createCelebration(
+        "boss-clear",
+        "Weekly challenge complete",
+        "Claim the weekly reward when ready.",
+      ),
+    );
+  }
+
+  const daily = checkDailyCompletion(data, dateKey);
+  if (
+    daily.qualifiesForReward &&
+    data.dailyRewards.claimedDailyCompletionRewardDate !== dateKey
+  ) {
+    if (recap) {
+      recap.perfectDayCoins += DAILY_COMPLETION_COINS;
+    }
+    data.wallet = {
+      ...data.wallet,
+      totalCoins: data.wallet.totalCoins + DAILY_COMPLETION_COINS,
+      lifetimeCoinsEarned: data.wallet.lifetimeCoinsEarned + DAILY_COMPLETION_COINS,
+    };
+    data.dailyRewards = {
+      ...data.dailyRewards,
+      claimedDailyCompletionRewardDate: dateKey,
+    };
+    floatingRewards.push(createFloating("coins", DAILY_COMPLETION_COINS, "Perfect day"));
+    rewardToasts.push(
+      createToast(
+        "coins",
+        "Perfect day",
+        `+${DAILY_COMPLETION_COINS} coins from finishing every due habit.`,
+      ),
+    );
+  }
+
+  data.rewardSystems = {
+    ...data.rewardSystems,
+    progressSettledThroughDate: dateKey,
+  };
+
+  const settledCompletions = data.completions.filter((completion) => completion.date <= dateKey);
+  data.userProgress = syncProgress(
+    data.userProgress,
+    settledCompletions,
+    {
+      totalCompletedHabits: settledCompletions.length,
+      totalExp: data.userProgress.totalExp,
+      expHistory: data.userProgress.expHistory,
+    },
+    getActiveShieldDates(data.rewardSystems),
+    shiftDateKey(dateKey, 1),
+  );
+
+  if (dayHadExp && isStreakMilestone(data.userProgress.currentStreak)) {
+    celebrations.push(
+      createCelebration(
+        "streak-milestone",
+        `${data.userProgress.currentStreak}-day streak`,
+        "Your consistency just crossed a milestone.",
+      ),
+    );
+  }
+
+  data.questArcs = syncQuestArcs(data.questArcs, data, dateKey);
+
+  return { data, celebrations, rewardToasts, floatingRewards };
+}
+
+function applyLiveOpenDay(data: HabitQuestData, today: string): HabitQuestData {
+  return applyCalendarDaySettlement(rewindOpenDay(data, today), today, null).data;
+}
+
 /**
  * Locks finished calendar days into permanent progress.
- * Today's clears stay pending (preview-only) until the next day resolves.
+ * Today's Done is applied live (and reversed on undo) so the HUD matches the tap.
+ * Opening after midnight still catches up days you never opened.
  */
 export function settleHabitDayProgress(
   input: HabitQuestData,
@@ -369,6 +703,7 @@ export function settleHabitDayProgress(
       today,
     );
     data.questArcs = syncQuestArcs(data.questArcs, data, settledThrough);
+    data = applyLiveOpenDay(data, today);
 
     return { data, celebrations, rewardToasts, floatingRewards, recap: null };
   }
@@ -380,236 +715,20 @@ export function settleHabitDayProgress(
       data,
       data.rewardSystems.progressSettledThroughDate,
     );
+    data = applyLiveOpenDay(data, today);
     return { data, celebrations, rewardToasts, floatingRewards, recap: null };
   }
 
   for (const dateKey of eachDateInclusive(settleStart, committedThrough)) {
     settledAnyDay = true;
-    const dayCompletions = data.completions.filter((completion) => completion.date === dateKey);
-    const priorCompletions = data.completions.filter((completion) => completion.date < dateKey);
-    recap.clears += dayCompletions.length;
-    recap.throughDate = dateKey;
-
-    if (dayCompletions.length) {
-      const alreadyGrantedComeback = data.userProgress.expHistory.some(
-        (entry) => entry.date === dateKey && entry.source === "comeback",
-      );
-      if (alreadyGrantedComeback) {
-        // Claim flag was lost on a stale cloud merge — restore it so preview /
-        // re-settle stay quiet without paying twice.
-        if (data.rewardSystems.lastComebackDate !== dateKey) {
-          data.rewardSystems = {
-            ...data.rewardSystems,
-            lastComebackDate: dateKey,
-          };
-        }
-      } else {
-        const comeback = maybeApplyComeback(data.rewardSystems, priorCompletions, dateKey);
-        data.rewardSystems = comeback.systems;
-        if (comeback.triggered) {
-          recap.comebackCoins += comeback.coins;
-          recap.comebackExp += comeback.exp;
-          data.wallet = {
-            ...data.wallet,
-            totalCoins: data.wallet.totalCoins + comeback.coins,
-            lifetimeCoinsEarned: data.wallet.lifetimeCoinsEarned + comeback.coins,
-          };
-          data.userProgress = {
-            ...data.userProgress,
-            totalExp: data.userProgress.totalExp + comeback.exp,
-            expHistory: [
-              createExpEntry(comeback.exp, dateKey, "comeback", "Comeback bonus"),
-              ...data.userProgress.expHistory,
-            ],
-          };
-          floatingRewards.push(createFloating("coins", comeback.coins, "Comeback"));
-          floatingRewards.push(createFloating("exp", comeback.exp, "Comeback"));
-          celebrations.push(
-            createCelebration(
-              "comeback",
-              "Comeback secured",
-              `Welcome back — +${comeback.coins} coins and +${comeback.exp} EXP.`,
-            ),
-          );
-          rewardToasts.push(
-            createToast("unlock", "Comeback bonus", `+${comeback.coins} coins, +${comeback.exp} EXP`),
-          );
-        }
-      }
-    }
-
-    let dayHadExp = false;
-    for (const completion of dayCompletions) {
-      const habit = data.habits.find((entry) => entry.id === completion.habitId);
-      const habitLabel = habit?.title ?? "Habit";
-      dayHadExp = true;
-      recap.habitExp += completion.expEarned + completion.streakBonusExp;
-
-      data.userProgress = {
-        ...data.userProgress,
-        totalExp: data.userProgress.totalExp + completion.expEarned,
-        expHistory: [
-          createExpEntry(
-            completion.expEarned,
-            dateKey,
-            "habit",
-            completion.crit ? `${habitLabel} critical hit` : `${habitLabel} completed`,
-          ),
-          ...data.userProgress.expHistory,
-        ],
-      };
-
-      if (completion.streakBonusExp > 0) {
-        data.userProgress = {
-          ...data.userProgress,
-          totalExp: data.userProgress.totalExp + completion.streakBonusExp,
-          expHistory: [
-            createExpEntry(completion.streakBonusExp, dateKey, "streak", "Streak bonus"),
-            ...data.userProgress.expHistory,
-          ],
-        };
-      }
-    }
-
-    const comboReward = getComboRewards(dayCompletions.length);
-    if (comboReward.exp > 0 || comboReward.coins > 0) {
-      recap.comboExp += comboReward.exp;
-      recap.comboCoins += comboReward.coins;
-      if (comboReward.exp > 0) {
-        data.userProgress = {
-          ...data.userProgress,
-          totalExp: data.userProgress.totalExp + comboReward.exp,
-          expHistory: [
-            createExpEntry(
-              comboReward.exp,
-              dateKey,
-              "combo",
-              `Combo x${dayCompletions.length}`,
-            ),
-            ...data.userProgress.expHistory,
-          ],
-        };
-        floatingRewards.push(createFloating("exp", comboReward.exp, "Combo"));
-      }
-      if (comboReward.coins > 0) {
-        data.wallet = {
-          ...data.wallet,
-          totalCoins: data.wallet.totalCoins + comboReward.coins,
-          lifetimeCoinsEarned: data.wallet.lifetimeCoinsEarned + comboReward.coins,
-        };
-        floatingRewards.push(createFloating("coins", comboReward.coins, "Combo"));
-      }
-      rewardToasts.push(
-        createToast(
-          "unlock",
-          "Combo locked in",
-          `x${dayCompletions.length} clears — +${comboReward.exp} EXP` +
-            (comboReward.coins ? `, +${comboReward.coins} coins` : "") +
-            ".",
-        ),
-      );
-    }
-
-    const daySeasonXp = dayCompletions.reduce(
-      (sum, completion) => sum + getSeasonXpForCompletion(completion.expEarned),
-      0,
-    );
-    if (daySeasonXp > 0) {
-      const previousLevel = data.seasonPass.level;
-      data.seasonPass = addSeasonPassXp(reconcileSeasonPass(data.seasonPass), daySeasonXp);
-      if (data.seasonPass.level > previousLevel) {
-        celebrations.push(
-          createCelebration(
-            "season-level",
-            `Season Level ${data.seasonPass.level}`,
-            "Season Pass leveled up from settled clears.",
-          ),
-        );
-        rewardToasts.push(
-          createToast(
-            "unlock",
-            "Season level up",
-            `Season Pass reached level ${data.seasonPass.level}.`,
-          ),
-        );
-      }
-    }
-
-    const weekBoss = reconcileWeeklyBoss(data.weeklyBoss);
-    const dayBossDamage = getBossDamageForDate(data, dateKey);
-    const bossHit = applyBossDamage(weekBoss, dayBossDamage);
-    recap.bossDamage += dayBossDamage;
-    data.weeklyBoss = {
-      ...bossHit.boss,
-      settledThroughDate: dateKey >= weekBoss.weekKey ? dateKey : weekBoss.settledThroughDate,
-    };
-    if (bossHit.defeatedNow) {
-      data.rewardSystems = recordWeeklyBossCompletion(
-        data.rewardSystems,
-        data.weeklyBoss.weekKey,
-        true,
-      );
-      celebrations.push(
-        createCelebration(
-          "boss-clear",
-          `${data.weeklyBoss.name} defeated`,
-          "Claim the weekly boss clear reward when ready.",
-        ),
-      );
-    }
-
-    const daily = checkDailyCompletion(data, dateKey);
-    if (daily.qualifiesForReward) {
-      recap.perfectDayCoins += DAILY_COMPLETION_COINS;
-      data.wallet = {
-        ...data.wallet,
-        totalCoins: data.wallet.totalCoins + DAILY_COMPLETION_COINS,
-        lifetimeCoinsEarned: data.wallet.lifetimeCoinsEarned + DAILY_COMPLETION_COINS,
-      };
-      data.dailyRewards = {
-        ...data.dailyRewards,
-        claimedDailyCompletionRewardDate: dateKey,
-      };
-      floatingRewards.push(createFloating("coins", DAILY_COMPLETION_COINS, "Perfect day"));
-      rewardToasts.push(
-        createToast(
-          "coins",
-          "Perfect day locked in",
-          `+${DAILY_COMPLETION_COINS} coins from ${dateKey}.`,
-        ),
-      );
-    }
-
-    data.rewardSystems = {
-      ...data.rewardSystems,
-      progressSettledThroughDate: dateKey,
-    };
-
-    const settledCompletions = data.completions.filter((completion) => completion.date <= dateKey);
-    data.userProgress = syncProgress(
-      data.userProgress,
-      settledCompletions,
-      {
-        totalCompletedHabits: settledCompletions.length,
-        totalExp: data.userProgress.totalExp,
-        expHistory: data.userProgress.expHistory,
-      },
-      getActiveShieldDates(data.rewardSystems),
-      shiftDateKey(dateKey, 1),
-    );
-
-    if (dayHadExp && isStreakMilestone(data.userProgress.currentStreak)) {
-      celebrations.push(
-        createCelebration(
-          "streak-milestone",
-          `${data.userProgress.currentStreak}-day streak`,
-          "Your consistency just crossed a milestone.",
-        ),
-      );
-    }
-
-    data.questArcs = syncQuestArcs(data.questArcs, data, dateKey);
+    const day = applyCalendarDaySettlement(data, dateKey, recap);
+    data = day.data;
+    celebrations.push(...day.celebrations);
+    rewardToasts.push(...day.rewardToasts);
+    floatingRewards.push(...day.floatingRewards);
   }
+
+  data = applyLiveOpenDay(data, today);
 
   const levelState = getLevelState(data.userProgress.totalExp);
   data.userProgress = {

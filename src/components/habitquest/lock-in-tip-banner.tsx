@@ -40,8 +40,8 @@ export function LockInTipBanner() {
         <div>
           <p className="text-xs uppercase tracking-[0.22em] text-cyan-100/80">After a clear</p>
           <p className="mt-1 text-sm leading-6 text-cyan-50">
-            That habit is remembered, but EXP / season XP / boss damage stay in{" "}
-            <span className="font-semibold">Preview</span> until lock-in.{" "}
+            That habit is remembered, but EXP / season XP / weekly-goal progress stay in{" "}
+            <span className="font-semibold">tonight&apos;s bank</span> until they lock in.{" "}
             {SETTLEMENT_LOCK_HINT} You may still undo today.
           </p>
         </div>

@@ -177,7 +177,7 @@ function mergeSettings(
     ...DEFAULT_SETTINGS,
     ...(saved ?? {}),
     displayName: saved?.displayName?.trim() ?? DEFAULT_SETTINGS.displayName,
-    reminderTime: saved?.reminderTime || DEFAULT_SETTINGS.reminderTime,
+    reminderTime: DEFAULT_SETTINGS.reminderTime,
     onboardingCompleted:
       saved?.onboardingCompleted ??
       (options.legacySave ? true : DEFAULT_SETTINGS.onboardingCompleted),
@@ -512,7 +512,7 @@ export function mergeCloudSaveWithLocalDraft(
       wallet: {
         lifetimeCoinsEarned,
         lifetimeCoinsSpent,
-        totalCoins: Math.max(0, lifetimeCoinsEarned - lifetimeCoinsSpent),
+        totalCoins: lifetimeCoinsEarned - lifetimeCoinsSpent,
       },
       equippedItems: {
         titleItemId: pickEquip(

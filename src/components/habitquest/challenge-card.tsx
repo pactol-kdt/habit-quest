@@ -13,6 +13,7 @@ interface ChallengeCardProps {
   pending?: boolean;
   /** When the exclusive title was earned on a prior period clear. */
   titleAlreadyOwned?: boolean;
+  compact?: boolean;
   onClaim: (challengeId: string) => void;
 }
 
@@ -22,6 +23,7 @@ export function ChallengeCard({
   lockLabel,
   pending = false,
   titleAlreadyOwned = false,
+  compact = false,
   onClaim,
 }: ChallengeCardProps) {
   const progressPercent = Math.min((challenge.progress / challenge.target) * 100, 100);
@@ -29,25 +31,29 @@ export function ChallengeCard({
   const showTitleChip = hasTitleReward && !titleAlreadyOwned;
   const repeatBonus = challenge.period === "monthly" ? 25 : 10;
 
-  return (
-    <GlassCard className={cn("h-full overflow-hidden", locked && "opacity-70")}>
-      <div className="mb-5 flex items-start justify-between gap-4">
+  const body = (
+    <>
+      <div className="mb-4 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-            {challenge.period} contract
+            {challenge.period === "weekly" ? "This week" : "This month"}
           </p>
-          <h3 className="section-title mt-2 text-2xl text-white">{challenge.title}</h3>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
-            {challenge.description}
-          </p>
+          <h3 className={cn("mt-1 font-semibold text-white", compact ? "text-lg" : "section-title text-2xl")}>
+            {compact ? challenge.description : challenge.title}
+          </h3>
+          {compact ? null : (
+            <p className="mt-1 text-sm leading-6 text-[var(--color-text-muted)]">
+              {challenge.description}
+            </p>
+          )}
         </div>
-        <div className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm tabular-nums text-[var(--color-text-muted)]">
+        <div className="shrink-0 text-sm tabular-nums text-[var(--color-text-muted)]">
           {challenge.progress}/{challenge.target}
         </div>
       </div>
 
-      <div className="space-y-4">
-        <div className="h-2.5 overflow-hidden rounded-full bg-white/6">
+      <div className="space-y-3">
+        <div className="h-2 overflow-hidden rounded-full bg-white/6">
           <motion.div
             className="h-full rounded-full hq-fill-accent"
             initial={{ width: 0 }}
@@ -57,20 +63,21 @@ export function ChallengeCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[var(--color-text-muted)]">
+          <span className="inline-flex items-center text-[var(--color-text-muted)]">
             <CurrencyAmount kind="coins" value={challenge.reward.coins} prefix="+" size={13} />
           </span>
-          <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[var(--color-text-muted)]">
+          <span aria-hidden className="text-[var(--color-text-muted)]">
+            ·
+          </span>
+          <span className="inline-flex items-center text-[var(--color-text-muted)]">
             <CurrencyAmount kind="exp" value={challenge.reward.exp} prefix="+" size={13} />
           </span>
           {showTitleChip ? (
-            <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1.5 text-amber-100">
-              Exclusive title
-            </span>
+            <span className="text-amber-100">· Title</span>
           ) : null}
           {hasTitleReward && titleAlreadyOwned ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-emerald-100">
-              Title owned · <CurrencyAmount kind="coins" value={repeatBonus} prefix="+" size={12} /> bonus
+            <span className="inline-flex items-center gap-1 text-emerald-100">
+              · Title owned · <CurrencyAmount kind="coins" value={repeatBonus} prefix="+" size={12} />
             </span>
           ) : null}
         </div>
@@ -78,22 +85,28 @@ export function ChallengeCard({
         {locked ? (
           <p className="text-sm text-amber-100">{lockLabel}</p>
         ) : challenge.claimed ? (
-          <p className="text-sm text-emerald-200">Reward claimed for this period.</p>
+          <p className="text-sm text-emerald-200">Claimed this period.</p>
         ) : challenge.completed ? (
           <button
             type="button"
             disabled={pending}
             onClick={() => onClaim(challenge.id)}
-            className="rounded-full hq-btn-accent px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {pending ? "Claiming…" : "Claim reward"}
+            {pending ? "Claiming…" : "Claim"}
           </button>
         ) : (
           <p className="text-sm text-[var(--color-text-muted)]">
-            Fill the bar to claim — progress resets each {challenge.period === "weekly" ? "week" : "month"}.
+            Resets each {challenge.period === "weekly" ? "week" : "month"}.
           </p>
         )}
       </div>
-    </GlassCard>
+    </>
   );
+
+  if (compact) {
+    return <div className={cn(locked && "opacity-70")}>{body}</div>;
+  }
+
+  return <GlassCard className={cn("h-full overflow-hidden", locked && "opacity-70")}>{body}</GlassCard>;
 }

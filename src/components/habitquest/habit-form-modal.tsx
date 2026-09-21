@@ -293,7 +293,8 @@ function HabitFormDialog({
                 className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50"
               />
               <span className="text-xs leading-5 text-[var(--color-text-muted)]">
-                Optional cue for today&apos;s list — not an alarm.
+                We&apos;ll ping you around this hour if it&apos;s still due (reminders must be
+                on).
               </span>
             </label>
             <label className="grid gap-2">
@@ -365,8 +366,8 @@ function HabitFormDialog({
         <section className="rounded-[1.35rem] border border-white/10 bg-white/4 p-4 sm:p-5">
           <p className="text-xs uppercase tracking-[0.22em] text-pink-200">4. Reward</p>
           <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
-            The feeling is the real payoff. Difficulty only sizes pending EXP — it banks at
-            midnight, so undos stay safe.
+            The feeling is the real payoff. Difficulty sizes the EXP you get on Done. Undo
+            anytime today if you tapped by mistake.
           </p>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">

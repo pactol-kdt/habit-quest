@@ -152,7 +152,7 @@ export const userSettings = pgTable("user_settings", {
   displayName: varchar("display_name", { length: 64 }).notNull().default(""),
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   remindersEnabled: boolean("reminders_enabled").notNull().default(false),
-  reminderTime: varchar("reminder_time", { length: 8 }).notNull().default("08:00"),
+  reminderTime: varchar("reminder_time", { length: 8 }).notNull().default("06:00"),
   reminderTimezone: varchar("reminder_timezone", { length: 64 }).notNull().default("UTC"),
   lastPushReminderDate: varchar("last_push_reminder_date", { length: 16 }),
 });
@@ -168,6 +168,18 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   createdAt: varchar("created_at", { length: 40 }).notNull(),
   updatedAt: varchar("updated_at", { length: 40 }).notNull(),
 });
+
+export const pushReminderSends = pgTable(
+  "push_reminder_sends",
+  {
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    slotKey: varchar("slot_key", { length: 24 }).notNull(),
+    createdAt: varchar("created_at", { length: 40 }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.slotKey] })],
+);
 
 export const equippedCosmetics = pgTable("equipped_cosmetics", {
   userId: varchar("user_id", { length: 36 })

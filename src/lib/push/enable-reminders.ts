@@ -51,12 +51,11 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
     };
   }
 
-  const currentTime = useHabitQuestStore.getState().settings.reminderTime;
   updateSettings({
     remindersEnabled: true,
   });
 
-  const schedule = describePushReminderSchedule(currentTime);
+  const schedule = describePushReminderSchedule();
 
   if (!canUseWebPush() || !getVapidPublicKeyFromEnv()) {
     return {

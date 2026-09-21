@@ -758,6 +758,8 @@ function applyHabitCompleteSuccess(
   const merged = mergeHabitCompletionIntoState(projectData(useHabitQuestStore.getState()), result);
   const resolution = resolveGameState(withLiveHabitMembership(merged));
   const persisted = persistLocalOnly(resolution.data);
+  bumpCloudSavePayload(persisted);
+  scheduleCloudSave(persisted);
 
   useHabitQuestStore.setState((current) => ({
     ...mergeTransientState(current, { ...resolution, data: persisted }),
@@ -1406,6 +1408,8 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seq = nextHabitMutationSeq(habitId);
     const optimisticResolution = resolveGameState(mutation.data);
     const optimisticPersisted = persistLocalOnly(optimisticResolution.data);
+    bumpCloudSavePayload(optimisticPersisted);
+    scheduleCloudSave(optimisticPersisted);
 
     set((current) => ({
       ...mergeTransientState(current, { ...optimisticResolution, data: optimisticPersisted }),
@@ -1446,6 +1450,8 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seq = nextHabitMutationSeq(habitId);
     const optimisticResolution = resolveGameState(mutation.data);
     const optimisticPersisted = persistLocalOnly(optimisticResolution.data);
+    bumpCloudSavePayload(optimisticPersisted);
+    scheduleCloudSave(optimisticPersisted);
 
     set((current) => ({
       ...mergeTransientState(current, { ...optimisticResolution, data: optimisticPersisted }),
@@ -1497,6 +1503,8 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         const merged = mergeHabitCompletionIntoState(projectData(get()), result);
         const resolution = resolveGameState(withLiveHabitMembership(merged));
         const persisted = persistLocalOnly(resolution.data);
+        bumpCloudSavePayload(persisted);
+        scheduleCloudSave(persisted);
 
         set((current) => ({
           ...mergeTransientState(current, { ...resolution, data: persisted }),
@@ -1848,8 +1856,8 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ],
       celebration: createCelebration(
         "boss-clear",
-        "Boss reward claimed",
-        `${snapshot.weeklyBoss.name} bounty secured.`,
+        "Weekly reward claimed",
+        "Weekly challenge reward secured.",
       ),
     }));
 

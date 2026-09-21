@@ -114,6 +114,40 @@ async function syncMissingBuiltinCatalogRows(database: Database) {
     );
   }
 
+  // Keep unlock thresholds in sync with builtin catalog (gate levels evolve over time).
+  const unlockMetaRows = await database
+    .select({
+      feature: catalogLevelUnlocks.feature,
+      requiredLevel: catalogLevelUnlocks.requiredLevel,
+      label: catalogLevelUnlocks.label,
+      description: catalogLevelUnlocks.description,
+    })
+    .from(catalogLevelUnlocks);
+  const unlockMetaByFeature = new Map(
+    unlockMetaRows.map((row) => [row.feature, row] as const),
+  );
+  for (const unlock of builtin.levelUnlocks) {
+    const current = unlockMetaByFeature.get(unlock.feature);
+    if (!current) {
+      continue;
+    }
+    if (
+      current.requiredLevel === unlock.requiredLevel &&
+      current.label === unlock.label &&
+      current.description === unlock.description
+    ) {
+      continue;
+    }
+    await database
+      .update(catalogLevelUnlocks)
+      .set({
+        requiredLevel: unlock.requiredLevel,
+        label: unlock.label,
+        description: unlock.description,
+      })
+      .where(eq(catalogLevelUnlocks.feature, unlock.feature));
+  }
+
   const achievementRows = await database
     .select({ key: catalogAchievements.key })
     .from(catalogAchievements);

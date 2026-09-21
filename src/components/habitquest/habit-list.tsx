@@ -33,7 +33,7 @@ interface HabitListProps {
 function pendingHabitLabel(action: HabitPendingAction | undefined) {
   switch (action) {
     case "complete":
-      return "Clearing…";
+      return "Finishing…";
     case "uncomplete":
       return "Undoing…";
     case "delete":
@@ -172,7 +172,7 @@ export function HabitList({
                         pendingSync ? "cursor-not-allowed opacity-60" : "hover:bg-amber-300/16",
                       )}
                     >
-                      {pendingSync ? pendingLabel : "Undo clear"}
+                      {pendingSync ? pendingLabel : "Undo"}
                     </button>
                   ) : (
                     <button
@@ -192,7 +192,7 @@ export function HabitList({
                           ? CLEARED_TODAY_LABEL
                           : notDue
                             ? "Not due"
-                            : "Clear"}
+                            : "Done"}
                     </button>
                   )}
                   <button

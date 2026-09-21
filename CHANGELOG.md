@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+## 0.9.0 - Quiet RPG and Live Rewards
+
+### Added
+- Profile shows a Log out control next to Change password for signed-in users.
+
+### Changed
+- A Done grants EXP, week-bar, season XP, combo, and perfect-day coins immediately. Undo today reverses them; opening later still catches up missed days. If those coins were already spent in the Shop, the wallet can go negative.
+- Background push fires during each habit's cue hour (batched per hour) while still due. Habits without a time get a fixed 6:00 AM digest. The +14h follow-up is gone.
+- Quiet RPG pass (phase 1): Today is the quest — character HUD, due list, one weekly bar. Dashboard dump (analytics, contracts, lock-in banner, streak drawer) is off Home.
+- Week holds the weekly bar plus the 15-clear contract. Season holds the track, monthly climb, and quest chapters. Claim links open those pages.
+- Nav chrome is Today / Habits / Week / Season / You. Shop sits under You (coins still open Shop).
+- Season Pass, weekly challenges, and monthly challenges unlock at level 1 (available on all levels).
+- Weekly challenge uses a fixed title (no rotating boss names).
+- Weekly challenge: status sits top-left of the progress section; clear reward shows coins/EXP only (no filled-so-far or clear-reward label).
+- Plain-language pass on the top five research frictions: tonight's bank (was Preview), create-account CTA (was Save progress), claim-after-lock-in copy, mobile Profile tab discovery, and softer Weekly goal / Season track / Done wording for non-gamers.
+- Guides account section now matches guest play.
+
 ## 0.8.1 - Password Reset Production Fix
 
 ### Fixed

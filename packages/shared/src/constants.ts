@@ -62,14 +62,16 @@ export const COMEBACK_COINS = 6;
 export const COMEBACK_EXP = 40;
 export const CRIT_CHANCE = 0.12;
 export const CRIT_MULTIPLIER = 2;
-/** Bonus EXP per clear after the first on the same day (locks in at settlement). */
+/** Bonus EXP per clear after the first on the same day. */
 export const COMBO_EXP_PER_EXTRA_CLEAR = 5;
 /** Coin payouts when same-day clear count hits these thresholds. */
 export const COMBO_COIN_THRESHOLDS = [4, 7] as const;
-export const SETTLEMENT_LOCK_HINT = "Banks at midnight on next open.";
+export const SETTLEMENT_LOCK_HINT = "Undo a Done anytime today.";
 /** Short label for tonight's reversible progress (not the same as "Saving…"). */
-export const PREVIEW_LABEL = "Preview";
-export const CLEARED_TODAY_LABEL = "Cleared today";
+export const PREVIEW_LABEL = "Tonight";
+/** Shown when a reward looks ready but the bar is not filled yet. */
+export const CLAIM_AFTER_LOCKIN_HINT = "Fill the bar, then claim.";
+export const CLEARED_TODAY_LABEL = "Done today";
 /** @deprecated use PREVIEW_LABEL */
 export const UNBANKED_LABEL = PREVIEW_LABEL;
 /** Season XP per level — 29×40 = 1160 XP to L30 (~22 days at ~52 XP/day). */

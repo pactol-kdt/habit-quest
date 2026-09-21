@@ -34,13 +34,20 @@ self.addEventListener("push", (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title || "Rise, adventurer", {
-      body: payload.body,
-      tag: payload.tag || "habitquest-daily-reminder",
-      icon: "/brand/habitquest-logo.png",
-      badge: "/brand/habitquest-logo.png",
-      data: { url: payload.url || "/" },
-    }),
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        if (clientList.some((client) => "focused" in client && client.focused)) {
+          return undefined;
+        }
+        return self.registration.showNotification(payload.title || "Rise, adventurer", {
+          body: payload.body,
+          tag: payload.tag || "habitquest-daily-reminder",
+          icon: "/brand/habitquest-logo.png",
+          badge: "/brand/habitquest-logo.png",
+          data: { url: payload.url || "/" },
+        });
+      }),
   );
 });
 

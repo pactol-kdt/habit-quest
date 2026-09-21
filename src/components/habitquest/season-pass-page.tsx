@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { ChallengeCard } from "~/components/habitquest/challenge-card";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
+import { QuestChapterCard } from "~/components/habitquest/quest-chapter-card";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
-import { SEASON_PASS_XP_PER_LEVEL, SETTLEMENT_LOCK_HINT } from "~/lib/habitquest/constants";
+import { SEASON_PASS_XP_PER_LEVEL } from "~/lib/habitquest/constants";
 import { cn } from "~/lib/ui/cn";
+import { getActiveQuestArc } from "~/lib/habitquest/rewards";
 import { formatNumber, isFeatureUnlocked } from "~/lib/habitquest/utils";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
 import { useHabitQuestStore } from "~/store/habitquest-store";
@@ -15,18 +18,31 @@ export function SeasonPassPage() {
     seasonPass: settledSeasonPass,
     rewardSystems,
     levelUnlocks,
+    challenges,
+    shopItems,
     claimSeasonPassLevel,
+    claimChallengeReward,
+    claimQuestArcReward,
     claimAllRewards,
     pendingClaimIds,
     hydrated,
   } = useHabitQuestStore((state) => state);
-  const { seasonPass, pendingSeasonXp } = useEffectiveProgress();
+  const { seasonPass, questArcs } = useEffectiveProgress();
   const hero = PAGE_HEROES.season;
+  const monthlyChallenge = challenges.find((challenge) => challenge.period === "monthly") ?? null;
+  const monthlyUnlocked = isFeatureUnlocked(levelUnlocks, "monthly-challenges");
+  const monthlyRequiredLevel = levelUnlocks.find(
+    (unlock) => unlock.feature === "monthly-challenges",
+  )?.requiredLevel;
+  const questUnlocked = isFeatureUnlocked(levelUnlocks, "quest-arcs");
+  const questRequiredLevel = levelUnlocks.find((unlock) => unlock.feature === "quest-arcs")?.requiredLevel;
+  const activeArc = getActiveQuestArc(questArcs);
+  const questLockLabel = `Unlocks at level ${questRequiredLevel ?? 3}`;
+  const monthlyLockLabel = `Available from level ${monthlyRequiredLevel ?? 1}`;
 
   const seasonUnlocked = isFeatureUnlocked(levelUnlocks, "season-pass");
   const seasonXpIntoLevel = seasonPass.xp % SEASON_PASS_XP_PER_LEVEL;
   const seasonProgressPercent = (seasonXpIntoLevel / SEASON_PASS_XP_PER_LEVEL) * 100;
-  // Claims require settled level, not pending preview.
   const claimableSeason = settledSeasonPass.rewards.filter(
     (reward) =>
       settledSeasonPass.level >= reward.level &&
@@ -56,14 +72,14 @@ export function SeasonPassPage() {
               {hero.title}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              {hero.support} {SETTLEMENT_LOCK_HINT}
+              {hero.support} Undo a Done anytime today.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Link
                 href="/"
                 className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
               >
-                Walk the dashboard
+                Walk today&apos;s list
               </Link>
             </div>
           </div>
@@ -80,14 +96,12 @@ export function SeasonPassPage() {
             </h2>
             <p className="mt-2 text-sm text-[var(--color-text-muted)]">
               {seasonUnlocked
-                ? `Level ${seasonPass.level} · ${formatNumber(seasonPass.xp)} season XP${
-                    pendingSeasonXp > 0 ? ` (${pendingSeasonXp} preview)` : ""
-                  }`
-                : "Unlocks at level 4"}
+                ? `Level ${seasonPass.level} · ${formatNumber(seasonPass.xp)} season XP`
+                : "Available from level 1"}
             </p>
             {seasonUnlocked ? (
               <p className="mt-3 text-sm text-cyan-100/90">
-                Seasons cleared: {rewardSystems.seasonPassCompletions}
+                Seasons finished: {rewardSystems.seasonPassCompletions}
               </p>
             ) : null}
           </div>
@@ -95,73 +109,98 @@ export function SeasonPassPage() {
       </GlassCard>
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <GlassCard className={cn("rounded-[1.75rem]", !seasonUnlocked && "opacity-60")}>
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-                Progress
-              </p>
-              <h2 className="section-title mt-2 text-2xl text-white">
-                {seasonUnlocked ? `Level ${seasonPass.level}` : "Season locked"}
-              </h2>
-            </div>
-            <p className="text-sm text-cyan-100">
-              {seasonUnlocked
-                ? `${seasonXpIntoLevel}/${SEASON_PASS_XP_PER_LEVEL} XP to next`
-                : "Reach level 4"}
-            </p>
-          </div>
-
-          <div className="h-3 overflow-hidden rounded-full bg-white/10">
-            <div
-              className="hq-fill-accent h-full rounded-full transition-all"
-              style={{ width: `${seasonUnlocked ? seasonProgressPercent : 0}%` }}
-            />
-          </div>
-
-          {seasonUnlocked && claimableSeason.length ? (
-            <div className="mt-5 space-y-3">
-              {claimableSeason.length > 1 ? (
-                <button
-                  type="button"
-                  disabled={claimingAllSeason}
-                  onClick={() => claimAllRewards(["season"])}
-                  className="min-h-11 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {claimingAllSeason
-                    ? "Claiming all…"
-                    : `Claim all ${claimableSeason.length} tiers`}
-                </button>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                {claimableSeason.map((reward) => {
-                  const pending =
-                    claimingAllSeason || pendingClaimIds.includes(`season:${reward.level}`);
-                  return (
-                    <button
-                      key={reward.level}
-                      type="button"
-                      disabled={pending}
-                      onClick={() => claimSeasonPassLevel(reward.level)}
-                      className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-300/16 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {pending ? "Claiming…" : `Claim Lv ${reward.level} · ${reward.label}`}
-                    </button>
-                  );
-                })}
+        <div className="grid gap-6">
+          <GlassCard className={cn("rounded-[1.75rem]", !seasonUnlocked && "opacity-60")}>
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
+                  Progress
+                </p>
+                <h2 className="section-title mt-2 text-2xl text-white">
+                  {seasonUnlocked ? `Level ${seasonPass.level}` : "Season locked"}
+                </h2>
               </div>
+              <p className="text-sm text-cyan-100">
+                {seasonUnlocked
+                  ? `${seasonXpIntoLevel}/${SEASON_PASS_XP_PER_LEVEL} XP to next`
+                  : "Available from level 1"}
+              </p>
             </div>
-          ) : (
-            <p className="mt-5 text-sm text-[var(--color-text-muted)]">
-              {seasonUnlocked
-                ? pendingSeasonXp > 0 &&
-                  seasonPass.level > settledSeasonPass.level
-                  ? `Preview season level ${seasonPass.level} — claim unlocks after lock-in. ${SETTLEMENT_LOCK_HINT}`
-                  : "No claimable tiers right now — keep clearing habits along the path."
-                : "Rise a little further to open the monthly season track."}
-            </p>
-          )}
-        </GlassCard>
+
+            <div className="h-3 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="hq-fill-accent h-full rounded-full transition-all"
+                style={{ width: `${seasonUnlocked ? seasonProgressPercent : 0}%` }}
+              />
+            </div>
+
+            {seasonUnlocked && claimableSeason.length ? (
+              <div className="mt-5 space-y-3">
+                {claimableSeason.length > 1 ? (
+                  <button
+                    type="button"
+                    disabled={claimingAllSeason}
+                    onClick={() => claimAllRewards(["season"])}
+                    className="min-h-11 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {claimingAllSeason
+                      ? "Claiming all…"
+                      : `Claim all ${claimableSeason.length} tiers`}
+                  </button>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  {claimableSeason.map((reward) => {
+                    const pending =
+                      claimingAllSeason || pendingClaimIds.includes(`season:${reward.level}`);
+                    return (
+                      <button
+                        key={reward.level}
+                        type="button"
+                        disabled={pending}
+                        onClick={() => claimSeasonPassLevel(reward.level)}
+                        className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-300/16 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {pending ? "Claiming…" : `Claim Lv ${reward.level} · ${reward.label}`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="mt-5 text-sm text-[var(--color-text-muted)]">
+                {seasonUnlocked
+                  ? "No claimable tiers right now — keep finishing habits."
+                  : "Season is available from level 1."}
+              </p>
+            )}
+          </GlassCard>
+
+          {monthlyChallenge ? (
+            <GlassCard id="month" className="scroll-mt-24 rounded-[1.75rem]">
+              <ChallengeCard
+                compact
+                challenge={monthlyChallenge}
+                locked={!monthlyUnlocked}
+                lockLabel={monthlyUnlocked ? null : monthlyLockLabel}
+                pending={pendingClaimIds.includes(`challenge:${monthlyChallenge.id}`)}
+                titleAlreadyOwned={shopItems.some(
+                  (item) => item.id === monthlyChallenge.reward.titleItemId && item.owned,
+                )}
+                onClaim={claimChallengeReward}
+              />
+            </GlassCard>
+          ) : null}
+
+          <GlassCard id="chapter" className="scroll-mt-24 rounded-[1.75rem]">
+            <QuestChapterCard
+              arc={activeArc}
+              unlocked={questUnlocked}
+              lockLabel={questLockLabel}
+              pending={Boolean(activeArc && pendingClaimIds.includes(`quest:${activeArc.id}`))}
+              onClaim={claimQuestArcReward}
+            />
+          </GlassCard>
+        </div>
 
         <GlassCard className="rounded-[1.75rem]">
           <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
@@ -213,11 +252,7 @@ export function SeasonPassPage() {
                       </button>
                     ) : (
                       <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-                        {claimed
-                          ? "Claimed"
-                          : reached
-                            ? "Preview"
-                            : "Locked"}
+                        {claimed ? "Claimed" : "Locked"}
                       </p>
                     )}
                   </div>

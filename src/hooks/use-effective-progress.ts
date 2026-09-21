@@ -16,8 +16,8 @@ import { useHabitQuestStore } from "~/store/habitquest-store";
 
 /**
  * Settled level / EXP / coins for UI gates.
- * Pending habit EXP, combo, comeback, season XP, and boss damage stay in the
- * lock-in preview until midnight.
+ * Pending habit EXP, combo, comeback, season XP, and boss damage are included
+ * once today's Done is applied. Undo today reverses them.
  */
 export function useEffectiveProgress() {
   const store = useHabitQuestStore((state) => state);

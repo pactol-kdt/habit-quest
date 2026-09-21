@@ -439,7 +439,7 @@ export function clawbackDailyCompletionReward(data: HabitQuestData, dateKey = ge
       ...data,
       wallet: {
         ...data.wallet,
-        totalCoins: Math.max(0, data.wallet.totalCoins - DAILY_COMPLETION_COINS),
+        totalCoins: data.wallet.totalCoins - DAILY_COMPLETION_COINS,
         lifetimeCoinsEarned: Math.max(0, data.wallet.lifetimeCoinsEarned - DAILY_COMPLETION_COINS),
       },
       dailyRewards: {

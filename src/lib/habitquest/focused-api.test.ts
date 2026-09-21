@@ -385,7 +385,9 @@ describe("claimable rewards listing", () => {
         : entry,
     );
     const claimables = listClaimableRewards(data);
-    assert.ok(claimables.some((item) => item.kind === "challenge"));
+    const weeklyClaim = claimables.find((item) => item.kind === "challenge");
+    assert.ok(weeklyClaim);
+    assert.equal(weeklyClaim.href, "/boss#clears");
   });
 });
 

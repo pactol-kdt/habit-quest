@@ -29,8 +29,7 @@ export function DailyRewardCard({
         </p>
         <h2 className="section-title mt-2 text-2xl text-white">Daily coin blessings</h2>
         <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-          Login gifts arrive on their own. Perfect-day coins wait in preview until tonight&apos;s
-          lock-in.
+          Login gifts arrive on their own. Perfect-day coins grant when you finish every due habit.
         </p>
       </div>
 
@@ -70,9 +69,9 @@ export function DailyRewardCard({
               </p>
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
                 {completionClaimed
-                  ? "Banked"
+                  ? "Paid today"
                   : qualifiesForReward
-                    ? "Preview"
+                    ? "Ready"
                     : "Not yet"}
               </p>
             </div>
@@ -87,7 +86,7 @@ export function DailyRewardCard({
           </div>
           <p className="mt-3 text-sm text-[var(--color-text-muted)]">
             {qualifiesForReward && !completionClaimed
-              ? `Qualified — +${dailyCompletionCoins} coins bank at lock-in.`
+              ? `Qualified — +${dailyCompletionCoins} coins granted.`
               : `${completedCount}/${dueCount || 0} due habits cleared today.`}
           </p>
         </div>

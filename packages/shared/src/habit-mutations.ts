@@ -188,7 +188,7 @@ export function applyCompleteHabitForToday(
 
   const pendingBits = [
     `Combo x${nextCombo}`,
-    comboPreview.exp > 0 ? `+${comboPreview.exp} combo EXP pending` : null,
+    comboPreview.exp > 0 ? `+${comboPreview.exp} combo EXP` : null,
   ].filter(Boolean);
 
   const craving = describeCraving(habit);
@@ -196,8 +196,8 @@ export function applyCompleteHabitForToday(
   const rewardToasts: RewardToast[] = [
     createToast(
       "unlock",
-      "Pending clear",
-      `${habit.title} logged — ${pendingBits.join(" · ")}. Locks in at midnight.`,
+      "Done",
+      `${habit.title} — +${baseExp + streakBonus} EXP${pendingBits.length ? ` · ${pendingBits.join(" · ")}` : ""}.`,
     ),
   ];
   if (craving) {
@@ -218,19 +218,19 @@ export function applyCompleteHabitForToday(
       createToast(
         "coins",
         `Combo x${nextCombo}`,
-        `Coin milestone hit — +${getComboRewards(nextCombo).coins} combo coins pending at lock-in.`,
+        `Coin milestone — +${getComboRewards(nextCombo).coins} combo coins.`,
       ),
     );
   }
 
   if (isCrit) {
     rewardToasts.push(
-      createToast("crit", "Critical clear", `${habit.title} hit for double EXP (pending).`),
+      createToast("crit", "Critical clear", `${habit.title} hit for double EXP.`),
     );
     celebration = createCelebration(
       "crit",
       "Critical hit!",
-      `${habit.title} scored a critical clear (locks in at end of day).`,
+      `${habit.title} scored a critical clear.`,
     );
   }
 
@@ -253,7 +253,7 @@ export function applyUncompleteHabitForToday(
   );
 
   if (!completion) {
-    return { ok: false, error: "No pending clear for today." };
+    return { ok: false, error: "No Done to undo for today." };
   }
 
   const completions = data.completions.filter((entry) => entry.id !== completion.id);
@@ -272,7 +272,7 @@ export function applyUncompleteHabitForToday(
     },
     completion: null,
     rewardToasts: [
-      createToast("warning", "Completion undone", "Today's pending clear was removed."),
+      createToast("warning", "Completion undone", "Today's Done was removed."),
     ],
     celebration: null,
   };

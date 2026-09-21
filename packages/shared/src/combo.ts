@@ -3,7 +3,7 @@ import {
   COMBO_EXP_PER_EXTRA_CLEAR,
 } from "./constants";
 
-/** Same-day clear combo rewards (applied at end-of-day settlement). */
+/** Same-day clear combo rewards. */
 export function getComboRewards(clearCount: number) {
   if (clearCount <= 0) {
     return { exp: 0, coins: 0 };

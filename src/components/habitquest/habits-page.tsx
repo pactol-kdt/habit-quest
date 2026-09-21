@@ -145,7 +145,7 @@ export function HabitsPage() {
               ? "No habits yet. Add one to start today's list."
               : filter === "due"
                 ? "Nothing is due today. Browse All, or add a daily habit."
-                : "Nothing cleared today yet. Clear a due habit to see it here."
+                : "Nothing finished today yet. Mark a due habit done to see it here."
           }
           emptyActionLabel={filter === "all" || filter === "due" ? "Add a habit" : undefined}
           onEmptyAction={

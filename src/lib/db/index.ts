@@ -168,7 +168,7 @@ const DDL = [
     display_name VARCHAR(64) NOT NULL DEFAULT '',
     onboarding_completed BOOLEAN NOT NULL DEFAULT false,
     reminders_enabled BOOLEAN NOT NULL DEFAULT false,
-    reminder_time VARCHAR(8) NOT NULL DEFAULT '08:00',
+    reminder_time VARCHAR(8) NOT NULL DEFAULT '06:00',
     reminder_timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
     last_push_reminder_date VARCHAR(16)
   )`,
@@ -182,6 +182,12 @@ const DDL = [
     updated_at VARCHAR(40) NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id)`,
+  `CREATE TABLE IF NOT EXISTS push_reminder_sends (
+    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    slot_key VARCHAR(24) NOT NULL,
+    created_at VARCHAR(40) NOT NULL,
+    PRIMARY KEY (user_id, slot_key)
+  )`,
   `CREATE TABLE IF NOT EXISTS equipped_cosmetics (
     user_id VARCHAR(36) PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title_item_id VARCHAR(64),
@@ -424,6 +430,13 @@ async function runMigrations(database: ReturnType<typeof createDrizzle>) {
         `ALTER TABLE user_settings ALTER COLUMN last_push_reminder_date TYPE VARCHAR(16)`,
       );
     }
+
+    await client.query(
+      `ALTER TABLE user_settings ALTER COLUMN reminder_time SET DEFAULT '06:00'`,
+    );
+    await client.query(
+      `UPDATE user_settings SET reminder_time = '06:00' WHERE reminder_time IS DISTINCT FROM '06:00'`,
+    );
 
     const habitLoopColumns: Array<[string, string]> = [
       ["stack_after", "TEXT NOT NULL DEFAULT ''"],

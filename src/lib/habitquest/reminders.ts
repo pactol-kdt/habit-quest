@@ -3,7 +3,7 @@ import {
   buildHabitCueReminderCopy,
 } from "~/lib/habitquest/reminder-copy";
 import { describeStackFormula } from "~/lib/habitquest/habit-loop";
-import { DEFAULT_REMINDER_LOCAL_TIME, normalizeReminderTime } from "~/lib/push/timezone";
+import { DEFAULT_REMINDER_LOCAL_TIME } from "~/lib/push/timezone";
 import type { Habit } from "~/types/habitquest";
 
 const DIGEST_FALLBACK_TIME = DEFAULT_REMINDER_LOCAL_TIME;
@@ -170,7 +170,7 @@ export function fireHabitCueReminder(
   }
 }
 
-/** Digest time: Settings reminder time (default 08:00). */
-export function resolveDigestReminderTime(preferredTime?: string | null) {
-  return normalizeReminderTime(preferredTime, DIGEST_FALLBACK_TIME);
+/** Digest time: fixed 6:00 AM local for habits without a cue. */
+export function resolveDigestReminderTime(_preferredTime?: string | null) {
+  return DIGEST_FALLBACK_TIME;
 }
