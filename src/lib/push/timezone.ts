@@ -1,9 +1,12 @@
 import {
   DEFAULT_REMINDER_LOCAL_TIME,
   addHoursToReminderTime,
-  describeReminderSchedule,
+  buildReminderBuzzLines,
+  formatReminderBuzzSummary,
   formatReminderClockLabel,
   normalizeReminderTime,
+  REMINDER_NUDGE_TIMING,
+  REMINDER_STAYS_QUIET,
   snapReminderTimeToHour,
 } from "@habitquest/shared";
 
@@ -13,11 +16,16 @@ export const FIXED_REMINDER_LOCAL_TIME = DEFAULT_REMINDER_LOCAL_TIME;
 export {
   DEFAULT_REMINDER_LOCAL_TIME,
   addHoursToReminderTime,
-  describeReminderSchedule,
+  buildReminderBuzzLines,
+  formatReminderBuzzSummary,
   formatReminderClockLabel,
   normalizeReminderTime,
+  REMINDER_NUDGE_TIMING,
+  REMINDER_STAYS_QUIET,
   snapReminderTimeToHour,
 };
+
+export type { ReminderBuzzHabit, ReminderBuzzLine } from "@habitquest/shared";
 
 export type PushSlotKind = "digest" | "cue";
 
@@ -210,11 +218,6 @@ export function resolvePushSlotsForHour(input: {
   }
 
   return slots;
-}
-
-/** Player-facing schedule from their chosen local time. Never mention UTC. */
-export function describePushReminderSchedule(reminderTime?: string | null) {
-  return describeReminderSchedule(reminderTime);
 }
 
 export function hasSentPushSlot(sentSlots: ReadonlySet<string>, slotKey: string) {

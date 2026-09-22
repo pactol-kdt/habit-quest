@@ -366,7 +366,7 @@ function HabitFormDialog({
         <section className="rounded-[1.35rem] border border-white/10 bg-white/4 p-4 sm:p-5">
           <p className="text-xs uppercase tracking-[0.22em] text-pink-200">4. Reward</p>
           <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
-            The feeling is the real payoff. Difficulty sizes the EXP you get on Done. Undo
+            The feeling is the real payoff. Difficulty sizes the level progress you get on Done. Undo
             anytime today if you tapped by mistake.
           </p>
 

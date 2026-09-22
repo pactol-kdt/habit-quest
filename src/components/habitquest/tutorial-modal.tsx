@@ -278,7 +278,7 @@ function LessonVisual({ lessonId }: { lessonId: (typeof TUTORIAL_LESSONS)[number
     return (
       <div className="mt-5 grid grid-cols-2 gap-2">
         <div className="rounded-[1.15rem] border border-cyan-300/20 bg-cyan-300/8 p-3">
-          <p className="text-xs text-[var(--color-text-muted)]">EXP</p>
+          <p className="text-xs text-[var(--color-text-muted)]">Level</p>
           <p className="mt-1 text-xl font-semibold text-cyan-100">25</p>
           <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Yours now</p>
         </div>
@@ -297,7 +297,7 @@ function LessonVisual({ lessonId }: { lessonId: (typeof TUTORIAL_LESSONS)[number
         ["Home", "Today's due list"],
         ["Habits", "Stack, edit, replay how-to"],
         ["Shop", "Spend coins on cosmetics"],
-        ["More → Guides", "Full rulebook"],
+        ["You → Guides", "Full rulebook"],
       ].map(([label, hint]) => (
         <div
           key={label}

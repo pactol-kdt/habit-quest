@@ -8,8 +8,9 @@ import { ProfilePanel } from "~/components/habitquest/profile-panel";
 import { PurchaseModal } from "~/components/habitquest/purchase-modal";
 import { ShopItemCard } from "~/components/habitquest/shop-item-card";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
+import { previewPurchaseUndoRisk } from "~/lib/habitquest/habit-mutations";
 import { cn } from "~/lib/ui/cn";
-import { isFeatureUnlocked } from "~/lib/habitquest/utils";
+import { getTodayDateKey, isFeatureUnlocked } from "~/lib/habitquest/utils";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 import type { ShopCategory, ShopItem } from "~/types/habitquest";
@@ -46,6 +47,7 @@ export function ShopPage() {
     seasonPass,
     weeklyBoss,
     userProgress: settledProgress,
+    projectSave,
   } = useHabitQuestStore((state) => state);
   const { userProgress } = useEffectiveProgress();
 
@@ -168,6 +170,15 @@ export function ShopPage() {
 
       <PurchaseModal
         item={pendingPurchase}
+        reclaimWarning={
+          pendingPurchase
+            ? previewPurchaseUndoRisk(
+                projectSave(),
+                pendingPurchase.price,
+                getTodayDateKey(),
+              ).risksClawback
+            : false
+        }
         onClose={() => setPendingPurchase(null)}
         onConfirm={purchaseShopItem}
       />

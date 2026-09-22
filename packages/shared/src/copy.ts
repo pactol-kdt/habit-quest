@@ -93,8 +93,8 @@ export const PAGE_HEROES = {
   },
   boss: {
     eyebrow: "Week",
-    title: "Weekly challenge",
-    support: "Progress and rewards for the week.",
+    title: "This week",
+    support: "Complete 15 habits this week.",
   },
   season: {
     eyebrow: "Season",
@@ -146,7 +146,7 @@ export const TUTORIAL_LESSONS = [
     id: "lockin",
     eyebrow: "Today",
     title: "Rewards land now",
-    body: "A Done grants EXP, season XP, and weekly-bar progress immediately. Undo anytime today if you tapped by mistake. Opening tomorrow still catches up days you missed.",
+    body: "A Done adds level progress, season progress, and counts toward this week's 15 habits. Undo anytime today if you tapped by mistake. Opening later still catches up days you missed.",
     points: [
       "Streak counts as soon as you finish.",
       "Spendable coins in the nav are already yours.",

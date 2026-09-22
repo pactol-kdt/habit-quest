@@ -236,3 +236,39 @@ export function previewUndoWalletImpact(
     goesNegative: coinsAfter < 0,
   };
 }
+
+/**
+ * True when spending `price` now would make undoing any of today's habits
+ * leave the wallet below zero. Shop uses this so the reclaim isn't a surprise.
+ */
+export function previewPurchaseUndoRisk(
+  data: HabitQuestData,
+  price: number,
+  today = getTodayDateKey(),
+) {
+  if (price <= 0 || data.wallet.totalCoins < price) {
+    return { risksClawback: false };
+  }
+
+  const afterSpend: HabitQuestData = {
+    ...data,
+    wallet: {
+      ...data.wallet,
+      totalCoins: data.wallet.totalCoins - price,
+      lifetimeCoinsSpent: data.wallet.lifetimeCoinsSpent + price,
+    },
+  };
+
+  const habitIds = new Set(
+    data.completions.filter((entry) => entry.date === today).map((entry) => entry.habitId),
+  );
+
+  for (const habitId of habitIds) {
+    const preview = previewUndoWalletImpact(afterSpend, habitId, today);
+    if (preview.ok && preview.goesNegative) {
+      return { risksClawback: true };
+    }
+  }
+
+  return { risksClawback: false };
+}

@@ -66,6 +66,77 @@ export function formatReminderClockLabel(hhmm: string) {
   }).format(stamp);
 }
 
-export function describeReminderSchedule(_reminderTime?: string | null) {
-  return `at ${formatReminderClockLabel(DEFAULT_REMINDER_LOCAL_TIME)} for habits without a time, and during each habit's hour if still due`;
+export const REMINDER_NUDGE_TIMING = "These are your reminder times.";
+
+export const REMINDER_STAYS_QUIET = "Stays quiet until you turn reminders on.";
+
+export type ReminderBuzzHabit = {
+  title: string;
+  cueTime?: string | null;
+};
+
+export type ReminderBuzzLine = {
+  hour: number;
+  kind: "cue" | "digest";
+  label: string;
+  detail: string;
+};
+
+/**
+ * Buzz times for the player's habits. Same-hour cues share one line.
+ * Habits with no time share the fixed 6:00 AM digest, and only then.
+ */
+export function buildReminderBuzzLines(
+  habits: readonly ReminderBuzzHabit[],
+): ReminderBuzzLine[] {
+  const groups = new Map<number, Array<{ title: string; minutes: number }>>();
+  let hasUntimed = false;
+
+  for (const habit of habits) {
+    const clock = normalizeReminderTime(habit.cueTime, "");
+    const title = habit.title.trim() || "Untitled";
+    if (!clock) {
+      hasUntimed = true;
+      continue;
+    }
+    const hour = Number(clock.slice(0, 2));
+    const minutes = Number(clock.slice(3, 5));
+    const names = groups.get(hour) ?? [];
+    names.push({ title, minutes });
+    groups.set(hour, names);
+  }
+
+  const lines: ReminderBuzzLine[] = [...groups.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([hour, names]) => ({
+      hour,
+      kind: "cue" as const,
+      label: formatReminderClockLabel(`${String(hour).padStart(2, "0")}:00`),
+      detail: names
+        .sort((left, right) => left.minutes - right.minutes || left.title.localeCompare(right.title))
+        .map((name) => name.title)
+        .join(", "),
+    }));
+
+  if (hasUntimed) {
+    const digestHour = Number(DEFAULT_REMINDER_LOCAL_TIME.slice(0, 2));
+    lines.push({
+      hour: digestHour,
+      kind: "digest",
+      label: formatReminderClockLabel(DEFAULT_REMINDER_LOCAL_TIME),
+      detail: "habits with no time",
+    });
+    lines.sort((left, right) => left.hour - right.hour || (left.kind === "digest" ? 1 : -1));
+  }
+
+  return lines;
+}
+
+/** Joined buzz lines, or null when the player has no habits yet. */
+export function formatReminderBuzzSummary(habits: readonly ReminderBuzzHabit[]) {
+  const lines = buildReminderBuzzLines(habits);
+  if (!lines.length) {
+    return null;
+  }
+  return lines.map((line) => `${line.label} — ${line.detail}`).join("; ");
 }

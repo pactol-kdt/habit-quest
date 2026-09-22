@@ -24,7 +24,7 @@ const KIND_LABEL: Record<CelebrationKind, string> = {
   "boss-clear": "Weekly challenge",
   "quest-chapter": "Quest",
   comeback: "Comeback",
-  crit: "Critical",
+  crit: "Bonus",
   "season-level": "Season",
   achievement: "Achievement",
   unlock: "Unlocked",
@@ -135,7 +135,7 @@ function CelebrationDialog({
                 onClick={onClose}
                 className="mt-6 min-h-12 w-full rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.02] sm:w-auto"
               >
-                Continue the run
+                Continue
               </button>
             </div>
           </motion.div>

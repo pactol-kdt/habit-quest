@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { ConfirmDialog } from "~/components/habitquest/confirm-dialog";
 import { CLEARED_TODAY_LABEL } from "~/lib/habitquest/constants";
+import { formatNumber } from "~/lib/habitquest/utils";
 import {
   describeHabitCue,
   describeStackFormula,
@@ -302,10 +303,10 @@ export function HabitList({
 
       <ConfirmDialog
         open={Boolean(undoWarn)}
-        title="Undo will reclaim coins"
+        title="Undo this habit?"
         description={
           undoWarn
-            ? `You already spent today's reward coins. Undoing "${undoWarn.habit.title}" reclaims ${undoWarn.clawback} coin${undoWarn.clawback === 1 ? "" : "s"} and leaves your wallet at ${undoWarn.coinsAfter}.`
+            ? `Undoing "${undoWarn.habit.title}" takes back ${formatNumber(undoWarn.clawback)} coin${undoWarn.clawback === 1 ? "" : "s"} you already spent. Your balance becomes ${formatNumber(undoWarn.coinsAfter)}. That's allowed — it stays there until you earn more. You keep anything you bought.`
             : undefined
         }
         onClose={() => setUndoWarn(null)}
@@ -315,7 +316,7 @@ export function HabitList({
           onClick={() => setUndoWarn(null)}
           className="min-h-12 rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] hover:text-white"
         >
-          Keep Done
+          Keep it done
         </button>
         <button
           type="button"
@@ -326,9 +327,9 @@ export function HabitList({
             onUncomplete(undoWarn.habit.id);
             setUndoWarn(null);
           }}
-          className="min-h-12 rounded-full border border-amber-300/30 bg-amber-300/15 px-5 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-300/25"
+          className="min-h-12 rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950"
         >
-          Undo anyway
+          Undo
         </button>
       </ConfirmDialog>
     </>

@@ -361,7 +361,7 @@ describe("habit CRUD mutators", () => {
 });
 
 describe("claimable rewards listing", () => {
-  it("lists settled boss bounty when defeated and unclaimed", () => {
+  it("does not list the retired weekly boss bounty", () => {
     const data = createSeedData();
     data.weeklyBoss = {
       ...data.weeklyBoss,
@@ -369,7 +369,7 @@ describe("claimable rewards listing", () => {
       rewardClaimed: false,
     };
     const claimables = listClaimableRewards(data);
-    assert.ok(claimables.some((item) => item.kind === "boss"));
+    assert.equal(claimables.some((item) => item.kind === "boss"), false);
   });
 
   it("lists completed unclaimed challenges when feature unlocked", () => {

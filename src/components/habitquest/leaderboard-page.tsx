@@ -188,7 +188,7 @@ export function LeaderboardPage() {
                     </p>
                   </div>
                   <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-[var(--color-text-muted)]">
-                    <ExpIcon size={12} title="EXP" />
+                    <ExpIcon size={12} title="Level progress" />
                     <span className="truncate">
                       {formatNumber(you.totalExp)} among {totalPlayers} players
                     </span>

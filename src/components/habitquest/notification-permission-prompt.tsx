@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { ReminderScheduleList } from "~/components/habitquest/reminder-schedule-list";
 import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import { getReminderPermission } from "~/lib/habitquest/reminders";
 import { enableHabitQuestReminders } from "~/lib/push/enable-reminders";
-import { describePushReminderSchedule } from "~/lib/push/timezone";
+import { buildReminderBuzzLines, REMINDER_NUDGE_TIMING } from "~/lib/push/timezone";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 const DISMISS_KEY = "habitquest::notification-prompt-dismissed";
@@ -30,11 +32,12 @@ export function NotificationPermissionPrompt() {
   const authUser = useHabitQuestStore((state) => state.authUser);
   const remindersEnabled = useHabitQuestStore((state) => state.settings.remindersEnabled);
   const completions = useHabitQuestStore((state) => state.completions);
+  const habits = useHabitQuestStore((state) => state.habits);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const schedule = describePushReminderSchedule();
+  const hasBuzzTimes = buildReminderBuzzLines(habits).length > 0;
   const hasCleared = completions.length > 0;
 
   useDialogA11y(
@@ -96,7 +99,7 @@ export function NotificationPermissionPrompt() {
         aria-modal="true"
         aria-labelledby="reminder-prompt-title"
         tabIndex={-1}
-        className="glass-panel w-full max-w-md rounded-[1.75rem] p-5 outline-none md:p-6"
+        className="glass-panel max-h-[min(32rem,85vh)] w-full max-w-md overflow-y-auto rounded-[1.75rem] p-5 outline-none md:p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
@@ -105,9 +108,16 @@ export function NotificationPermissionPrompt() {
         <h2 id="reminder-prompt-title" className="section-title mt-2 text-2xl text-white">
           Want a nudge for tomorrow?
         </h2>
-        <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
-          HabitQuest can remind you {schedule}. You can change this later in Settings.
-        </p>
+        <ReminderScheduleList habits={habits} />
+        {hasBuzzTimes ? (
+          <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
+            {REMINDER_NUDGE_TIMING}{" "}
+            <Link href="/habits" className="text-cyan-100 hover:underline" onClick={handleLater}>
+              Set a time on the habit
+            </Link>
+            .
+          </p>
+        ) : null}
         <div className="mt-5 flex flex-wrap gap-2">
           <button
             type="button"

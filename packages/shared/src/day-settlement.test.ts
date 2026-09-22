@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyCompleteHabitForToday, applyUncompleteHabitForToday, previewUndoWalletImpact } from "./habit-mutations.ts";
+import {
+  applyCompleteHabitForToday,
+  applyUncompleteHabitForToday,
+  previewPurchaseUndoRisk,
+  previewUndoWalletImpact,
+} from "./habit-mutations.ts";
 import {
   getEffectiveUserProgress,
   getPendingHabitExp,
@@ -124,5 +129,20 @@ describe("live day settle", () => {
     }
     assert.equal(preview.goesNegative, true);
     assert.equal(preview.coinsAfter, afterUndo.data.wallet.totalCoins);
+
+    const held = settleHabitDayProgress(completed.data, today);
+    const buffered = {
+      ...held.data,
+      wallet: {
+        ...held.data.wallet,
+        totalCoins: held.data.wallet.totalCoins + 10_000,
+      },
+    };
+    assert.equal(previewPurchaseUndoRisk(held.data, 0, today).risksClawback, false);
+    assert.equal(
+      previewPurchaseUndoRisk(held.data, held.data.wallet.totalCoins, today).risksClawback,
+      true,
+    );
+    assert.equal(previewPurchaseUndoRisk(buffered, 1, today).risksClawback, false);
   });
 });

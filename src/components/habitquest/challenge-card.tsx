@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
 import { cn } from "~/lib/ui/cn";
@@ -14,6 +15,9 @@ interface ChallengeCardProps {
   /** When the exclusive title was earned on a prior period clear. */
   titleAlreadyOwned?: boolean;
   compact?: boolean;
+  /** When set, a finished goal links here instead of claiming on this card. */
+  claimHref?: string;
+  claimHrefLabel?: string;
   onClaim: (challengeId: string) => void;
 }
 
@@ -24,6 +28,8 @@ export function ChallengeCard({
   pending = false,
   titleAlreadyOwned = false,
   compact = false,
+  claimHref,
+  claimHrefLabel = "Claim on Today",
   onClaim,
 }: ChallengeCardProps) {
   const progressPercent = Math.min((challenge.progress / challenge.target) * 100, 100);
@@ -87,14 +93,23 @@ export function ChallengeCard({
         ) : challenge.claimed ? (
           <p className="text-sm text-emerald-200">Claimed this period.</p>
         ) : challenge.completed ? (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => onClaim(challenge.id)}
-            className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {pending ? "Claiming…" : "Claim"}
-          </button>
+          claimHref ? (
+            <Link
+              href={claimHref}
+              className="inline-flex min-h-11 items-center rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950"
+            >
+              {claimHrefLabel}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onClaim(challenge.id)}
+              className="rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {pending ? "Claiming…" : "Claim"}
+            </button>
+          )
         ) : (
           <p className="text-sm text-[var(--color-text-muted)]">
             Resets each {challenge.period === "weekly" ? "week" : "month"}.

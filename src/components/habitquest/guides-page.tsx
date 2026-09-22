@@ -22,7 +22,7 @@ const CRIT_PERCENT = Math.round(CRIT_CHANCE * 100);
 const GUIDE_SECTIONS = [
   {
     title: "The habit loop",
-    body: "Every lasting habit is trigger → motivation → response → reward. HabitQuest lets you design the loop: stack a trigger onto something you already do, name the motivation (identity or feeling), set a bare minimum response, then enjoy the intrinsic win plus EXP that lands when you tap Done.",
+    body: "Every lasting habit is trigger → motivation → response → reward. HabitQuest lets you design the loop: stack a trigger onto something you already do, name the motivation (identity or feeling), set a bare minimum response, then enjoy the intrinsic win plus level progress that lands when you tap Done.",
   },
   {
     title: "Habit stacking",
@@ -38,27 +38,27 @@ const GUIDE_SECTIONS = [
   },
   {
     title: "Comeback bonus",
-    body: `After a gap of ${COMEBACK_MIN_GAP_DAYS}+ days, your first clear of the day grants a comeback bonus (+${COMEBACK_COINS} coins, +${COMEBACK_EXP} EXP). Comebacks can only trigger about once per week.`,
+    body: `After a gap of ${COMEBACK_MIN_GAP_DAYS}+ days, your first clear of the day grants a comeback bonus (+${COMEBACK_COINS} coins, +${COMEBACK_EXP} level progress). Comebacks can only trigger about once per week.`,
   },
   {
-    title: "Weekly challenge",
-    body: "Open Week. Each habit fills this week's bar (harder habits fill more) — claim when it's full. The same page has a 15-clear contract for coins, EXP, and a title on first clear; later clears keep coins & EXP plus a small repeat bonus. Undo a Done today if you tapped by mistake.",
+    title: "This week",
+    body: "Complete 15 habits this week. The bar on Today tracks that goal, and you claim it there when it is full. Week shows the same goal. The first time you finish it grants a title; later weeks keep coins and level progress plus a small repeat bonus.",
   },
   {
     title: "Undo today",
-    body: "A Done grants EXP, season XP, combo, perfect-day coins, and weekly-bar progress immediately. Undo anytime today to take them back. Opening on a later day still catches up days you missed.",
+    body: "A Done adds level progress, season progress, and progress toward this week's 15 habits immediately, plus coins. Undo anytime today to take them back. If you already spent those coins, undo can leave your balance below zero until you earn more — Shop says so before you buy. Opening on a later day still catches up days you missed.",
   },
   {
-    title: "Critical finishes",
-    body: `Each habit has a ${CRIT_PERCENT}% chance to crit for double EXP once per day. Undo and redo keep the same roll — you can't re-roll for a crit. Stack them with hard habits for bigger swings.`,
+    title: "Bonus finish",
+    body: `Each habit has a ${CRIT_PERCENT}% chance to grant double level progress once per day. Undo and redo keep the same roll. Harder habits swing more.`,
   },
   {
-    title: "Combo bonus",
-    body: `Stack same-day finishes for combo rewards: +${COMBO_EXP_PER_EXTRA_CLEAR} EXP per finish after the first, plus coins at ${COMBO_THRESHOLDS_LABEL} finishes. Combo pays out as you clear.`,
+    title: "Several in one day",
+    body: `Each finish after the first adds +${COMBO_EXP_PER_EXTRA_CLEAR} level progress, plus coins at ${COMBO_THRESHOLDS_LABEL} finishes. It pays as you go. Today shows how many you've finished.`,
   },
   {
     title: "Season rewards",
-    body: "Available from level 1. Habit finishes contribute season XP (40 XP per level, track to level 30). Open Season to review tiers, claim rewards, and work the monthly climb (2000 EXP this month — title on first clear). Quest chapters unlock at level 3: complete habits, hard clears, or hold a streak, then claim coins, EXP, and exclusive themes. Claiming the finale finishes the season and counts toward Seasons finished. The track resets each calendar month.",
+    body: "Available from level 1. Habit finishes contribute season XP (40 XP per level, track to level 30). Open Season to review tiers, claim rewards, and work the monthly climb (2000 level progress this month — title on first clear). Quest chapters unlock at level 3: complete habits, hard clears, or hold a streak, then claim coins, level progress, and exclusive themes. Claiming the finale finishes the season and counts toward Seasons finished. The track resets each calendar month.",
   },
   {
     title: "Themes",
@@ -94,7 +94,7 @@ export function GuidesPage() {
             href="/boss"
             className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
           >
-            Weekly challenge
+            This week
           </Link>
           <Link
             href="/season"

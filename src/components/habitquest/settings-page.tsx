@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { ReminderScheduleList } from "~/components/habitquest/reminder-schedule-list";
 import { sendTestReminderNow } from "~/hooks/use-habitquest-reminders";
 import {
   canFireBrowserReminder,
@@ -12,7 +14,11 @@ import {
   disableHabitQuestReminders,
   enableHabitQuestReminders,
 } from "~/lib/push/enable-reminders";
-import { describePushReminderSchedule } from "~/lib/push/timezone";
+import {
+  buildReminderBuzzLines,
+  REMINDER_NUDGE_TIMING,
+  REMINDER_STAYS_QUIET,
+} from "~/lib/push/timezone";
 import { APP_VERSION } from "~/lib/app-version";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { getDueHabitsForDate, getTodayDateKey } from "~/lib/habitquest/utils";
@@ -27,6 +33,7 @@ export function SettingsPage() {
 
   const { hydrated, settings, habits } = useHabitQuestStore((state) => state);
   const hero = PAGE_HEROES.settings;
+  const buzzLines = buildReminderBuzzLines(habits);
 
   if (!hydrated) {
     return (
@@ -81,8 +88,18 @@ export function SettingsPage() {
 
       <GlassCard>
         <h2 className="section-title text-2xl text-white">Daily reminder</h2>
-        <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
-          HabitQuest can remind you {describePushReminderSchedule()}.
+        <ReminderScheduleList habits={habits} />
+        {buzzLines.length ? (
+          <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
+            {settings.remindersEnabled ? REMINDER_NUDGE_TIMING : REMINDER_STAYS_QUIET}
+          </p>
+        ) : settings.remindersEnabled ? null : (
+          <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">{REMINDER_STAYS_QUIET}</p>
+        )}
+        <p className="mt-3">
+          <Link href="/habits" className="text-sm text-cyan-100 hover:underline">
+            {buzzLines.length ? "Set a time on the habit" : "Add a habit"}
+          </Link>
         </p>
         <button
           type="button"

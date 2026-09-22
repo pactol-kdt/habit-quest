@@ -605,7 +605,6 @@ export function unlockAchievements(data: HabitQuestData) {
       return achievement;
     }
 
-    const bossDefeated = data.weeklyBoss.defeated;
     const ownsCosmetic = data.shopItems.some((item) => item.owned);
     const weeklyChallengeCompleted = data.challenges.some(
       (challenge) => challenge.period === "weekly" && challenge.completed,
@@ -621,7 +620,6 @@ export function unlockAchievements(data: HabitQuestData) {
       (achievement.key === "reach-level-5" && data.userProgress.level >= 5) ||
       (achievement.key === "reach-level-10" && data.userProgress.level >= 10) ||
       (achievement.key === "buy-first-cosmetic" && ownsCosmetic) ||
-      (achievement.key === "defeat-weekly-boss" && bossDefeated) ||
       (achievement.key === "complete-weekly-challenge" && weeklyChallengeCompleted) ||
       (achievement.key === "complete-season-pass" &&
         data.rewardSystems.seasonPassCompletions >= 1);

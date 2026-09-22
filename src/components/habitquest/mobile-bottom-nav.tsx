@@ -42,7 +42,7 @@ function tabBadgeCount(
 ) {
   if (href === "/boss") {
     return claimables.filter(
-      (c) => c.kind === "boss" || (c.kind === "challenge" && c.href.startsWith("/boss")),
+      (c) => c.kind === "challenge" && c.href.startsWith("/boss"),
     ).length;
   }
   if (href === "/season") {

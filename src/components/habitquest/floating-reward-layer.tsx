@@ -42,14 +42,9 @@ export function FloatingRewardLayer() {
             transition={{ duration: FLOAT_MS / 1000, times: [0, 0.12, 0.55, 1], ease: "easeOut" }}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold tabular-nums",
-              reward.crit
-                ? "text-amber-100"
-                : reward.kind === "coins"
-                  ? "text-amber-100"
-                  : "text-cyan-100",
+              reward.kind === "coins" ? "text-amber-100" : "text-cyan-100",
             )}
           >
-            {reward.crit ? <span className="text-[10px] uppercase tracking-[0.18em] text-amber-200/90">Crit</span> : null}
             <CurrencyAmount
               kind={reward.kind === "coins" ? "coins" : "exp"}
               value={reward.value}

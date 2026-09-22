@@ -16,7 +16,7 @@ interface CurrencyAmountProps {
 
 const LABELS: Record<CurrencyKind, string> = {
   coins: "coins",
-  exp: "EXP",
+  exp: "level progress",
 };
 
 export function CurrencyAmount({

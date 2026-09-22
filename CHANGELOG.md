@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.11.0 - Clear Copy and 15 Habits
+
+### Changed
+- The morning catch-up says missed days are counted. It no longer says Lock-in, EXP locked, or boss damage.
+- Shop warns when today's coins can be taken back by Undo. The undo dialog explains a below-zero balance and offers Undo or Keep it done.
+- Daily chrome uses level progress and "N done today" instead of EXP, Crit, and Combo.
+- Settings and the reminder prompt list each habit's buzz hour. The habit's time is the nudge; habits with no time stay on the 6:00 AM nudge.
+- The tutorial map points at You → Guides.
+- The hit-point weekly challenge is gone. Today tracks completing 15 habits this week and claims that reward. Week is the detail.
+
 ## 0.10.0 - Shop Nav and Today Claims
 
 ### Added

@@ -21,6 +21,7 @@ import {
   getProfileDisplay,
   getTodayDateKey,
   hasCompletionForDate,
+  isFeatureUnlocked,
 } from "~/lib/habitquest/utils";
 import { PulseOnChange } from "~/components/habitquest/pulse-on-change";
 import { useHabitQuestStore } from "~/store/habitquest-store";
@@ -33,7 +34,7 @@ export function HabitQuestApp() {
   const [devStreakPreview, setDevStreakPreview] = useState<number | null>(null);
 
   const store = useHabitQuestStore((state) => state);
-  const { userProgress, weeklyBoss } = useEffectiveProgress();
+  const { userProgress } = useEffectiveProgress();
   const streakForDisplay = devStreakPreview ?? userProgress.currentStreak;
 
   const {
@@ -41,6 +42,8 @@ export function HabitQuestApp() {
     habits,
     completions,
     shopItems,
+    challenges,
+    levelUnlocks,
     equippedItems,
     dailyRewards,
     settings,
@@ -49,7 +52,7 @@ export function HabitQuestApp() {
     deleteHabit,
     completeHabitForToday,
     uncompleteHabitForToday,
-    claimBossReward,
+    claimChallengeReward,
     pendingHabitIds,
     pendingHabitActions,
     pendingClaimIds,
@@ -141,7 +144,7 @@ export function HabitQuestApp() {
     );
   }
 
-  const displayName = settings.displayName.trim() || "Traveler";
+  const displayName = settings.displayName.trim();
   const profile = getProfileDisplay(shopItems, equippedItems);
   const greeting = getMotivationalGreeting(userProgress);
   const streakTier = getStreakFireTier(streakForDisplay);
@@ -156,17 +159,28 @@ export function HabitQuestApp() {
       ? "Nothing due"
       : `${todayReward.completedCount}/${dueCount} due`;
 
-  const weekPercent = weeklyBoss.maxHp
-    ? ((weeklyBoss.maxHp - weeklyBoss.effectiveHp) / weeklyBoss.maxHp) * 100
+  const weeklyChallenge = challenges.find((challenge) => challenge.period === "weekly") ?? null;
+  const weeklyUnlocked = isFeatureUnlocked(levelUnlocks, "weekly-challenges");
+  const weekPercent = weeklyChallenge?.target
+    ? Math.min(100, (weeklyChallenge.progress / weeklyChallenge.target) * 100)
     : 0;
-  const weekStatus = weeklyBoss.defeated
-    ? weeklyBoss.rewardClaimed
-      ? "Cleared"
-      : "Reward ready"
-    : "In progress";
-  const weekRewardReady = weeklyBoss.defeated && !weeklyBoss.rewardClaimed;
-  const claimingWeek =
-    pendingClaimIds.includes("boss-reward") || pendingClaimIds.includes("claim-all");
+  const weekStatus = !weeklyChallenge
+    ? "In progress"
+    : !weeklyUnlocked
+      ? "Locked"
+      : weeklyChallenge.claimed
+        ? "Claimed"
+        : weeklyChallenge.completed
+          ? "Reward ready"
+          : "In progress";
+  const weekRewardReady = Boolean(
+    weeklyChallenge && weeklyUnlocked && weeklyChallenge.completed && !weeklyChallenge.claimed,
+  );
+  const claimingWeek = Boolean(
+    weeklyChallenge &&
+      (pendingClaimIds.includes(`challenge:${weeklyChallenge.id}`) ||
+        pendingClaimIds.includes("claim-all")),
+  );
 
   return (
     <main className="grid gap-4 pt-4 md:gap-6 md:pt-6">
@@ -187,9 +201,11 @@ export function HabitQuestApp() {
           <div className="min-w-0 flex-1">
             <h1 className="section-title truncate text-2xl text-white sm:text-3xl">
               {greeting.headline}
-              <span className="font-sans text-lg font-normal tracking-normal text-white/70 sm:text-xl">
-                {`, ${displayName}`}
-              </span>
+              {displayName ? (
+                <span className="font-sans text-lg font-normal tracking-normal text-white/70 sm:text-xl">
+                  {`, ${displayName}`}
+                </span>
+              ) : null}
             </h1>
             <p className="mt-1 truncate text-sm text-[var(--color-text-muted)]">
               {profile.title?.name ? `${profile.title.name} · ` : ""}
@@ -207,12 +223,14 @@ export function HabitQuestApp() {
                 </PulseOnChange>
               </span>
               {todayCombo > 1 ? (
-                <PulseOnChange
-                  value={todayCombo}
-                  className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-sm font-semibold tabular-nums text-cyan-100"
-                >
-                  Combo x{todayCombo}
-                </PulseOnChange>
+                <span title="Finishing more than one today adds a little extra">
+                  <PulseOnChange
+                    value={todayCombo}
+                    className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-sm font-semibold tabular-nums text-cyan-100"
+                  >
+                    {todayCombo} done today
+                  </PulseOnChange>
+                </span>
               ) : null}
               <div className="min-w-[10rem] flex-1 sm:max-w-xs">
                 <ExpProgress
@@ -245,7 +263,7 @@ export function HabitQuestApp() {
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
               Today
             </p>
-            <h2 className="section-title mt-1 text-2xl text-white">Your quest</h2>
+            <h2 className="section-title mt-1 text-2xl text-white">Today&apos;s list</h2>
           </div>
 
           <HabitList
@@ -271,78 +289,48 @@ export function HabitQuestApp() {
 
         <ClaimableRewardsStrip />
 
-        {weekRewardReady ? (
-          <GlassCard className="rounded-[1.75rem] border-amber-300/25 bg-amber-300/8 p-4 md:p-6">
-            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.28em] text-amber-100/80">
-                  {weekStatus}
-                </p>
-                <h2 className="section-title mt-1 text-xl text-white md:text-2xl">
-                  Weekly challenge
-                </h2>
-              </div>
-              <p className="text-sm font-semibold tabular-nums text-cyan-100">
-                <PulseOnChange value={weeklyBoss.effectiveHp}>
-                  {weeklyBoss.effectiveHp}/{weeklyBoss.maxHp} left
-                </PulseOnChange>
-              </p>
-            </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
-              <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-rose-400 to-amber-300"
-                initial={false}
-                animate={{ width: `${Math.min(100, weekPercent)}%` }}
-                transition={{ type: "spring", stiffness: 160, damping: 26 }}
+        {weeklyChallenge ? (
+          weekRewardReady ? (
+            <GlassCard className="rounded-[1.75rem] border-amber-300/25 bg-amber-300/8 p-4 md:p-6">
+              <WeekGoal
+                status={weekStatus}
+                title={weeklyChallenge.description}
+                progress={weeklyChallenge.progress}
+                target={weeklyChallenge.target}
+                percent={weekPercent}
               />
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                disabled={claimingWeek}
-                onClick={() => claimBossReward()}
-                className="min-h-11 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {claimingWeek ? "Claiming…" : "Claim weekly reward"}
-              </button>
-              <Link
-                href="/boss"
-                className="min-h-11 rounded-full border border-white/15 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/25 hover:text-white"
-              >
-                Open Week
-              </Link>
-            </div>
-          </GlassCard>
-        ) : (
-          <Link href="/boss" className="block rounded-[1.75rem] outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50">
-            <GlassCard className="rounded-[1.75rem] p-4 transition hover:border-white/20 md:p-6">
-              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-                    {weekStatus}
-                  </p>
-                  <h2 className="section-title mt-1 text-xl text-white md:text-2xl">
-                    Weekly challenge
-                  </h2>
-                </div>
-                <p className="text-sm font-semibold tabular-nums text-cyan-100">
-                  <PulseOnChange value={weeklyBoss.effectiveHp}>
-                    {weeklyBoss.effectiveHp}/{weeklyBoss.maxHp} left
-                  </PulseOnChange>
-                </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={claimingWeek}
+                  onClick={() => claimChallengeReward(weeklyChallenge.id)}
+                  className="min-h-11 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {claimingWeek ? "Claiming…" : "Claim"}
+                </button>
+                <Link
+                  href="/boss"
+                  className="min-h-11 rounded-full border border-white/15 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/25 hover:text-white"
+                >
+                  Open Week
+                </Link>
               </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
-                <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-rose-400 to-amber-300"
-                  initial={false}
-                  animate={{ width: `${Math.min(100, weekPercent)}%` }}
-                  transition={{ type: "spring", stiffness: 160, damping: 26 }}
-                />
-              </div>
-              <p className="mt-3 text-sm text-[var(--color-text-muted)]">Open Week</p>
             </GlassCard>
-          </Link>
-        )}
+          ) : (
+            <Link href="/boss" className="block rounded-[1.75rem] outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50">
+              <GlassCard className="rounded-[1.75rem] p-4 transition hover:border-white/20 md:p-6">
+                <WeekGoal
+                  status={weekStatus}
+                  title={weeklyChallenge.description}
+                  progress={weeklyChallenge.progress}
+                  target={weeklyChallenge.target}
+                  percent={weekPercent}
+                />
+                <p className="mt-3 text-sm text-[var(--color-text-muted)]">Open Week</p>
+              </GlassCard>
+            </Link>
+          )
+        ) : null}
       </motion.div>
 
       <HabitFormModal
@@ -359,5 +347,43 @@ export function HabitQuestApp() {
         }}
       />
     </main>
+  );
+}
+
+function WeekGoal({
+  status,
+  title,
+  progress,
+  target,
+  percent,
+}: {
+  status: string;
+  title: string;
+  progress: number;
+  target: number;
+  percent: number;
+}) {
+  return (
+    <>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">{status}</p>
+          <h2 className="section-title mt-1 text-xl text-white md:text-2xl">{title}</h2>
+        </div>
+        <p className="text-sm font-semibold tabular-nums text-cyan-100">
+          <PulseOnChange value={progress}>
+            {progress}/{target}
+          </PulseOnChange>
+        </p>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+        <motion.div
+          className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-amber-300"
+          initial={false}
+          animate={{ width: `${percent}%` }}
+          transition={{ type: "spring", stiffness: 160, damping: 26 }}
+        />
+      </div>
+    </>
   );
 }

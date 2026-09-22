@@ -7,7 +7,7 @@ import {
   subscribeToHabitQuestPush,
   unsubscribeFromHabitQuestPush,
 } from "~/lib/push/client";
-import { describePushReminderSchedule } from "~/lib/push/timezone";
+import { formatReminderBuzzSummary } from "~/lib/push/timezone";
 import {
   removePushSubscriptionRequest,
   savePushSubscriptionRequest,
@@ -55,13 +55,19 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
     remindersEnabled: true,
   });
 
-  const schedule = describePushReminderSchedule();
+  const summary = formatReminderBuzzSummary(useHabitQuestStore.getState().habits);
+  const pingLine = summary
+    ? `We'll ping you ${summary}.`
+    : "We'll ping you once you add a habit and set its time.";
+  const onLine = summary
+    ? `Reminders on. ${summary}.`
+    : "Reminders on. Add a habit and set its time to choose when it buzzes.";
 
   if (!canUseWebPush() || !getVapidPublicKeyFromEnv()) {
     return {
       permission: "granted",
       pushStatus: getVapidPublicKeyFromEnv() ? "unsupported" : "missing-vapid",
-      message: `We'll ping you ${schedule}. Background push needs a push-capable browser.`,
+      message: `${pingLine} Background push needs a push-capable browser.`,
     };
   }
 
@@ -81,7 +87,7 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
       return {
         permission: "granted",
         pushStatus: "subscribed",
-        message: `Reminders on — ${schedule}.`,
+        message: onLine,
       };
     }
     return {
@@ -102,7 +108,7 @@ export async function enableHabitQuestReminders(): Promise<EnableRemindersResult
   return {
     permission: "granted",
     pushStatus: "skipped",
-    message: `We'll ping you ${schedule}.`,
+    message: pingLine,
   };
 }
 

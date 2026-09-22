@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useRef } from "react";
 import { useDialogA11y } from "~/hooks/use-dialog-a11y";
-import { formatNumber } from "~/lib/habitquest/utils";
+import { formatDateLabel, formatNumber } from "~/lib/habitquest/utils";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 import type { SettlementRecap } from "~/types/habitquest";
 
@@ -20,22 +20,24 @@ function RecapStat({ label, value }: { label: string; value: string }) {
 function buildLines(recap: SettlementRecap) {
   const lines: string[] = [];
   if (recap.habitExp > 0) {
-    lines.push(`${formatNumber(recap.habitExp)} habit EXP from ${recap.clears} clears`);
-  }
-  if (recap.comboExp > 0 || recap.comboCoins > 0) {
     lines.push(
-      `Combo payout +${recap.comboExp} EXP` +
-        (recap.comboCoins ? ` · +${recap.comboCoins} coins` : ""),
+      `${formatNumber(recap.habitExp)} level progress from ${recap.clears} habit${recap.clears === 1 ? "" : "s"}`,
     );
   }
+  if (recap.comboExp > 0 || recap.comboCoins > 0) {
+    const parts = [
+      recap.comboExp > 0 ? `+${formatNumber(recap.comboExp)} level progress` : null,
+      recap.comboCoins > 0 ? `+${formatNumber(recap.comboCoins)} coins` : null,
+    ].filter(Boolean);
+    lines.push(`Extra for finishing several in a day: ${parts.join(" · ")}`);
+  }
   if (recap.comebackExp > 0 || recap.comebackCoins > 0) {
-    lines.push(`Comeback +${recap.comebackExp} EXP · +${recap.comebackCoins} coins`);
+    lines.push(
+      `Welcome back +${formatNumber(recap.comebackExp)} level progress · +${formatNumber(recap.comebackCoins)} coins`,
+    );
   }
   if (recap.perfectDayCoins > 0) {
-    lines.push(`Perfect day +${recap.perfectDayCoins} coins`);
-  }
-  if (recap.bossDamage > 0) {
-    lines.push(`${recap.bossDamage} boss damage applied`);
+    lines.push(`All habits done +${formatNumber(recap.perfectDayCoins)} coins`);
   }
   return lines;
 }
@@ -83,26 +85,26 @@ function SettlementRecapDialog({
             exit={{ y: 12, opacity: 0 }}
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="text-xs uppercase tracking-[0.28em] text-cyan-200">Lock-in</p>
+            <p className="text-xs uppercase tracking-[0.28em] text-cyan-200">Caught up</p>
             <h2 id="settlement-recap-title" className="section-title mt-3 text-2xl text-white sm:text-3xl">
-              Yesterday found its rest
+              Missed days are counted
             </h2>
             <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
-              Progress through {recap.throughDate} is now part of your lasting path.
-              Boss, season, and habit chapter claims use this settled state.
+              Habits through {formatDateLabel(recap.throughDate)} are in your balance now.
+              A Done still pays when you tap it, and you can undo it the same day.
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <RecapStat label="Streak" value={`${recap.streak}d`} />
-              <RecapStat label="Finished today" value={String(recap.clears)} />
+              <RecapStat label="Habits finished" value={String(recap.clears)} />
               <RecapStat
-                label="EXP locked"
+                label="Level progress"
                 value={formatNumber(
                   recap.habitExp + recap.comboExp + recap.comebackExp,
                 )}
               />
               <RecapStat
-                label="Coins locked"
+                label="Coins added"
                 value={formatNumber(
                   recap.comboCoins + recap.comebackCoins + recap.perfectDayCoins,
                 )}
@@ -120,7 +122,7 @@ function SettlementRecapDialog({
               ))}
               {!buildLines(recap).length ? (
                 <li className="rounded-2xl border border-white/10 bg-white/4 px-3.5 py-2.5 text-sm text-[var(--color-text-muted)]">
-                  Days caught up with no extra payouts — streak and quests are current.
+                  Those days had no extra rewards. Your streak is up to date.
                 </li>
               ) : null}
             </ul>
@@ -138,14 +140,14 @@ function SettlementRecapDialog({
                 onClick={onClose}
                 className="rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] hover:text-white"
               >
-                Check boss
+                Week
               </Link>
               <Link
                 href="/season"
                 onClick={onClose}
                 className="rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] hover:text-white"
               >
-                Season pass
+                Season
               </Link>
             </div>
           </motion.div>

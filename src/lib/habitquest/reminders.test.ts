@@ -11,7 +11,9 @@ import {
   hourFromClockTime,
   isWithinReminderHourInTimeZone,
   shouldFireReminderInTimeZone,
-  describePushReminderSchedule,
+  buildReminderBuzzLines,
+  formatReminderBuzzSummary,
+  formatReminderClockLabel,
   normalizeReminderTime,
   addHoursToReminderTime,
   snapReminderTimeToHour,
@@ -92,19 +94,29 @@ describe("timezone reminder helpers", () => {
     assert.equal(digest?.slotKey, "2026-08-14:d");
   });
 
-  it("describes the fixed 6:00 AM digest even if a stored time is passed", () => {
-    assert.equal(
-      describePushReminderSchedule("08:00"),
-      "at 6:00 AM for habits without a time, and during each habit's hour if still due",
+  it("lists buzz hours from habits and keeps 6:00 AM for habits with no time", () => {
+    const lines = buildReminderBuzzLines([
+      { title: "Stretch", cueTime: "07:30" },
+      { title: "Walk", cueTime: "07:10" },
+      { title: "Read", cueTime: null },
+      { title: "Cook", cueTime: "18:00" },
+    ]);
+    assert.deepEqual(
+      lines.map((line) => [line.kind, line.hour, line.label, line.detail]),
+      [
+        ["digest", 6, formatReminderClockLabel("06:00"), "habits with no time"],
+        ["cue", 7, formatReminderClockLabel("07:00"), "Walk, Stretch"],
+        ["cue", 18, formatReminderClockLabel("18:00"), "Cook"],
+      ],
     );
     assert.equal(
-      describePushReminderSchedule("07:00"),
-      "at 6:00 AM for habits without a time, and during each habit's hour if still due",
+      formatReminderBuzzSummary([
+        { title: "Stretch", cueTime: "07:30" },
+        { title: "Walk", cueTime: "07:10" },
+      ]),
+      `${formatReminderClockLabel("07:00")} — Walk, Stretch`,
     );
-    assert.equal(
-      describePushReminderSchedule(),
-      "at 6:00 AM for habits without a time, and during each habit's hour if still due",
-    );
+    assert.equal(formatReminderBuzzSummary([]), null);
   });
 });
 

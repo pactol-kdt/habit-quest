@@ -283,15 +283,6 @@ function liveBeats(before: HabitQuestData, after: HabitQuestData): CelebrationEv
       ),
     );
   }
-  if (after.weeklyBoss.defeated && !before.weeklyBoss.defeated) {
-    events.push(
-      createCelebration(
-        "boss-clear",
-        "Weekly challenge complete",
-        "Claim the weekly reward when ready.",
-      ),
-    );
-  }
   return events;
 }
 
@@ -1476,11 +1467,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ...mergeTransientState(current, {
         ...optimisticResolution,
         data: optimisticPersisted,
-        floatingRewards: currencyFloats(snapshot, optimisticPersisted).map((reward) =>
-          mutation.completion?.crit && reward.kind === "exp"
-            ? { ...reward, crit: true }
-            : reward,
-        ),
+        floatingRewards: currencyFloats(snapshot, optimisticPersisted),
         celebrations: compactCelebrations([
           ...liveBeats(snapshot, optimisticPersisted),
           ...optimisticResolution.celebrations,

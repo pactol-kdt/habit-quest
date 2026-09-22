@@ -457,7 +457,7 @@ function applyCalendarDaySettlement(
           completion.expEarned,
           dateKey,
           "habit",
-          completion.crit ? `${habitLabel} critical hit` : `${habitLabel} completed`,
+          completion.crit ? `${habitLabel} bonus` : `${habitLabel} completed`,
         ),
         ...data.userProgress.expHistory,
       ],
@@ -486,7 +486,12 @@ function applyCalendarDaySettlement(
         ...data.userProgress,
         totalExp: data.userProgress.totalExp + comboReward.exp,
         expHistory: [
-          createExpEntry(comboReward.exp, dateKey, "combo", `Combo x${dayCompletions.length}`),
+          createExpEntry(
+            comboReward.exp,
+            dateKey,
+            "combo",
+            `Extra for ${dayCompletions.length} finishes`,
+          ),
           ...data.userProgress.expHistory,
         ],
       };
@@ -525,13 +530,6 @@ function applyCalendarDaySettlement(
       data.rewardSystems,
       data.weeklyBoss.weekKey,
       true,
-    );
-    celebrations.push(
-      createCelebration(
-        "boss-clear",
-        "Weekly challenge complete",
-        "Claim the weekly reward when ready.",
-      ),
     );
   }
 

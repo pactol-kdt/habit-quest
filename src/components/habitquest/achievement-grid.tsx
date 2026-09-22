@@ -12,7 +12,9 @@ interface AchievementGridProps {
 export function AchievementGrid({ achievements }: AchievementGridProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {achievements.map((achievement) => {
+      {achievements
+        .filter((achievement) => achievement.key !== "defeat-weekly-boss")
+        .map((achievement) => {
         const locked = !achievement.unlocked;
 
         return (

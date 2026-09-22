@@ -175,18 +175,11 @@ export function ProfilePage() {
         <ContributionGraph completions={completions} />
       </GlassCard>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <HonorMedal
-          tone="gold"
-          count={rewardSystems.seasonPassCompletions ?? 0}
-          label="Seasons finished"
-        />
-        <HonorMedal
-          tone="ember"
-          count={rewardSystems.weeklyBossCompletions ?? 0}
-          label="Weekly goals won"
-        />
-      </div>
+      <HonorMedal
+        tone="gold"
+        count={rewardSystems.seasonPassCompletions ?? 0}
+        label="Seasons finished"
+      />
 
       <ChangePasswordDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
     </div>

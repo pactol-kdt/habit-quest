@@ -9,15 +9,22 @@ import type { ShopItem } from "~/types/habitquest";
 
 interface PurchaseModalProps {
   item: ShopItem | null;
+  /** Today's habit coins are part of this price, so a later undo can go below zero. */
+  reclaimWarning?: boolean;
   onClose: () => void;
   onConfirm: (itemId: string) => void;
 }
 
-export function PurchaseModal({ item, onClose, onConfirm }: PurchaseModalProps) {
+export function PurchaseModal({ item, reclaimWarning = false, onClose, onConfirm }: PurchaseModalProps) {
   return (
     <AnimatePresence>
       {item ? (
-        <PurchaseDialog item={item} onClose={onClose} onConfirm={onConfirm} />
+        <PurchaseDialog
+          item={item}
+          reclaimWarning={reclaimWarning}
+          onClose={onClose}
+          onConfirm={onConfirm}
+        />
       ) : null}
     </AnimatePresence>
   );
@@ -25,10 +32,12 @@ export function PurchaseModal({ item, onClose, onConfirm }: PurchaseModalProps) 
 
 function PurchaseDialog({
   item,
+  reclaimWarning,
   onClose,
   onConfirm,
 }: {
   item: ShopItem;
+  reclaimWarning: boolean;
   onClose: () => void;
   onConfirm: (itemId: string) => void;
 }) {
@@ -100,6 +109,12 @@ function PurchaseDialog({
           />{" "}
           on this {item.category}.
         </p>
+        {reclaimWarning ? (
+          <p className="mt-3 text-sm leading-6 text-amber-100/90">
+            Some of these coins are from habits you finished today. If you undo one of those
+            later, the coins come off your balance and it can go below zero. You keep this item.
+          </p>
+        ) : null}
 
         <div className="mt-6 grid grid-cols-2 gap-3 sm:flex">
           <button

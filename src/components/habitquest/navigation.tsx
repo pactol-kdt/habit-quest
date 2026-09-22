@@ -215,7 +215,7 @@ export function Navigation() {
                 const active = pathname === item.href;
                 const badge =
                   item.href === "/boss"
-                    ? claimables.filter((c) => c.kind === "boss" || (c.kind === "challenge" && c.href.startsWith("/boss"))).length
+                    ? claimables.filter((c) => c.kind === "challenge" && c.href.startsWith("/boss")).length
                     : item.href === "/season"
                       ? claimables.filter(
                           (c) =>

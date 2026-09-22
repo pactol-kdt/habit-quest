@@ -33,7 +33,7 @@ export function listClaimableRewards(data: HabitQuestData): ClaimableReward[] {
         kind: "challenge",
         title:
           challenge.period === "weekly"
-            ? "15 clears"
+            ? "15 habits this week"
             : challenge.period === "monthly"
               ? "Monthly climb"
               : challenge.title,
@@ -72,16 +72,6 @@ export function listClaimableRewards(data: HabitQuestData): ClaimableReward[] {
         });
       }
     }
-  }
-
-  if (data.weeklyBoss.defeated && !data.weeklyBoss.rewardClaimed) {
-    items.push({
-      id: "boss-reward",
-      kind: "boss",
-      title: "Weekly challenge",
-      detail: "Weekly reward ready",
-      href: "/boss",
-    });
   }
 
   return items;

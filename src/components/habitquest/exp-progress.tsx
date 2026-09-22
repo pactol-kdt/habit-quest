@@ -28,7 +28,7 @@ export function ExpProgress({
         <div className="flex items-center justify-between gap-3 text-xs text-[var(--color-text-muted)]">
           <span>Level {level}</span>
           <span className="inline-flex items-center gap-1.5 tabular-nums">
-            <ExpIcon size={12} title="EXP" />
+            <ExpIcon size={12} title="Level progress" />
             <PulseOnChange value={currentExp}>
               {formatNumber(currentExp)} / {formatNumber(requiredExp)}
             </PulseOnChange>
@@ -51,7 +51,7 @@ export function ExpProgress({
       <div className="flex items-center justify-between gap-4 text-sm text-[var(--color-text-muted)]">
         <span>Level {level} progress</span>
         <span className="inline-flex items-center gap-1.5 tabular-nums">
-          <ExpIcon size={14} title="EXP" />
+          <ExpIcon size={14} title="Level progress" />
           <PulseOnChange value={currentExp}>
             {formatNumber(currentExp)} / {formatNumber(requiredExp)}
           </PulseOnChange>

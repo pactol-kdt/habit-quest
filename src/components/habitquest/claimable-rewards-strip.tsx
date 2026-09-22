@@ -34,7 +34,9 @@ function claimAction(
 }
 
 export function ClaimableRewardsStrip() {
-  const claimables = useClaimableRewards();
+  const claimables = useClaimableRewards().filter(
+    (item) => item.kind !== "boss" && item.href !== "/boss#clears",
+  );
   const claimChallengeReward = useHabitQuestStore((state) => state.claimChallengeReward);
   const claimQuestArcReward = useHabitQuestStore((state) => state.claimQuestArcReward);
   const claimSeasonPassLevel = useHabitQuestStore((state) => state.claimSeasonPassLevel);
@@ -72,7 +74,7 @@ export function ClaimableRewardsStrip() {
             <button
               type="button"
               disabled={anyPending}
-              onClick={() => claimAllRewards()}
+              onClick={() => claimAllRewards(["challenge", "quest", "season"])}
               className="min-h-10 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {claimingAll ? "Claiming all…" : "Claim all"}
