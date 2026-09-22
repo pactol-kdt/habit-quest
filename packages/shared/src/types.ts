@@ -21,7 +21,10 @@ export type CelebrationKind =
   | "quest-chapter"
   | "comeback"
   | "crit"
-  | "season-level";
+  | "season-level"
+  | "achievement"
+  | "unlock"
+  | "shop";
 
 export interface Habit {
   id: string;
@@ -242,6 +245,8 @@ export interface CelebrationEvent {
   kind: CelebrationKind;
   title: string;
   description: string;
+  /** Shop item to preview on purchase celebrations. */
+  itemId?: string;
 }
 
 /** Summary of days that just locked in during resolve. */
@@ -294,7 +299,7 @@ export interface HabitFormValues {
 
 export interface RewardToast {
   id: string;
-  type: "coins" | "exp" | "achievement" | "unlock" | "shop" | "warning" | "crit";
+  type: "warning";
   title: string;
   description: string;
 }
@@ -304,4 +309,5 @@ export interface FloatingReward {
   kind: "coins" | "exp";
   value: number;
   label: string;
+  crit?: boolean;
 }

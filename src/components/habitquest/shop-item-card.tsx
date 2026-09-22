@@ -31,7 +31,7 @@ export function ShopItemCard({
 }: ShopItemCardProps) {
   return (
     <motion.div layout initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
-      <GlassCard className={cn("h-full", locked && "opacity-70")}>
+      <GlassCard className={cn("h-full", locked && !item.owned && "opacity-70")}>
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -62,10 +62,16 @@ export function ShopItemCard({
 
         <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
           <span className="rounded-full bg-white/5 px-3 py-1">{item.category}</span>
-          <span className="rounded-full bg-white/5 px-3 py-1">Lv {item.requiredLevel}</span>
-          <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 normal-case tracking-normal">
-            <CurrencyAmount kind="coins" value={item.price} size={13} />
-          </span>
+          {item.exclusive ? (
+            <span className="rounded-full bg-white/5 px-3 py-1">Earned</span>
+          ) : (
+            <>
+              <span className="rounded-full bg-white/5 px-3 py-1">Lv {item.requiredLevel}</span>
+              <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 normal-case tracking-normal">
+                <CurrencyAmount kind="coins" value={item.price} size={13} />
+              </span>
+            </>
+          )}
         </div>
 
         <div className="mt-5">
@@ -89,6 +95,10 @@ export function ShopItemCard({
                 {pending ? "Equipping…" : "Equip"}
               </button>
             )
+          ) : item.exclusive ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-[var(--color-text-muted)]">
+              Not for sale. Earn it through a challenge, quest, or season reward.
+            </div>
           ) : locked ? (
             <div className="rounded-2xl border border-amber-300/20 bg-amber-300/8 px-4 py-3 text-sm text-amber-100">
               {lockReason}

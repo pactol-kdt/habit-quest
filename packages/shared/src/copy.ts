@@ -79,13 +79,12 @@ export const PAGE_HEROES = {
   habits: {
     eyebrow: "Habits",
     title: "All habits",
-    support: "Stack a cue. Finish the loop. Build your run.",
+    support: "Habits in one list.",
   },
   shop: {
     eyebrow: "Shop",
     title: "Cosmetics",
-    support:
-      "Spend coins on titles, frames, avatars, and themes. Buyable tiers unlock in order — own the previous one first.",
+    support: "Cosmetics to collect.",
   },
   leaderboard: {
     eyebrow: "Streaks",
@@ -95,14 +94,12 @@ export const PAGE_HEROES = {
   boss: {
     eyebrow: "Week",
     title: "Weekly challenge",
-    support:
-      "Each habit fills this week's bar. A 15-clear contract sits on the same page.",
+    support: "Progress and rewards for the week.",
   },
   season: {
     eyebrow: "Season",
     title: "Season rewards",
-    support:
-      "Earn season XP, climb the track, and claim gifts. The monthly climb and quest chapters live here too.",
+    support: "Progress and rewards for the season.",
   },
   achievements: {
     eyebrow: "Milestones",
@@ -160,6 +157,6 @@ export const TUTORIAL_LESSONS = [
     eyebrow: "Daily loop",
     title: "Then do it again tomorrow",
     body: "Finish what's due. Keep the streak with at least one finish a day. Spend coins in Shop. Guides has the full rulebook.",
-    points: ["Week, Season, and Shop live in the map when you want them.", "Replay this anytime from Habits."],
+    points: ["Shop is in the main map with Week and Season.", "Replay this anytime from Habits."],
   },
 ] as const;

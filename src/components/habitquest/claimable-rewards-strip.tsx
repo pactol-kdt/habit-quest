@@ -61,7 +61,7 @@ export function ClaimableRewardsStrip() {
             {claimables.length} reward{claimables.length === 1 ? "" : "s"} to claim
           </h2>
           <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            Claim when you want — nothing expires today.
+            Claim here — nothing expires today.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -94,9 +94,9 @@ export function ClaimableRewardsStrip() {
                 <p className="mt-1 text-sm text-[var(--color-text-muted)]">{item.detail}</p>
                 <Link
                   href={item.href}
-                  className="mt-1 inline-block text-xs hq-text-accent underline-offset-2 hover:underline"
+                  className="mt-1 inline-block text-xs text-[var(--color-text-muted)] underline-offset-2 hover:text-white hover:underline"
                 >
-                  Open details
+                  Details
                 </Link>
               </div>
               <button

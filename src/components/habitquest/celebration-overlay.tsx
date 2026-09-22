@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useRef } from "react";
+import { CosmeticPreview } from "~/components/habitquest/cosmetic-art";
 import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 import type { CelebrationEvent, CelebrationKind } from "~/types/habitquest";
@@ -13,6 +14,21 @@ const KIND_ACCENT: Record<CelebrationKind, string> = {
   comeback: "from-sky-400/30 via-cyan-300/20 to-transparent",
   crit: "from-amber-300/35 via-orange-400/20 to-transparent",
   "season-level": "from-cyan-300/30 via-sky-400/20 to-transparent",
+  achievement: "from-violet-400/30 via-amber-300/20 to-transparent",
+  unlock: "from-cyan-300/30 via-emerald-300/20 to-transparent",
+  shop: "from-amber-300/35 via-cyan-300/15 to-transparent",
+};
+
+const KIND_LABEL: Record<CelebrationKind, string> = {
+  "streak-milestone": "Streak",
+  "boss-clear": "Weekly challenge",
+  "quest-chapter": "Quest",
+  comeback: "Comeback",
+  crit: "Critical",
+  "season-level": "Season",
+  achievement: "Achievement",
+  unlock: "Unlocked",
+  shop: "Purchased",
 };
 
 export function CelebrationOverlay() {
@@ -41,6 +57,11 @@ function CelebrationDialog({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   useDialogA11y(panelRef, onClose);
+  const shopItem = useHabitQuestStore((state) =>
+    celebration.itemId
+      ? (state.shopItems.find((entry) => entry.id === celebration.itemId) ?? null)
+      : null,
+  );
 
   return (
         <motion.div
@@ -85,15 +106,30 @@ function CelebrationDialog({
             />
 
             <div className="relative">
+              {shopItem ? (
+                <motion.div
+                  className="mb-5 flex justify-center"
+                  initial={{ scale: 0.72, opacity: 0, y: 10 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 280, damping: 18 }}
+                >
+                  <CosmeticPreview
+                    item={shopItem}
+                    className="h-32 w-32 rounded-[1.75rem] border border-white/15 bg-white/5 shadow-[0_0_48px_rgba(245,193,93,0.22)] sm:h-40 sm:w-40"
+                  />
+                </motion.div>
+              ) : null}
               <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
-                Celebration
+                {KIND_LABEL[celebration.kind]}
               </p>
               <h2 id="celebration-title" className="section-title mt-3 text-2xl text-white sm:text-3xl md:text-4xl">
                 {celebration.title}
               </h2>
-              <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)] md:text-base">
-                {celebration.description}
-              </p>
+              {celebration.description ? (
+                <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)] md:text-base">
+                  {celebration.description}
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={onClose}

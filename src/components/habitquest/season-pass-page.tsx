@@ -72,7 +72,7 @@ export function SeasonPassPage() {
               {hero.title}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-              {hero.support} Undo a Done anytime today.
+              {hero.support}
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Link

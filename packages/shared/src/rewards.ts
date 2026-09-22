@@ -648,12 +648,14 @@ export function createCelebration(
   kind: CelebrationEvent["kind"],
   title: string,
   description: string,
+  itemId?: string,
 ): CelebrationEvent {
   return {
     id: createId("cele"),
     kind,
     title,
     description,
+    ...(itemId ? { itemId } : {}),
   };
 }
 

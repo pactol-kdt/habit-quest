@@ -180,13 +180,11 @@ export function ProfilePage() {
           tone="gold"
           count={rewardSystems.seasonPassCompletions ?? 0}
           label="Seasons finished"
-          hint="Season finales claimed"
         />
         <HonorMedal
           tone="ember"
           count={rewardSystems.weeklyBossCompletions ?? 0}
           label="Weekly goals won"
-          hint="Weekly challenges completed"
         />
       </div>
 
@@ -199,12 +197,10 @@ function HonorMedal({
   tone,
   count,
   label,
-  hint,
 }: {
   tone: "gold" | "ember";
   count: number;
   label: string;
-  hint: string;
 }) {
   const gold = tone === "gold";
   return (
@@ -245,7 +241,6 @@ function HonorMedal({
             Lifetime
           </p>
           <p className="mt-1 text-lg font-semibold text-white">{label}</p>
-          <p className="mt-0.5 text-sm text-[var(--color-text-muted)]">{hint}</p>
         </div>
       </div>
     </GlassCard>
@@ -334,9 +329,6 @@ function ChangePasswordPanel({ onClose }: { onClose: () => void }) {
         <h2 id="change-password-title" className="section-title text-2xl text-white">
           Change password
         </h2>
-        <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
-          Enter your current password, then choose a new one.
-        </p>
         <label className="mt-5 grid gap-2">
           <span className="text-sm text-[var(--color-text-muted)]">Current password</span>
           <input

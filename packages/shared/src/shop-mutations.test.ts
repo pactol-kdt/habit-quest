@@ -5,7 +5,6 @@ import { createSeedData } from "./seed.ts";
 import {
   applyPurchaseShopItem,
   getPurchasableLadder,
-  getShopLadderLockReason,
 } from "./shop-mutations.ts";
 import type { HabitQuestData } from "./types.ts";
 
@@ -61,27 +60,13 @@ describe("progressive shop ladder", () => {
     );
   });
 
-  it("blocks buying the next tier until the previous is owned", () => {
+  it("allows buying a later tier without owning earlier ones", () => {
     const data = unlockFeatures(withCoins(createSeedData(), 500));
-    const blocked = applyPurchaseShopItem(data, "title_dawn_runner");
-    assert.equal(blocked.ok, false);
-    if (blocked.ok) {
-      return;
-    }
-    assert.equal(blocked.error, "Own Initiate first");
-    assert.equal(getShopLadderLockReason(data.shopItems, data.shopItems.find((i) => i.id === "title_dawn_runner")!), "Own Initiate first");
-
-    const first = applyPurchaseShopItem(data, "title_beginner");
-    assert.equal(first.ok, true);
-    if (!first.ok) {
-      return;
-    }
-
-    const second = applyPurchaseShopItem(first.data, "title_dawn_runner");
-    assert.equal(second.ok, true);
+    const skip = applyPurchaseShopItem(data, "title_dawn_runner");
+    assert.equal(skip.ok, true);
   });
 
-  it("blocks later tiers when a mid tier is owned but earlier tiers are missing", () => {
+  it("allows buying a high tier while a mid tier is owned and earlier tiers are missing", () => {
     const base = unlockFeatures(withCoins(createSeedData(), 1000));
     const data: HabitQuestData = {
       ...base,
@@ -90,30 +75,18 @@ describe("progressive shop ladder", () => {
       ),
     };
 
-    // Owns T3 (Habit Hunter) without T1–T2 → cannot buy T4 (Iron Week) yet.
     const skip = applyPurchaseShopItem(data, "title_iron_week");
-    assert.equal(skip.ok, false);
-    if (!skip.ok) {
-      assert.equal(skip.error, "Own Initiate first");
-    }
+    assert.equal(skip.ok, true);
+  });
 
-    const t1 = applyPurchaseShopItem(data, "title_beginner");
-    assert.equal(t1.ok, true);
-    if (!t1.ok) {
-      return;
+  it("rejects exclusive items as not for sale", () => {
+    const data = unlockFeatures(withCoins(createSeedData(), 1000));
+    const exclusive = data.shopItems.find((item) => item.exclusive);
+    assert.ok(exclusive);
+    const blocked = applyPurchaseShopItem(data, exclusive.id);
+    assert.equal(blocked.ok, false);
+    if (!blocked.ok) {
+      assert.match(blocked.error, /exclusive/i);
     }
-    const stillBlocked = applyPurchaseShopItem(t1.data, "title_iron_week");
-    assert.equal(stillBlocked.ok, false);
-    if (!stillBlocked.ok) {
-      assert.equal(stillBlocked.error, "Own Dawn Runner first");
-    }
-
-    const t2 = applyPurchaseShopItem(t1.data, "title_dawn_runner");
-    assert.equal(t2.ok, true);
-    if (!t2.ok) {
-      return;
-    }
-    const t4 = applyPurchaseShopItem(t2.data, "title_iron_week");
-    assert.equal(t4.ok, true);
   });
 });

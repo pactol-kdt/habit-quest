@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { CoinIcon } from "~/components/habitquest/icons/coin-icon";
+import { PulseOnChange } from "~/components/habitquest/pulse-on-change";
 import { ProfilePanel } from "~/components/habitquest/profile-panel";
 import { PurchaseModal } from "~/components/habitquest/purchase-modal";
 import { ShopItemCard } from "~/components/habitquest/shop-item-card";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { cn } from "~/lib/ui/cn";
 import { isFeatureUnlocked } from "~/lib/habitquest/utils";
-import { getShopLadderLockReason } from "~/lib/habitquest/shop-mutations";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 import type { ShopCategory, ShopItem } from "~/types/habitquest";
@@ -69,7 +69,9 @@ export function ShopPage() {
           </div>
           <div className="inline-flex items-center gap-2 self-start rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm text-amber-100 lg:self-auto">
             <CoinIcon size={15} title="Coins" />
-            <span className="tabular-nums">{wallet.totalCoins}</span>
+            <PulseOnChange value={wallet.totalCoins}>
+              <span className="tabular-nums">{wallet.totalCoins}</span>
+            </PulseOnChange>
             <span className="text-amber-100/70">spendable</span>
           </div>
         </div>
@@ -123,19 +125,13 @@ export function ShopPage() {
                 ? !isFeatureUnlocked(levelUnlocks, item.requiredFeature)
                 : false;
               const lockedByLevel = userProgress.level < item.requiredLevel;
-              const ladderLockReason =
-                !item.owned && !item.exclusive
-                  ? getShopLadderLockReason(shopItems, item)
-                  : null;
               const locked =
-                (!item.owned && lockedByFeature) ||
-                (!item.owned && lockedByLevel) ||
-                Boolean(ladderLockReason);
+                (!item.owned && lockedByFeature) || (!item.owned && lockedByLevel);
               const lockReason = lockedByFeature
                 ? `Requires ${item.requiredLevel} and a feature unlock.`
                 : lockedByLevel
                   ? `Unlocks at level ${item.requiredLevel}.`
-                  : ladderLockReason;
+                  : null;
 
               const equipped =
                 equippedItems.titleItemId === item.id ||
@@ -154,7 +150,12 @@ export function ShopPage() {
                   lockReason={lockReason}
                   equipped={equipped}
                   pending={pending}
-                  onPurchase={setPendingPurchase}
+                  onPurchase={(next) => {
+                    if (next.exclusive) {
+                      return;
+                    }
+                    setPendingPurchase(next);
+                  }}
                   onEquip={equipShopItem}
                   onUnequip={unequipShopItem}
                 />

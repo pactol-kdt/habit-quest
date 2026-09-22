@@ -1,5 +1,7 @@
 "use client";
 
+import { useHabitQuestStore } from "~/store/habitquest-store";
+
 const isDev = process.env.NODE_ENV === "development";
 
 const PRESET_STREAKS = [0, 1, 3, 7, 14, 30, 60, 100];
@@ -15,6 +17,9 @@ export function StreakDevSlider({
   previewStreak,
   onPreviewChange,
 }: StreakDevSliderProps) {
+  const spendableCoins = useHabitQuestStore((state) => state.wallet.totalCoins);
+  const devSetSpendableCoins = useHabitQuestStore((state) => state.devSetSpendableCoins);
+
   if (!isDev) {
     return null;
   }
@@ -69,6 +74,19 @@ export function StreakDevSlider({
           }
         >
           Live ({liveStreak}d)
+        </button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-amber-300/20 pt-3">
+        <p className="text-[11px] uppercase tracking-[0.22em] text-amber-200/90">
+          Dev · wallet · {spendableCoins} coins
+        </p>
+        <button
+          type="button"
+          onClick={() => devSetSpendableCoins(0)}
+          className="rounded-full border border-amber-300/50 bg-amber-300/15 px-2.5 py-1 text-xs text-amber-100 transition hover:bg-amber-300/25"
+        >
+          Set coins to 0
         </button>
       </div>
     </div>

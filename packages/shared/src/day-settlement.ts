@@ -31,7 +31,6 @@ import type {
   CelebrationEvent,
   FloatingReward,
   HabitQuestData,
-  RewardToast,
   SeasonPassState,
   SettlementRecap,
   UserProgress,
@@ -278,7 +277,6 @@ function stripPendingDayFromProgress(data: HabitQuestData, today: string): Habit
 export type DaySettlementResult = {
   data: HabitQuestData;
   celebrations: CelebrationEvent[];
-  rewardToasts: RewardToast[];
   floatingRewards: FloatingReward[];
   recap: SettlementRecap | null;
 };
@@ -307,18 +305,6 @@ function createFloating(kind: FloatingReward["kind"], value: number, label: stri
   };
 }
 
-function createToast(
-  type: RewardToast["type"],
-  title: string,
-  description: string,
-): RewardToast {
-  return {
-    id: createId("toast"),
-    type,
-    title,
-    description,
-  };
-}
 
 function rewindOpenDay(data: HabitQuestData, today: string): HabitQuestData {
   const priorThrough = shiftDateKey(today, -1);
@@ -396,12 +382,10 @@ function applyCalendarDaySettlement(
 ): {
   data: HabitQuestData;
   celebrations: CelebrationEvent[];
-  rewardToasts: RewardToast[];
   floatingRewards: FloatingReward[];
 } {
   let data = input;
   const celebrations: CelebrationEvent[] = [];
-  const rewardToasts: RewardToast[] = [];
   const floatingRewards: FloatingReward[] = [];
   const dayCompletions = data.completions.filter((completion) => completion.date === dateKey);
   const priorCompletions = data.completions.filter((completion) => completion.date < dateKey);
@@ -451,9 +435,6 @@ function applyCalendarDaySettlement(
             "Comeback secured",
             `Welcome back — +${comeback.coins} coins and +${comeback.exp} EXP.`,
           ),
-        );
-        rewardToasts.push(
-          createToast("unlock", "Comeback bonus", `+${comeback.coins} coins, +${comeback.exp} EXP`),
         );
       }
     }
@@ -519,15 +500,6 @@ function applyCalendarDaySettlement(
       };
       floatingRewards.push(createFloating("coins", comboReward.coins, "Combo"));
     }
-    rewardToasts.push(
-      createToast(
-        "unlock",
-        "Combo",
-        `x${dayCompletions.length} clears — +${comboReward.exp} EXP` +
-          (comboReward.coins ? `, +${comboReward.coins} coins` : "") +
-          ".",
-      ),
-    );
   }
 
   const daySeasonXp = dayCompletions.reduce(
@@ -535,24 +507,7 @@ function applyCalendarDaySettlement(
     0,
   );
   if (daySeasonXp > 0) {
-    const previousLevel = data.seasonPass.level;
     data.seasonPass = addSeasonPassXp(reconcileSeasonPass(data.seasonPass), daySeasonXp);
-    if (data.seasonPass.level > previousLevel) {
-      celebrations.push(
-        createCelebration(
-          "season-level",
-          `Season Level ${data.seasonPass.level}`,
-          "Season track leveled up from today's clears.",
-        ),
-      );
-      rewardToasts.push(
-        createToast(
-          "unlock",
-          "Season level up",
-          `Season track reached level ${data.seasonPass.level}.`,
-        ),
-      );
-    }
   }
 
   const weekBoss = reconcileWeeklyBoss(data.weeklyBoss);
@@ -598,13 +553,6 @@ function applyCalendarDaySettlement(
       claimedDailyCompletionRewardDate: dateKey,
     };
     floatingRewards.push(createFloating("coins", DAILY_COMPLETION_COINS, "Perfect day"));
-    rewardToasts.push(
-      createToast(
-        "coins",
-        "Perfect day",
-        `+${DAILY_COMPLETION_COINS} coins from finishing every due habit.`,
-      ),
-    );
   }
 
   data.rewardSystems = {
@@ -637,7 +585,7 @@ function applyCalendarDaySettlement(
 
   data.questArcs = syncQuestArcs(data.questArcs, data, dateKey);
 
-  return { data, celebrations, rewardToasts, floatingRewards };
+  return { data, celebrations, floatingRewards };
 }
 
 function applyLiveOpenDay(data: HabitQuestData, today: string): HabitQuestData {
@@ -666,7 +614,6 @@ export function settleHabitDayProgress(
   };
 
   const celebrations: CelebrationEvent[] = [];
-  const rewardToasts: RewardToast[] = [];
   const floatingRewards: FloatingReward[] = [];
   const committedThrough = shiftDateKey(today, -1);
   const recap = emptyRecap(committedThrough);
@@ -705,7 +652,7 @@ export function settleHabitDayProgress(
     data.questArcs = syncQuestArcs(data.questArcs, data, settledThrough);
     data = applyLiveOpenDay(data, today);
 
-    return { data, celebrations, rewardToasts, floatingRewards, recap: null };
+    return { data, celebrations, floatingRewards, recap: null };
   }
 
   const settleStart = shiftDateKey(data.rewardSystems.progressSettledThroughDate, 1);
@@ -716,7 +663,7 @@ export function settleHabitDayProgress(
       data.rewardSystems.progressSettledThroughDate,
     );
     data = applyLiveOpenDay(data, today);
-    return { data, celebrations, rewardToasts, floatingRewards, recap: null };
+    return { data, celebrations, floatingRewards, recap: null };
   }
 
   for (const dateKey of eachDateInclusive(settleStart, committedThrough)) {
@@ -724,7 +671,6 @@ export function settleHabitDayProgress(
     const day = applyCalendarDaySettlement(data, dateKey, recap);
     data = day.data;
     celebrations.push(...day.celebrations);
-    rewardToasts.push(...day.rewardToasts);
     floatingRewards.push(...day.floatingRewards);
   }
 
@@ -750,7 +696,6 @@ export function settleHabitDayProgress(
   return {
     data,
     celebrations,
-    rewardToasts,
     floatingRewards,
     recap: settledAnyDay && hasPayout ? recap : null,
   };

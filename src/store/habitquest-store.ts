@@ -64,6 +64,7 @@ import {
 import {
   createCelebration,
   createDefaultRewardSystems,
+  isStreakMilestone,
   createQuestArcs,
   createSeasonPass,
   createWeeklyBoss,
@@ -126,6 +127,7 @@ type HabitQuestStore = HabitQuestData & {
   rewardToasts: RewardToast[];
   floatingRewards: FloatingReward[];
   celebration: CelebrationEvent | null;
+  celebrationQueue: CelebrationEvent[];
   settlementRecap: SettlementRecap | null;
   dismissedSettlementThroughDate: string | null;
   hydrate: () => void;
@@ -154,6 +156,8 @@ type HabitQuestStore = HabitQuestData & {
   equipShopItem: (itemId: string) => void;
   unequipShopItem: (category: ShopCategory) => void;
   updateSettings: (patch: Partial<UserSettings>) => void;
+  /** Development only — set spendable coins (adjusts lifetime spent to match). */
+  devSetSpendableCoins: (totalCoins: number) => void;
   completeOnboarding: (displayName: string) => void;
   dismissToast: (toastId: string) => void;
   dismissFloatingReward: (rewardId: string) => void;
@@ -211,21 +215,84 @@ type ResolutionResult = {
   data: HabitQuestData;
   rewardToasts: RewardToast[];
   floatingRewards: FloatingReward[];
-  celebration: CelebrationEvent | null;
+  celebrations: CelebrationEvent[];
   settlementRecap: SettlementRecap | null;
 };
 
-function createToast(
-  type: RewardToast["type"],
-  title: string,
-  description: string,
-): RewardToast {
+function createToast(title: string, description: string): RewardToast {
   return {
     id: createId("toast"),
-    type,
+    type: "warning",
     title,
     description,
   };
+}
+
+function compactCelebrations(
+  events: Array<CelebrationEvent | null | undefined>,
+): CelebrationEvent[] {
+  return events.filter((event): event is CelebrationEvent => Boolean(event));
+}
+
+function enqueueCelebrations(
+  state: Pick<HabitQuestStore, "celebration" | "celebrationQueue">,
+  incoming: CelebrationEvent[],
+) {
+  if (!incoming.length) {
+    return {
+      celebration: state.celebration,
+      celebrationQueue: state.celebrationQueue,
+    };
+  }
+  if (!state.celebration) {
+    return {
+      celebration: incoming[0] ?? null,
+      celebrationQueue: incoming.slice(1),
+    };
+  }
+  return {
+    celebration: state.celebration,
+    celebrationQueue: [...state.celebrationQueue, ...incoming],
+  };
+}
+
+function currencyFloats(before: HabitQuestData, after: HabitQuestData): FloatingReward[] {
+  const coins = after.wallet.totalCoins - before.wallet.totalCoins;
+  const exp = after.userProgress.totalExp - before.userProgress.totalExp;
+  const floats: FloatingReward[] = [];
+  if (coins > 0) {
+    floats.push(createFloatingReward("coins", coins, "coins"));
+  }
+  if (exp > 0) {
+    floats.push(createFloatingReward("exp", exp, "exp"));
+  }
+  return floats;
+}
+
+function liveBeats(before: HabitQuestData, after: HabitQuestData): CelebrationEvent[] {
+  const events: CelebrationEvent[] = [];
+  if (
+    after.userProgress.currentStreak > before.userProgress.currentStreak &&
+    isStreakMilestone(after.userProgress.currentStreak)
+  ) {
+    events.push(
+      createCelebration(
+        "streak-milestone",
+        `${after.userProgress.currentStreak}-day streak`,
+        "Your consistency just crossed a milestone.",
+      ),
+    );
+  }
+  if (after.weeklyBoss.defeated && !before.weeklyBoss.defeated) {
+    events.push(
+      createCelebration(
+        "boss-clear",
+        "Weekly challenge complete",
+        "Claim the weekly reward when ready.",
+      ),
+    );
+  }
+  return events;
 }
 
 function createFloatingReward(
@@ -307,7 +374,6 @@ function appendCoins(
   data: HabitQuestData,
   amount: number,
   label: string,
-  rewardToasts: RewardToast[],
   floatingRewards: FloatingReward[],
 ) {
   data.wallet = {
@@ -315,7 +381,6 @@ function appendCoins(
     totalCoins: data.wallet.totalCoins + amount,
     lifetimeCoinsEarned: data.wallet.lifetimeCoinsEarned + amount,
   };
-  rewardToasts.push(createToast("coins", "Coins earned", `${label} +${amount} coins`));
   floatingRewards.push(createFloatingReward("coins", amount, label));
 }
 
@@ -324,7 +389,6 @@ function appendExp(
   amount: number,
   source: ExpHistoryEntry["source"],
   label: string,
-  rewardToasts: RewardToast[],
   floatingRewards: FloatingReward[],
 ) {
   const today = getTodayDateKey();
@@ -332,15 +396,14 @@ function appendExp(
     totalExp: data.userProgress.totalExp + amount,
     expHistory: [createExpEntry(amount, today, source, label), ...data.userProgress.expHistory],
   });
-  rewardToasts.push(createToast("exp", "EXP earned", `${label} +${amount} EXP`));
   floatingRewards.push(createFloatingReward("exp", amount, label));
 }
 
 function applyChallengeReward(
   data: HabitQuestData,
   challenge: Challenge,
-  rewardToasts: RewardToast[],
   floatingRewards: FloatingReward[],
+  celebrations: CelebrationEvent[],
   options: { autoClaimed?: boolean } = {},
 ) {
   if (challenge.reward.coins > 0) {
@@ -348,7 +411,6 @@ function applyChallengeReward(
       data,
       challenge.reward.coins,
       options.autoClaimed ? `${challenge.title} (auto-claimed)` : challenge.title,
-      rewardToasts,
       floatingRewards,
     );
   }
@@ -359,7 +421,6 @@ function applyChallengeReward(
       challenge.reward.exp,
       "challenge",
       options.autoClaimed ? `${challenge.title} (auto-claimed)` : challenge.title,
-      rewardToasts,
       floatingRewards,
     );
   }
@@ -376,15 +437,14 @@ function applyChallengeReward(
         : item,
     );
     if (!alreadyOwned) {
-      rewardToasts.push(
-        createToast(
-          "shop",
+      celebrations.push(
+        createCelebration(
+          "unlock",
           options.autoClaimed ? "Challenge title auto-claimed" : "Exclusive title unlocked",
-          "A challenge title has been added to your inventory.",
+          data.shopItems.find((item) => item.id === titleId)?.name ?? "",
         ),
       );
     } else {
-      // Repeat clear: title already earned — bonus coins instead of a fake title grant.
       const repeatBonus = challenge.period === "monthly" ? 25 : 10;
       appendCoins(
         data,
@@ -392,7 +452,6 @@ function applyChallengeReward(
         options.autoClaimed
           ? `${challenge.title} repeat bonus (auto-claimed)`
           : `${challenge.title} repeat bonus`,
-        rewardToasts,
         floatingRewards,
       );
     }
@@ -444,9 +503,8 @@ function resolveGameState(
   options: ResolutionOptions = {},
 ): ResolutionResult {
   let data = normalizePersistentData(baseData);
-  const rewardToasts: RewardToast[] = [];
   const floatingRewards: FloatingReward[] = [];
-  let celebration: CelebrationEvent | null = null;
+  const celebrations: CelebrationEvent[] = [];
   let settlementRecap: SettlementRecap | null = null;
   const today = getTodayDateKey();
 
@@ -464,7 +522,7 @@ function resolveGameState(
     const alreadyClaimed = hasClaimedDailyReward(data.dailyRewards, "login", today);
 
     if (!alreadyClaimed && !claimedInSession) {
-      appendCoins(data, DAILY_LOGIN_COINS, "Daily login reward", rewardToasts, floatingRewards);
+      appendCoins(data, DAILY_LOGIN_COINS, "Daily login reward", floatingRewards);
       data.dailyRewards = {
         ...data.dailyRewards,
         lastLoginDate: today,
@@ -499,18 +557,15 @@ function resolveGameState(
 
   const settlement = settleHabitDayProgress(data, today);
   data = settlement.data;
-  rewardToasts.push(...settlement.rewardToasts);
   floatingRewards.push(...settlement.floatingRewards);
+  celebrations.push(...settlement.celebrations);
   settlementRecap = settlement.recap;
-  if (settlement.celebrations.length) {
-    celebration = settlement.celebrations[settlement.celebrations.length - 1] ?? null;
-  }
 
   const shieldResult = reconcileStreakShields(data.rewardSystems, data.completions, today);
   data.rewardSystems = shieldResult.systems;
   if (shieldResult.freezeUsed && shieldResult.protectedDate) {
-    rewardToasts.push(
-      createToast(
+    celebrations.push(
+      createCelebration(
         "unlock",
         "Streak freeze used",
         `Your streak was protected on ${shieldResult.protectedDate}.`,
@@ -526,8 +581,8 @@ function resolveGameState(
   );
   data.rewardSystems = freezeGrant.systems;
   if (freezeGrant.granted) {
-    rewardToasts.push(
-      createToast(
+    celebrations.push(
+      createCelebration(
         "unlock",
         "Streak freeze earned",
         `Milestone streak ${data.userProgress.currentStreak} granted a freeze (${data.rewardSystems.streakFreezes}/${MAX_STREAK_FREEZES}).`,
@@ -545,14 +600,7 @@ function resolveGameState(
   data.challenges = challengeReconciliation.challenges;
 
   challengeReconciliation.autoClaims.forEach((challenge) => {
-    applyChallengeReward(data, challenge, rewardToasts, floatingRewards, { autoClaimed: true });
-    rewardToasts.push(
-      createToast(
-        "coins",
-        "Challenge auto-claimed",
-        `${challenge.title} rolled over with unclaimed rewards — granted automatically.`,
-      ),
-    );
+    applyChallengeReward(data, challenge, floatingRewards, celebrations, { autoClaimed: true });
   });
 
   data.challenges = reconcileChallenges(data.challenges, data).challenges;
@@ -570,13 +618,7 @@ function resolveGameState(
     const rewardTime = new Date().toISOString();
     pendingRewards.forEach((achievement) => {
       if (achievement.reward.coins > 0) {
-        appendCoins(
-          data,
-          achievement.reward.coins,
-          achievement.title,
-          rewardToasts,
-          floatingRewards,
-        );
+        appendCoins(data, achievement.reward.coins, achievement.title, floatingRewards);
       }
 
       if (achievement.reward.exp > 0) {
@@ -585,13 +627,12 @@ function resolveGameState(
           achievement.reward.exp,
           "achievement",
           achievement.title,
-          rewardToasts,
           floatingRewards,
         );
       }
 
-      rewardToasts.push(
-        createToast("achievement", "Achievement unlocked", achievement.title),
+      celebrations.push(
+        createCelebration("achievement", "Achievement unlocked", achievement.title),
       );
 
       data.achievements = data.achievements.map((entry) =>
@@ -616,8 +657,8 @@ function resolveGameState(
   const unlockCheck = checkLevelUnlocks(data.levelUnlocks, data.userProgress.level);
   data.levelUnlocks = unlockCheck.levelUnlocks;
   unlockCheck.newlyUnlocked.forEach((unlock) => {
-    rewardToasts.push(
-      createToast(
+    celebrations.push(
+      createCelebration(
         "unlock",
         "Feature unlocked",
         `${unlock.label} is now available at level ${unlock.requiredLevel}.`,
@@ -627,9 +668,9 @@ function resolveGameState(
 
   return {
     data,
-    rewardToasts,
+    rewardToasts: [],
     floatingRewards,
-    celebration,
+    celebrations,
     settlementRecap,
   };
 }
@@ -655,9 +696,12 @@ function mergeTransientState(
 
   return {
     ...resolution.data,
-    rewardToasts: [...state.rewardToasts, ...resolution.rewardToasts],
+    rewardToasts: [
+      ...state.rewardToasts,
+      ...resolution.rewardToasts.filter((toast) => toast.type === "warning"),
+    ],
     floatingRewards: [...state.floatingRewards, ...resolution.floatingRewards],
-    celebration: resolution.celebration ?? state.celebration,
+    ...enqueueCelebrations(state, resolution.celebrations),
     settlementRecap,
   };
 }
@@ -665,8 +709,8 @@ function mergeTransientState(
 function pushWarningState(state: HabitQuestStore, title: string, description: string) {
   return {
     rewardToasts: [
-      createToast("warning", title, description),
-      ...state.rewardToasts.filter((toast) => toast.type !== "warning" || toast.title !== title),
+      createToast(title, description),
+      ...state.rewardToasts.filter((toast) => toast.title !== title),
     ],
   };
 }
@@ -721,11 +765,23 @@ const COMPLETE_BATCH_MS = 140;
 const completeFlushQueue = new Map<string, QueuedHabitComplete>();
 let completeFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
+function isAlreadyClearedError(error: string) {
+  return /already completed today/i.test(error);
+}
+
 function rollbackHabitCompleteFailure(
   habitId: string,
   dateKey: string,
   error: string,
 ) {
+  if (isAlreadyClearedError(error)) {
+    useHabitQuestStore.setState((current) => ({
+      ...current,
+      ...withoutHabitPending(current, habitId),
+    }));
+    return;
+  }
+
   const rolledBack = persistLocalOnly(
     mergeHabitCompletionIntoState(projectData(useHabitQuestStore.getState()), {
       habitId,
@@ -762,11 +818,13 @@ function applyHabitCompleteSuccess(
   scheduleCloudSave(persisted);
 
   useHabitQuestStore.setState((current) => ({
-    ...mergeTransientState(current, { ...resolution, data: persisted }),
+    ...mergeTransientState(current, {
+      ...resolution,
+      data: persisted,
+      floatingRewards: [],
+      celebrations: [],
+    }),
     ...withoutHabitPending(current, habitId),
-    rewardToasts: [...current.rewardToasts, ...resolution.rewardToasts],
-    floatingRewards: [...current.floatingRewards, ...resolution.floatingRewards],
-    celebration: resolution.celebration ?? current.celebration,
   }));
 }
 
@@ -863,12 +921,14 @@ async function flushHabitCompletes() {
         pendingHabitActions = cleared.pendingHabitActions;
       }
       return {
-        ...mergeTransientState(current, { ...resolution, data: persisted }),
+        ...mergeTransientState(current, {
+          ...resolution,
+          data: persisted,
+          floatingRewards: [],
+          celebrations: [],
+        }),
         pendingHabitIds,
         pendingHabitActions,
-        rewardToasts: [...current.rewardToasts, ...resolution.rewardToasts],
-        floatingRewards: [...current.floatingRewards, ...resolution.floatingRewards],
-        celebration: resolution.celebration ?? current.celebration,
       };
     });
 
@@ -1010,6 +1070,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
   rewardToasts: [],
   floatingRewards: [],
   celebration: null,
+  celebrationQueue: [],
   settlementRecap: null,
   dismissedSettlementThroughDate: null,
   hydrate: () => {
@@ -1027,7 +1088,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       hydrated: true,
       rewardToasts: resolution.rewardToasts,
       floatingRewards: resolution.floatingRewards,
-      celebration: resolution.celebration,
+      ...enqueueCelebrations({ celebration: null, celebrationQueue: [] }, resolution.celebrations),
       settlementRecap: acceptSettlementRecap(resolution.settlementRecap, dismissed),
     });
   },
@@ -1076,7 +1137,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         ...get().floatingRewards,
         ...resolution.floatingRewards,
       ],
-      celebration: resolution.celebration ?? get().celebration,
+      ...enqueueCelebrations(get(), resolution.celebrations),
       settlementRecap: (() => {
         const accepted = acceptSettlementRecap(
           resolution.settlementRecap,
@@ -1127,7 +1188,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       authChecked: true,
       rewardToasts: resolution.rewardToasts,
       floatingRewards: resolution.floatingRewards,
-      celebration: resolution.celebration,
+      ...enqueueCelebrations({ celebration: null, celebrationQueue: [] }, resolution.celebrations),
       settlementRecap: acceptSettlementRecap(resolution.settlementRecap, dismissed),
     });
   },
@@ -1412,14 +1473,20 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     scheduleCloudSave(optimisticPersisted);
 
     set((current) => ({
-      ...mergeTransientState(current, { ...optimisticResolution, data: optimisticPersisted }),
+      ...mergeTransientState(current, {
+        ...optimisticResolution,
+        data: optimisticPersisted,
+        floatingRewards: currencyFloats(snapshot, optimisticPersisted).map((reward) =>
+          mutation.completion?.crit && reward.kind === "exp"
+            ? { ...reward, crit: true }
+            : reward,
+        ),
+        celebrations: compactCelebrations([
+          ...liveBeats(snapshot, optimisticPersisted),
+          ...optimisticResolution.celebrations,
+        ]),
+      }),
       ...withHabitPending(current, habitId, "complete"),
-      rewardToasts: [...current.rewardToasts, ...mutation.rewardToasts],
-      floatingRewards: [
-        ...current.floatingRewards,
-        ...optimisticResolution.floatingRewards,
-      ],
-      celebration: mutation.celebration ?? optimisticResolution.celebration,
     }));
 
     if (!get().authUser) {
@@ -1454,9 +1521,13 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     scheduleCloudSave(optimisticPersisted);
 
     set((current) => ({
-      ...mergeTransientState(current, { ...optimisticResolution, data: optimisticPersisted }),
+      ...mergeTransientState(current, {
+        ...optimisticResolution,
+        data: optimisticPersisted,
+        floatingRewards: [],
+        celebrations: [],
+      }),
       ...withHabitPending(current, habitId, "uncomplete"),
-      rewardToasts: [...current.rewardToasts, ...mutation.rewardToasts],
     }));
 
     if (!get().authUser) {
@@ -1507,9 +1578,13 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         scheduleCloudSave(persisted);
 
         set((current) => ({
-          ...mergeTransientState(current, { ...resolution, data: persisted }),
+          ...mergeTransientState(current, {
+            ...resolution,
+            data: persisted,
+            floatingRewards: [],
+            celebrations: [],
+          }),
           ...withoutHabitPending(current, habitId),
-          rewardToasts: [...current.rewardToasts, ...resolution.rewardToasts],
         }));
       })
       .catch((error) => {
@@ -1558,17 +1633,16 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     bumpCloudSavePayload(persisted);
 
     set((current) => ({
-      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      ...mergeTransientState(current, {
+        ...resolution,
+        data: persisted,
+        floatingRewards: currencyFloats(snapshot, persisted),
+        celebrations: compactCelebrations([
+          ...mutation.celebrations,
+          ...resolution.celebrations,
+        ]),
+      }),
       pendingClaimIds: [...current.pendingClaimIds, pendingKey],
-      rewardToasts: [
-        ...current.rewardToasts,
-        ...mutation.rewardToasts,
-        ...resolution.rewardToasts,
-      ],
-      floatingRewards: [
-        ...current.floatingRewards,
-        ...resolution.floatingRewards,
-      ],
     }));
 
     void runClaimAgainstCloud(
@@ -1620,22 +1694,21 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     bumpCloudSavePayload(persisted);
 
     set((current) => ({
-      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      ...mergeTransientState(current, {
+        ...resolution,
+        data: persisted,
+        floatingRewards: currencyFloats(snapshot, persisted),
+        celebrations: compactCelebrations([
+          createCelebration(
+            "quest-chapter",
+            arc?.title ?? "Quest chapter",
+            "Chapter complete.",
+          ),
+          ...mutation.celebrations,
+          ...resolution.celebrations,
+        ]),
+      }),
       pendingClaimIds: [...current.pendingClaimIds, pendingKey],
-      rewardToasts: [
-        ...current.rewardToasts,
-        ...mutation.rewardToasts,
-        ...resolution.rewardToasts,
-      ],
-      floatingRewards: [
-        ...current.floatingRewards,
-        ...resolution.floatingRewards,
-      ],
-      celebration: createCelebration(
-        "quest-chapter",
-        arc?.title ?? "Quest chapter",
-        "Chapter complete — rewards claimed.",
-      ),
     }));
 
     void runClaimAgainstCloud(
@@ -1687,22 +1760,21 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     bumpCloudSavePayload(persisted);
 
     set((current) => ({
-      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      ...mergeTransientState(current, {
+        ...resolution,
+        data: persisted,
+        floatingRewards: currencyFloats(snapshot, persisted),
+        celebrations: compactCelebrations([
+          createCelebration(
+            "season-level",
+            `Season reward · Lv ${level}`,
+            reward?.label ?? "Season reward claimed.",
+          ),
+          ...mutation.celebrations,
+          ...resolution.celebrations,
+        ]),
+      }),
       pendingClaimIds: [...current.pendingClaimIds, pendingKey],
-      rewardToasts: [
-        ...current.rewardToasts,
-        ...mutation.rewardToasts,
-        ...resolution.rewardToasts,
-      ],
-      floatingRewards: [
-        ...current.floatingRewards,
-        ...resolution.floatingRewards,
-      ],
-      celebration: createCelebration(
-        "season-level",
-        `Season reward · Lv ${level}`,
-        reward?.label ?? "Season reward claimed.",
-      ),
     }));
 
     void runClaimAgainstCloud(
@@ -1767,31 +1839,29 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seasonCount = claimables.filter((item) => item.kind === "season").length;
 
     set((current) => ({
-      ...mergeTransientState(current, { ...resolution, data: persisted }),
-      pendingClaimIds: [...current.pendingClaimIds, "claim-all", ...pendingKeys],
-      rewardToasts: [
-        ...current.rewardToasts,
-        ...mutation.rewardToasts,
-        ...resolution.rewardToasts,
-      ],
-      floatingRewards: [
-        ...current.floatingRewards,
-        ...resolution.floatingRewards,
-      ],
-      celebration:
-        seasonCount > 1
-          ? createCelebration(
-              "season-level",
-              `Claimed ${seasonCount} season rewards`,
-              "Season track blessings gathered.",
-            )
-          : claimables.length > 1
+      ...mergeTransientState(current, {
+        ...resolution,
+        data: persisted,
+        floatingRewards: currencyFloats(snapshot, persisted),
+        celebrations: compactCelebrations([
+          seasonCount > 1
             ? createCelebration(
-                "quest-chapter",
-                `Claimed ${claimables.length} rewards`,
-                "All waiting blessings gathered.",
+                "season-level",
+                `Claimed ${seasonCount} season rewards`,
+                "Season track blessings gathered.",
               )
-            : resolution.celebration ?? current.celebration,
+            : claimables.length > 1
+              ? createCelebration(
+                  "quest-chapter",
+                  `Claimed ${claimables.length} rewards`,
+                  "All waiting blessings gathered.",
+                )
+              : null,
+          ...mutation.celebrations,
+          ...resolution.celebrations,
+        ]),
+      }),
+      pendingClaimIds: [...current.pendingClaimIds, "claim-all", ...pendingKeys],
     }));
 
     void runClaimAgainstCloud(
@@ -1843,22 +1913,17 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     bumpCloudSavePayload(persisted);
 
     set((current) => ({
-      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      ...mergeTransientState(current, {
+        ...resolution,
+        data: persisted,
+        floatingRewards: currencyFloats(snapshot, persisted),
+        celebrations: compactCelebrations([
+          createCelebration("boss-clear", "Weekly reward claimed", ""),
+          ...mutation.celebrations,
+          ...resolution.celebrations,
+        ]),
+      }),
       pendingClaimIds: [...current.pendingClaimIds, pendingKey],
-      rewardToasts: [
-        ...current.rewardToasts,
-        ...mutation.rewardToasts,
-        ...resolution.rewardToasts,
-      ],
-      floatingRewards: [
-        ...current.floatingRewards,
-        ...resolution.floatingRewards,
-      ],
-      celebration: createCelebration(
-        "boss-clear",
-        "Weekly reward claimed",
-        "Weekly challenge reward secured.",
-      ),
     }));
 
     void runClaimAgainstCloud(
@@ -1908,13 +1973,13 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const persisted = persistLocalOnly(resolution.data);
     bumpCloudSavePayload(persisted);
     set((current) => ({
-      ...mergeTransientState(current, { ...resolution, data: persisted }),
+      ...mergeTransientState(current, {
+        ...resolution,
+        data: persisted,
+        floatingRewards: [],
+        celebrations: [],
+      }),
       pendingClaimIds: [...current.pendingClaimIds, pendingKey],
-      rewardToasts: [
-        ...current.rewardToasts,
-        ...mutation.rewardToasts,
-        ...resolution.rewardToasts,
-      ],
     }));
 
     void runClaimAgainstCloud(
@@ -1956,18 +2021,23 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       return;
     }
 
-    const itemName =
-      state.shopItems.find((entry) => entry.id === itemId)?.name ?? "Item";
+    const item = snapshot.shopItems.find((entry) => entry.id === itemId);
+    const purchased = createCelebration(
+      "shop",
+      item?.name ?? "Item purchased",
+      item?.description ?? "",
+      item?.id,
+    );
+
     if (!get().authUser) {
       const resolution = resolveGameState(withLiveHabitMembership(mutation.data));
       const persisted = persistLocalOnly(resolution.data);
       set((current) => ({
-        ...mergeTransientState(current, { ...resolution, data: persisted }),
-        rewardToasts: [
-          ...current.rewardToasts,
-          createToast("shop", "Purchase successful", `${itemName} added to inventory.`),
-          ...resolution.rewardToasts,
-        ],
+        ...mergeTransientState(current, {
+          ...resolution,
+          data: persisted,
+          celebrations: compactCelebrations([purchased, ...resolution.celebrations]),
+        }),
       }));
       return;
     }
@@ -2012,13 +2082,12 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         bumpCloudSavePayload(persisted);
 
         set((current) => ({
-          ...mergeTransientState(current, { ...resolution, data: persisted }),
+          ...mergeTransientState(current, {
+            ...resolution,
+            data: persisted,
+            celebrations: compactCelebrations([purchased, ...resolution.celebrations]),
+          }),
           pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
-          rewardToasts: [
-            ...current.rewardToasts,
-            createToast("shop", "Purchase successful", `${itemName} added to inventory.`),
-            ...resolution.rewardToasts,
-          ],
         }));
       })
       .catch((error) => {
@@ -2052,17 +2121,11 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       return;
     }
 
-    const itemName =
-      state.shopItems.find((entry) => entry.id === itemId)?.name ?? "Item";
     if (!get().authUser) {
       const persisted = persistLocalOnly(withLiveHabitMembership(mutation.data));
       set((current) => ({
         ...current,
         ...persisted,
-        rewardToasts: [
-          ...current.rewardToasts,
-          createToast("shop", "Equipped", `${itemName} is now active.`),
-        ],
       }));
       return;
     }
@@ -2106,10 +2169,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           ...current,
           ...persisted,
           pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== itemId),
-          rewardToasts: [
-            ...current.rewardToasts,
-            createToast("shop", "Equipped", `${itemName} is now active.`),
-          ],
         }));
       })
       .catch((error) => {
@@ -2150,10 +2209,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       set((current) => ({
         ...current,
         ...persisted,
-        rewardToasts: [
-          ...current.rewardToasts,
-          createToast("shop", "Unequipped", `${category} slot cleared.`),
-        ],
       }));
       return;
     }
@@ -2196,10 +2251,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           ...current,
           ...persisted,
           pendingShopItemIds: current.pendingShopItemIds.filter((id) => id !== pendingKey),
-          rewardToasts: [
-            ...current.rewardToasts,
-            createToast("shop", "Unequipped", `${category} slot cleared.`),
-          ],
         }));
       })
       .catch((error) => {
@@ -2260,6 +2311,31 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       });
     });
   },
+  devSetSpendableCoins: (totalCoins) => {
+    if (process.env.NODE_ENV !== "development") {
+      return;
+    }
+
+    const state = get();
+    const nextCoins = Math.max(0, Math.floor(totalCoins));
+    const earned = Math.max(state.wallet.lifetimeCoinsEarned, nextCoins);
+    const spent = Math.max(0, earned - nextCoins);
+    const nextData = persistLocalOnly({
+      ...projectData(state),
+      wallet: {
+        ...state.wallet,
+        totalCoins: nextCoins,
+        lifetimeCoinsEarned: earned,
+        lifetimeCoinsSpent: spent,
+      },
+    });
+    bumpCloudSavePayload(nextData);
+    scheduleCloudSave(nextData);
+    set((current) => ({
+      ...current,
+      ...nextData,
+    }));
+  },
   completeOnboarding: (displayName) => {
     const state = get();
     const snapshot = projectData(state);
@@ -2270,14 +2346,13 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     set((current) => ({
       ...current,
       ...persisted,
-      rewardToasts: [
-        ...current.rewardToasts,
-        createToast(
+      ...enqueueCelebrations(current, [
+        createCelebration(
           "unlock",
           "Welcome, traveler",
           `The path opens for ${mutation.settings.displayName}.`,
         ),
-      ],
+      ]),
     }));
 
     if (!get().authUser) {
@@ -2322,7 +2397,13 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     }));
   },
   dismissCelebration: () => {
-    set({ celebration: null });
+    set((state) => {
+      const [next, ...rest] = state.celebrationQueue;
+      return {
+        celebration: next ?? null,
+        celebrationQueue: rest,
+      };
+    });
   },
   dismissSettlementRecap: () => {
     set((state) => {

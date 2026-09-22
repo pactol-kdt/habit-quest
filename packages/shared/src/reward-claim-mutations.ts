@@ -6,13 +6,14 @@ import {
   STREAK_FREEZE_COST,
 } from "./constants";
 import { listClaimableRewards, type ClaimableKind } from "./claimables";
-import { recordWeeklyBossCompletion } from "./rewards";
+import { createCelebration, recordWeeklyBossCompletion } from "./rewards";
 import { DEFAULT_REMINDER_LOCAL_TIME } from "./reminder-time";
 import { createId, createExpEntry, getTodayDateKey, isFeatureUnlocked, syncProgress } from "./utils";
 import type {
+  CelebrationEvent,
   CoinWallet,
+  FloatingReward,
   HabitQuestData,
-  RewardToast,
   UserProgress,
   UserSettings,
 } from "./types";
@@ -27,20 +28,21 @@ export type ClaimMutationResult =
       userProgress: UserProgress;
       newExpEntryIds: string[];
       newOwnedItemIds: string[];
-      rewardToasts: RewardToast[];
+      floatingRewards: FloatingReward[];
+      celebrations: CelebrationEvent[];
     }
   | { ok: false; error: string };
 
-function createToast(
-  type: RewardToast["type"],
-  title: string,
-  description: string,
-): RewardToast {
+function createFloating(
+  kind: FloatingReward["kind"],
+  value: number,
+  label: string,
+): FloatingReward {
   return {
-    id: createId("toast"),
-    type,
-    title,
-    description,
+    id: createId("fx"),
+    kind,
+    value,
+    label,
   };
 }
 
@@ -91,7 +93,8 @@ function collectExpDelta(before: HabitQuestData, after: HabitQuestData) {
 function finish(
   before: HabitQuestData,
   data: HabitQuestData,
-  rewardToasts: RewardToast[],
+  floatingRewards: FloatingReward[],
+  celebrations: CelebrationEvent[],
 ): ClaimMutationResult {
   return {
     ok: true,
@@ -100,7 +103,8 @@ function finish(
     userProgress: data.userProgress,
     newExpEntryIds: collectExpDelta(before, data),
     newOwnedItemIds: collectOwnedDelta(before, data),
-    rewardToasts,
+    floatingRewards,
+    celebrations,
   };
 }
 
@@ -127,18 +131,15 @@ export function applyClaimChallengeReward(
     shopItems: data.shopItems.map((item) => ({ ...item })),
   };
 
-  const rewardToasts: RewardToast[] = [];
+  const floatingRewards: FloatingReward[] = [];
+  const celebrations: CelebrationEvent[] = [];
   if (challenge.reward.coins > 0) {
     grantCoins(next, challenge.reward.coins);
-    rewardToasts.push(
-      createToast("coins", "Coins earned", `${challenge.title} +${challenge.reward.coins} coins`),
-    );
+    floatingRewards.push(createFloating("coins", challenge.reward.coins, challenge.title));
   }
   if (challenge.reward.exp > 0) {
     grantExp(next, challenge.reward.exp, "challenge", challenge.title);
-    rewardToasts.push(
-      createToast("exp", "EXP earned", `${challenge.title} +${challenge.reward.exp} EXP`),
-    );
+    floatingRewards.push(createFloating("exp", challenge.reward.exp, challenge.title));
   }
   if (challenge.reward.titleItemId) {
     const titleId = challenge.reward.titleItemId;
@@ -147,27 +148,21 @@ export function applyClaimChallengeReward(
       item.id === titleId ? { ...item, owned: true } : item,
     );
     if (!alreadyOwned) {
-      rewardToasts.push(
-        createToast(
-          "shop",
+      celebrations.push(
+        createCelebration(
+          "unlock",
           "Exclusive title unlocked",
-          "A challenge title has been added to your inventory.",
+          next.shopItems.find((item) => item.id === titleId)?.name ?? "",
         ),
       );
     } else {
       const repeatBonus = challenge.period === "monthly" ? 15 : 6;
       grantCoins(next, repeatBonus);
-      rewardToasts.push(
-        createToast(
-          "coins",
-          "Repeat clear bonus",
-          `${challenge.title} +${repeatBonus} coins (title already owned).`,
-        ),
-      );
+      floatingRewards.push(createFloating("coins", repeatBonus, `${challenge.title} repeat`));
     }
   }
 
-  return finish(before, next, rewardToasts);
+  return finish(before, next, floatingRewards, celebrations);
 }
 
 export function applyClaimQuestArcReward(
@@ -197,29 +192,30 @@ export function applyClaimQuestArcReward(
     shopItems: data.shopItems.map((item) => ({ ...item })),
   };
 
-  const rewardToasts: RewardToast[] = [];
+  const floatingRewards: FloatingReward[] = [];
+  const celebrations: CelebrationEvent[] = [];
   if (arc.reward.coins > 0) {
     grantCoins(next, arc.reward.coins);
-    rewardToasts.push(
-      createToast("coins", "Coins earned", `${arc.title} +${arc.reward.coins} coins`),
-    );
+    floatingRewards.push(createFloating("coins", arc.reward.coins, arc.title));
   }
   if (arc.reward.exp > 0) {
     grantExp(next, arc.reward.exp, "quest", arc.title);
-    rewardToasts.push(
-      createToast("exp", "EXP earned", `${arc.title} +${arc.reward.exp} EXP`),
-    );
+    floatingRewards.push(createFloating("exp", arc.reward.exp, arc.title));
   }
   if (arc.reward.unlockThemeId) {
     next.shopItems = next.shopItems.map((item) =>
       item.id === arc.reward.unlockThemeId ? { ...item, owned: true } : item,
     );
-    rewardToasts.push(
-      createToast("shop", "Theme unlocked", "A quest theme was added to your inventory."),
+    celebrations.push(
+      createCelebration(
+        "unlock",
+        "Theme unlocked",
+        next.shopItems.find((item) => item.id === arc.reward.unlockThemeId)?.name ?? "",
+      ),
     );
   }
 
-  return finish(before, next, rewardToasts);
+  return finish(before, next, floatingRewards, celebrations);
 }
 
 export function applyClaimSeasonPassLevel(
@@ -257,18 +253,15 @@ export function applyClaimSeasonPassLevel(
       : data.rewardSystems,
   };
 
-  const rewardToasts: RewardToast[] = [];
+  const floatingRewards: FloatingReward[] = [];
+  const celebrations: CelebrationEvent[] = [];
   if (reward.coins > 0) {
     grantCoins(next, reward.coins);
-    rewardToasts.push(
-      createToast("coins", "Coins earned", `${reward.label} +${reward.coins} coins`),
-    );
+    floatingRewards.push(createFloating("coins", reward.coins, reward.label));
   }
   if (reward.exp > 0) {
     grantExp(next, reward.exp, "season", reward.label);
-    rewardToasts.push(
-      createToast("exp", "EXP earned", `${reward.label} +${reward.exp} EXP`),
-    );
+    floatingRewards.push(createFloating("exp", reward.exp, reward.label));
   }
   if (isFinale) {
     const titleId = "title_season_cleared";
@@ -276,25 +269,18 @@ export function applyClaimSeasonPassLevel(
     next.shopItems = next.shopItems.map((item) =>
       item.id === titleId ? { ...item, owned: true } : item,
     );
-    rewardToasts.push(
-      createToast(
-        "unlock",
-        "Season cleared",
-        `Seasons cleared: ${next.rewardSystems.seasonPassCompletions}`,
-      ),
-    );
     if (!alreadyOwned) {
-      rewardToasts.push(
-        createToast(
-          "shop",
+      celebrations.push(
+        createCelebration(
+          "unlock",
           "Exclusive title unlocked",
-          "Season Cleared has been added to your inventory.",
+          next.shopItems.find((item) => item.id === titleId)?.name ?? "Season Cleared",
         ),
       );
     }
   }
 
-  return finish(before, next, rewardToasts);
+  return finish(before, next, floatingRewards, celebrations);
 }
 
 export function applyClaimBossReward(data: HabitQuestData): ClaimMutationResult {
@@ -322,17 +308,13 @@ export function applyClaimBossReward(data: HabitQuestData): ClaimMutationResult 
   };
 
   const label = "Weekly challenge clear";
-  const rewardToasts: RewardToast[] = [];
+  const floatingRewards: FloatingReward[] = [];
   grantCoins(next, BOSS_CLEAR_COINS);
-  rewardToasts.push(
-    createToast("coins", "Coins earned", `${label} +${BOSS_CLEAR_COINS} coins`),
-  );
+  floatingRewards.push(createFloating("coins", BOSS_CLEAR_COINS, label));
   grantExp(next, BOSS_CLEAR_EXP, "boss", label);
-  rewardToasts.push(
-    createToast("exp", "EXP earned", `${label} +${BOSS_CLEAR_EXP} EXP`),
-  );
+  floatingRewards.push(createFloating("exp", BOSS_CLEAR_EXP, label));
 
-  return finish(before, next, rewardToasts);
+  return finish(before, next, floatingRewards, []);
 }
 
 /**
@@ -354,7 +336,8 @@ export function applyClaimAllRewards(
   }
 
   let next = data;
-  const rewardToasts: RewardToast[] = [];
+  const floatingRewards: FloatingReward[] = [];
+  const celebrations: CelebrationEvent[] = [];
 
   for (const item of items) {
     let mutation: ClaimMutationResult;
@@ -373,14 +356,15 @@ export function applyClaimAllRewards(
       continue;
     }
     next = mutation.data;
-    rewardToasts.push(...mutation.rewardToasts);
+    floatingRewards.push(...mutation.floatingRewards);
+    celebrations.push(...mutation.celebrations);
   }
 
   if (next === data) {
     return { ok: false, error: "No rewards ready to claim." };
   }
 
-  return finish(before, next, rewardToasts);
+  return finish(before, next, floatingRewards, celebrations);
 }
 
 export function applyBuyStreakFreeze(data: HabitQuestData): ClaimMutationResult {
@@ -402,9 +386,7 @@ export function applyBuyStreakFreeze(data: HabitQuestData): ClaimMutationResult 
   };
   spendCoins(next, STREAK_FREEZE_COST);
 
-  return finish(before, next, [
-    createToast("shop", "Streak freeze bought", `Spent ${STREAK_FREEZE_COST} coins.`),
-  ]);
+  return finish(before, next, [], []);
 }
 
 export function applyUpdateSettings(

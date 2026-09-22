@@ -1,15 +1,5 @@
-import { getComboRewards, hitComboCoinMilestone } from "./combo";
-import { describeCraving, describeStackFormula } from "./habit-loop";
-import {
-  applyCritMultiplier,
-  createCelebration,
-  createDefaultRewardSystems,
-  decrementCombo,
-  getActiveShieldDates,
-  reconcileTodayCombo,
-  rollCritForHabit,
-  updateCombo,
-} from "./rewards";
+import { applyCritMultiplier, createDefaultRewardSystems, decrementCombo, getActiveShieldDates, reconcileTodayCombo, rollCritForHabit, updateCombo } from "./rewards";
+import { settleHabitDayProgress } from "./day-settlement";
 import {
   createId,
   getDifficultyExp,
@@ -98,19 +88,6 @@ export function mergeHabitCompletionsIntoState(
   };
 }
 
-function createToast(
-  type: RewardToast["type"],
-  title: string,
-  description: string,
-): RewardToast {
-  return {
-    id: createId("toast"),
-    type,
-    title,
-    description,
-  };
-}
-
 export type HabitMutationResult =
   | {
       ok: true;
@@ -143,10 +120,6 @@ export function applyCompleteHabitForToday(
     data.rewardSystems ?? createDefaultRewardSystems(),
     today,
   );
-  const previousCombo =
-    data.rewardSystems?.comboDate === today ? data.rewardSystems.todayCombo : 0;
-  const nextCombo = rewardSystems.todayCombo;
-  const comboPreview = getComboRewards(nextCombo);
 
   const provisionalCompletion: HabitCompletion = {
     id: createId("completion"),
@@ -186,60 +159,12 @@ export function applyCompleteHabitForToday(
     rewardSystems,
   };
 
-  const pendingBits = [
-    `Combo x${nextCombo}`,
-    comboPreview.exp > 0 ? `+${comboPreview.exp} combo EXP` : null,
-  ].filter(Boolean);
-
-  const craving = describeCraving(habit);
-  const stackLine = describeStackFormula(habit, data.habits);
-  const rewardToasts: RewardToast[] = [
-    createToast(
-      "unlock",
-      "Done",
-      `${habit.title} — +${baseExp + streakBonus} EXP${pendingBits.length ? ` · ${pendingBits.join(" · ")}` : ""}.`,
-    ),
-  ];
-  if (craving) {
-    rewardToasts.unshift(
-      createToast(
-        "achievement",
-        craving,
-        stackLine
-          ? `Loop closed: ${stackLine}`
-          : habit.identityWhy.trim() || "Trigger → response → reward. Nice.",
-      ),
-    );
-  }
-  let celebration: CelebrationEvent | null = null;
-
-  if (hitComboCoinMilestone(previousCombo, nextCombo)) {
-    rewardToasts.push(
-      createToast(
-        "coins",
-        `Combo x${nextCombo}`,
-        `Coin milestone — +${getComboRewards(nextCombo).coins} combo coins.`,
-      ),
-    );
-  }
-
-  if (isCrit) {
-    rewardToasts.push(
-      createToast("crit", "Critical clear", `${habit.title} hit for double EXP.`),
-    );
-    celebration = createCelebration(
-      "crit",
-      "Critical hit!",
-      `${habit.title} scored a critical clear.`,
-    );
-  }
-
   return {
     ok: true,
     data: nextData,
     completion,
-    rewardToasts,
-    celebration,
+    rewardToasts: [],
+    celebration: null,
   };
 }
 
@@ -271,9 +196,43 @@ export function applyUncompleteHabitForToday(
       rewardSystems,
     },
     completion: null,
-    rewardToasts: [
-      createToast("warning", "Completion undone", "Today's Done was removed."),
-    ],
+    rewardToasts: [],
     celebration: null,
+  };
+}
+
+export type UndoWalletImpact =
+  | { ok: false; error: string }
+  | {
+      ok: true;
+      coinsBefore: number;
+      coinsAfter: number;
+      clawback: number;
+      goesNegative: boolean;
+    };
+
+/**
+ * Simulate undo + live-day settle to see if reclaiming today's coins
+ * would leave the wallet negative (e.g. spent Done rewards in the Shop).
+ */
+export function previewUndoWalletImpact(
+  data: HabitQuestData,
+  habitId: string,
+  today = getTodayDateKey(),
+): UndoWalletImpact {
+  const mutation = applyUncompleteHabitForToday(data, habitId, today);
+  if (!mutation.ok) {
+    return { ok: false, error: mutation.error };
+  }
+
+  const settled = settleHabitDayProgress(mutation.data, today);
+  const coinsBefore = data.wallet.totalCoins;
+  const coinsAfter = settled.data.wallet.totalCoins;
+  return {
+    ok: true,
+    coinsBefore,
+    coinsAfter,
+    clawback: coinsBefore - coinsAfter,
+    goesNegative: coinsAfter < 0,
   };
 }

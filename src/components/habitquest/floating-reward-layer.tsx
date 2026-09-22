@@ -6,6 +6,8 @@ import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
 import { cn } from "~/lib/ui/cn";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
+const FLOAT_MS = 1400;
+
 export function FloatingRewardLayer() {
   const floatingRewards = useHabitQuestStore((state) => state.floatingRewards);
   const dismissFloatingReward = useHabitQuestStore((state) => state.dismissFloatingReward);
@@ -16,7 +18,7 @@ export function FloatingRewardLayer() {
     }
 
     const timers = floatingRewards.map((reward) =>
-      window.setTimeout(() => dismissFloatingReward(reward.id), 1800),
+      window.setTimeout(() => dismissFloatingReward(reward.id), FLOAT_MS),
     );
 
     return () => {
@@ -25,30 +27,35 @@ export function FloatingRewardLayer() {
   }, [dismissFloatingReward, floatingRewards]);
 
   return (
-    <div className="pointer-events-none fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-3 z-50 flex flex-col items-start gap-3 sm:bottom-8 sm:left-auto sm:right-8 sm:items-end lg:bottom-8">
+    <div
+      className="pointer-events-none fixed bottom-[calc(6.25rem+env(safe-area-inset-bottom))] left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2 sm:bottom-auto sm:left-auto sm:right-8 sm:top-24 sm:translate-x-0 sm:items-end lg:top-28"
+      aria-live="polite"
+      aria-atomic="false"
+    >
       <AnimatePresence>
         {floatingRewards.map((reward) => (
           <motion.div
             key={reward.id}
-            initial={{ opacity: 0, y: 16, scale: 0.9 }}
-            animate={{ opacity: 1, y: -12, scale: 1 }}
-            exit={{ opacity: 0, y: -28, scale: 0.86 }}
-            transition={{ duration: 0.6 }}
+            initial={{ opacity: 0, y: 12, scale: 0.92 }}
+            animate={{ opacity: [0, 1, 1, 0], y: -56, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: FLOAT_MS / 1000, times: [0, 0.12, 0.55, 1], ease: "easeOut" }}
             className={cn(
-              "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-[0_18px_50px_rgba(0,0,0,0.35)]",
-              reward.kind === "coins"
-                ? "bg-amber-300/18 text-amber-100 ring-1 ring-amber-300/20"
-                : "bg-cyan-300/18 text-cyan-100 ring-1 ring-cyan-300/20",
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold tabular-nums",
+              reward.crit
+                ? "text-amber-100"
+                : reward.kind === "coins"
+                  ? "text-amber-100"
+                  : "text-cyan-100",
             )}
           >
+            {reward.crit ? <span className="text-[10px] uppercase tracking-[0.18em] text-amber-200/90">Crit</span> : null}
             <CurrencyAmount
               kind={reward.kind === "coins" ? "coins" : "exp"}
               value={reward.value}
               prefix="+"
-              size={15}
+              size={16}
             />
-            <span className="opacity-80">•</span>
-            <span>{reward.label}</span>
           </motion.div>
         ))}
       </AnimatePresence>

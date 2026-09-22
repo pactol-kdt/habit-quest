@@ -162,16 +162,25 @@ export async function completeHabits(
 
     let working = existing.data;
     const prepared: HabitCompletion[] = [];
+    const toInsert: HabitCompletion[] = [];
     const errors: string[] = [];
 
     for (const habitId of habitIds) {
       const mutation = applyCompleteHabitForToday(working, habitId, dateKey);
       if (!mutation.ok || !mutation.completion) {
+        const alreadyCleared = working.completions.find(
+          (entry) => entry.habitId === habitId && entry.date === dateKey,
+        );
+        if (alreadyCleared && /already completed today/i.test(mutation.ok ? "" : mutation.error)) {
+          prepared.push(alreadyCleared);
+          continue;
+        }
         errors.push(mutation.ok ? `${habitId}: Missing completion.` : `${habitId}: ${mutation.error}`);
         continue;
       }
       working = mutation.data;
       prepared.push(mutation.completion);
+      toInsert.push(mutation.completion);
     }
 
     if (!prepared.length) {
@@ -181,7 +190,13 @@ export async function completeHabits(
       };
     }
 
-    const saved = await persistTodayHabitCompletions(database, user.id, prepared);
+    const saved = toInsert.length
+      ? await persistTodayHabitCompletions(database, user.id, toInsert)
+      : {
+          updatedAt: existing.updatedAt,
+          todayCombo: working.rewardSystems.todayCombo,
+          comboDate: working.rewardSystems.comboDate,
+        };
 
     return {
       status: "ok",
@@ -198,27 +213,26 @@ export async function completeHabits(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to complete habits.";
-    // Duplicate key = some already completed — fall back to single-path reconcile for one id.
-    if (/duplicate|uniq_completions/i.test(message) && habitIds.length === 1) {
-      const habitId = habitIds[0]!;
+    // Duplicate key = already cleared on the server — return those rows as success.
+    if (/duplicate|uniq_completions/i.test(message)) {
       const refreshed = await loadNormalizedSave(database, user.id, catalog);
-      const existingCompletion = refreshed?.data.completions.find(
-        (entry) => entry.habitId === habitId && entry.date === dateKey,
-      );
-      if (!existingCompletion || !refreshed) {
-        return { status: "error", error: "Already completed today." };
+      const recovered =
+        refreshed?.data.completions
+          .filter((entry) => entry.date === dateKey && habitIds.includes(entry.habitId))
+          .map((completion) => ({ habitId: completion.habitId, completion })) ?? [];
+      if (refreshed && recovered.length) {
+        return {
+          status: "ok",
+          date: dateKey,
+          completions: recovered,
+          rewardSystems: {
+            todayCombo: refreshed.data.rewardSystems.todayCombo,
+            comboDate: refreshed.data.rewardSystems.comboDate,
+          },
+          updatedAt: refreshed.updatedAt,
+        };
       }
-
-      return {
-        status: "ok",
-        date: dateKey,
-        completions: [{ habitId, completion: existingCompletion }],
-        rewardSystems: {
-          todayCombo: refreshed.data.rewardSystems.todayCombo,
-          comboDate: refreshed.data.rewardSystems.comboDate,
-        },
-        updatedAt: refreshed.updatedAt,
-      };
+      return { status: "error", error: "Already completed today." };
     }
     return { status: "error", error: message };
   }

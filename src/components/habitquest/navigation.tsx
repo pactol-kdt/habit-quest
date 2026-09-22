@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { AvatarWithFrame } from "~/components/habitquest/cosmetic-art";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { CoinIcon } from "~/components/habitquest/icons/coin-icon";
+import { PulseOnChange } from "~/components/habitquest/pulse-on-change";
 import { StreakFlame } from "~/components/habitquest/streak-flame";
 import { cn } from "~/lib/ui/cn";
 import { formatNumber, getProfileDisplay } from "~/lib/habitquest/utils";
@@ -26,11 +27,11 @@ const primaryNav: NavLink[] = [
   { href: "/habits", label: "Habits" },
   { href: "/boss", label: "Week" },
   { href: "/season", label: "Season" },
+  { href: "/shop", label: "Shop" },
 ];
 
 const youNav: NavLink[] = [
   { href: "/profile", label: "Profile" },
-  { href: "/shop", label: "Shop" },
   { href: "/achievements", label: "Achievements" },
   { href: "/leaderboard", label: "Streak board" },
   { href: "/guides", label: "Guides" },
@@ -200,9 +201,11 @@ export function Navigation() {
               className="inline-flex shrink-0 items-center gap-1 rounded-full border border-orange-300/25 bg-orange-400/10 px-2 py-1.5 text-[11px] text-orange-50 sm:gap-1.5 sm:px-2.5 sm:text-sm"
             >
               <StreakFlame tier={streakTier} size="xs" />
-              <span className="tabular-nums font-semibold">
-                {hydrated ? currentStreak : "..."}
-              </span>
+              <PulseOnChange value={hydrated ? currentStreak : -1}>
+                <span className="tabular-nums font-semibold">
+                  {hydrated ? currentStreak : "..."}
+                </span>
+              </PulseOnChange>
               <span className="sr-only">
                 {hydrated ? ` ${currentStreak === 1 ? "day" : "days"} streak` : " streak"}
               </span>
@@ -210,6 +213,17 @@ export function Navigation() {
             <nav className="hidden items-center gap-2 lg:flex">
               {primaryNav.map((item) => {
                 const active = pathname === item.href;
+                const badge =
+                  item.href === "/boss"
+                    ? claimables.filter((c) => c.kind === "boss" || (c.kind === "challenge" && c.href.startsWith("/boss"))).length
+                    : item.href === "/season"
+                      ? claimables.filter(
+                          (c) =>
+                            c.kind === "season" ||
+                            c.kind === "quest" ||
+                            (c.kind === "challenge" && c.href.startsWith("/season")),
+                        ).length
+                      : 0;
 
                 return (
                   <Link
@@ -218,6 +232,11 @@ export function Navigation() {
                     className={navButtonClass(active, false)}
                   >
                     {item.label}
+                    {badge > 0 ? (
+                      <span className="ml-1.5 rounded-full bg-amber-300/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-100">
+                        {badge > 9 ? "9+" : badge}
+                      </span>
+                    ) : null}
                   </Link>
                 );
               })}
@@ -227,7 +246,6 @@ export function Navigation() {
                 items={youNav}
                 pathname={pathname}
                 isAdmin={isAdmin}
-                badgeCount={claimables.length}
                 open={openMenu === "you"}
                 onToggle={() =>
                   setOpenMenu((current) => (current === "you" ? null : "you"))
@@ -254,18 +272,13 @@ export function Navigation() {
               className="hq-chip-gold inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
               title="Open shop"
             >
-              <motion.span
-                key={spendableCoins}
-                initial={{ scale: 0.95, opacity: 0.6 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="inline-flex items-center gap-1.5"
-              >
+              <PulseOnChange value={hydrated ? spendableCoins : -1} className="gap-1.5">
                 <CoinIcon size={14} className="sm:hidden" title="Coins" />
                 <CoinIcon size={16} className="hidden sm:block" title="Coins" />
                 <span className="tabular-nums">
                   {hydrated ? formatNumber(spendableCoins) : "..."}
                 </span>
-              </motion.span>
+              </PulseOnChange>
             </Link>
             <Link
               href="/profile"

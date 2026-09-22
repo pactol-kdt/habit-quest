@@ -13,6 +13,7 @@ import {
   hasCompletionForDate,
 } from "~/lib/habitquest/utils";
 import { sortHabitsByLoop } from "~/lib/habitquest/habit-loop";
+import { previewUndoWalletImpact } from "~/lib/habitquest/habit-mutations";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 import type { Habit } from "~/types/habitquest";
 
@@ -34,11 +35,23 @@ export function HabitsPage() {
     uncompleteHabitForToday,
     pendingHabitIds,
     pendingHabitActions,
+    projectSave,
   } = useHabitQuestStore((state) => state);
 
   const today = getTodayDateKey();
   const dueHabits = useMemo(() => getDueHabitsForDate(habits, today), [habits, today]);
   const dueHabitIds = useMemo(() => new Set(dueHabits.map((habit) => habit.id)), [dueHabits]);
+
+  function evaluateUndo(habitId: string) {
+    if (!hydrated) {
+      return null;
+    }
+    const preview = previewUndoWalletImpact(projectSave(), habitId, today);
+    if (!preview.ok || !preview.goesNegative) {
+      return null;
+    }
+    return { clawback: preview.clawback, coinsAfter: preview.coinsAfter };
+  }
 
   const completedHabitIds = useMemo(
     () =>
@@ -158,6 +171,7 @@ export function HabitsPage() {
           }
           onComplete={completeHabitForToday}
           onUncomplete={uncompleteHabitForToday}
+          evaluateUndo={evaluateUndo}
           onEdit={(habit) => {
             setEditingHabit(habit);
             setModalOpen(true);

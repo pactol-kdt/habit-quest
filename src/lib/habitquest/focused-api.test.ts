@@ -392,7 +392,7 @@ describe("claimable rewards listing", () => {
 });
 
 describe("challenge title repeat rewards", () => {
-  it("grants title toast on first claim and bonus coins when title already owned", () => {
+  it("grants a title celebration on first claim and bonus coins when title already owned", () => {
     const base = createSeedData();
     const weekly = base.challenges.find((entry) => entry.period === "weekly");
     assert.ok(weekly);
@@ -413,7 +413,7 @@ describe("challenge title repeat rewards", () => {
     if (!first.ok) {
       return;
     }
-    assert.ok(first.rewardToasts.some((toast) => /title/i.test(toast.title)));
+    assert.ok(first.celebrations.some((event) => /title/i.test(event.title)));
     assert.equal(
       first.data.shopItems.find((item) => item.id === titleId)?.owned,
       true,
@@ -434,10 +434,10 @@ describe("challenge title repeat rewards", () => {
       return;
     }
     assert.equal(
-      second.rewardToasts.some((toast) => /title unlocked/i.test(toast.title)),
+      second.celebrations.some((event) => /title unlocked/i.test(event.title)),
       false,
     );
-    assert.ok(second.rewardToasts.some((toast) => /repeat/i.test(toast.title)));
+    assert.ok(second.floatingRewards.some((reward) => reward.kind === "coins" && /repeat/i.test(reward.label)));
     assert.ok(second.data.wallet.totalCoins > coinsAfterFirst + weekly.reward.coins - 1);
   });
 });

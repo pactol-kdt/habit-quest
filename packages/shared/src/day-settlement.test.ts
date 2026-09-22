@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyCompleteHabitForToday, applyUncompleteHabitForToday } from "./habit-mutations.ts";
+import { applyCompleteHabitForToday, applyUncompleteHabitForToday, previewUndoWalletImpact } from "./habit-mutations.ts";
 import {
   getEffectiveUserProgress,
   getPendingHabitExp,
@@ -116,5 +116,13 @@ describe("live day settle", () => {
       afterUndo.data.wallet.totalCoins,
       afterUndo.data.wallet.lifetimeCoinsEarned - afterUndo.data.wallet.lifetimeCoinsSpent,
     );
+
+    const preview = previewUndoWalletImpact(settled.data, habitId, today);
+    assert.equal(preview.ok, true);
+    if (!preview.ok) {
+      return;
+    }
+    assert.equal(preview.goesNegative, true);
+    assert.equal(preview.coinsAfter, afterUndo.data.wallet.totalCoins);
   });
 });

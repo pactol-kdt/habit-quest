@@ -62,11 +62,11 @@ const GUIDE_SECTIONS = [
   },
   {
     title: "Themes",
-    body: "Unlock at level 4. Equip themes from the shop to restyle app colors. Ember and Aurora come from quest chapters (outside the buy ladder). Purchasable themes unlock in order: Coastal Mist → Archive Sepia → Midnight.",
+    body: "Unlock at level 4. Equip themes from the shop to restyle app colors. Ember and Aurora come from quest chapters. Buyable themes are Coastal Mist, Archive Sepia, and Midnight.",
   },
   {
     title: "Cosmetics",
-    body: "Titles, frames, and avatars fill out your profile. Buyable cosmetics unlock progressively within each category (cheapest tier first). Exclusive titles from challenges, quests, and the season finale sit outside that ladder. Season Cleared comes from claiming the season finale. Mid-tier frames (Ink Line, Forge Ring, Aurora Filigree) sit between Bronze and Galaxy.",
+    body: "Titles, frames, and avatars fill out your profile. Buy any unlocked cosmetic you can afford — exclusive titles from challenges, quests, and the season finale are earned, not bought. Season Cleared comes from claiming the season finale.",
   },
   {
     title: "Account & sync",

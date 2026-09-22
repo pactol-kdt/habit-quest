@@ -13,12 +13,12 @@ const tabs = [
   { id: "habits", href: "/habits", label: "Habits", icon: HabitsIcon },
   { id: "week", href: "/boss", label: "Week", icon: WeekIcon },
   { id: "season", href: "/season", label: "Season", icon: SeasonIcon },
+  { id: "shop", href: "/shop", label: "Shop", icon: ShopIcon },
   { id: "you", href: null, label: "You", icon: ProfileIcon },
 ] as const;
 
 const youLinks = [
   { href: "/profile", label: "Profile", hint: "Identity & honors" },
-  { href: "/shop", label: "Shop", hint: "Cosmetics" },
   { href: "/achievements", label: "Achievements", hint: "Milestones" },
   { href: "/leaderboard", label: "Streak board", hint: "Rankings" },
   { href: "/guides", label: "Guides", hint: "How it works" },
@@ -28,13 +28,32 @@ const youLinks = [
 function isYouPath(pathname: string) {
   return (
     pathname === "/profile" ||
-    pathname === "/shop" ||
     pathname === "/achievements" ||
     pathname === "/leaderboard" ||
     pathname === "/guides" ||
     pathname === "/settings" ||
     pathname === "/admin"
   );
+}
+
+function tabBadgeCount(
+  href: string | null,
+  claimables: ReturnType<typeof useClaimableRewards>,
+) {
+  if (href === "/boss") {
+    return claimables.filter(
+      (c) => c.kind === "boss" || (c.kind === "challenge" && c.href.startsWith("/boss")),
+    ).length;
+  }
+  if (href === "/season") {
+    return claimables.filter(
+      (c) =>
+        c.kind === "season" ||
+        c.kind === "quest" ||
+        (c.kind === "challenge" && c.href.startsWith("/season")),
+    ).length;
+  }
+  return 0;
 }
 
 export function MobileBottomNav() {
@@ -85,24 +104,19 @@ export function MobileBottomNav() {
                   aria-expanded={youOpen}
                   onClick={() => setYouOpen((current) => !current)}
                   className={cn(
-                    "relative flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-xs transition",
+                    "relative flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-0.5 py-1.5 text-[10px] transition sm:px-1 sm:text-xs",
                     active
                       ? "bg-white/10 text-white"
                       : "text-[var(--color-text-muted)] active:bg-white/5",
                   )}
                 >
-                  <span className="relative">
-                    <Icon />
-                    {claimables.length > 0 ? (
-                      <span className="absolute -right-2.5 -top-1 rounded-full bg-amber-300/25 px-1 text-[9px] font-semibold text-amber-100">
-                        {claimables.length > 9 ? "9+" : claimables.length}
-                      </span>
-                    ) : null}
-                  </span>
+                  <Icon />
                   {tab.label}
                 </button>
               );
             }
+
+            const badge = tabBadgeCount(tab.href, claimables);
 
             return (
               <Link
@@ -111,13 +125,20 @@ export function MobileBottomNav() {
                 aria-current={active ? "page" : undefined}
                 onClick={() => setYouOpen(false)}
                 className={cn(
-                  "flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-xs transition",
+                  "relative flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-0.5 py-1.5 text-[10px] transition sm:px-1 sm:text-xs",
                   active
                     ? "bg-white/10 text-white"
                     : "text-[var(--color-text-muted)] active:bg-white/5",
                 )}
               >
-                <Icon />
+                <span className="relative">
+                  <Icon />
+                  {badge > 0 ? (
+                    <span className="absolute -right-2.5 -top-1 rounded-full bg-amber-300/25 px-1 text-[9px] font-semibold text-amber-100">
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  ) : null}
+                </span>
                 {tab.label}
               </Link>
             );
@@ -229,6 +250,25 @@ function SeasonIcon() {
     <svg className={iconClass()} viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8" />
       <path d="M12 8v4l3 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ShopIcon() {
+  return (
+    <svg className={iconClass()} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6 8h12l-1 11H7L6 8Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 8V7a3 3 0 0 1 6 0v1"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

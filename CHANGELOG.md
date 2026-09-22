@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.10.0 - Shop Nav and Today Claims
+
+### Added
+- Buying a cosmetic shows its preview art on the confirm dialog and the purchase celebration.
+- Shop is a primary nav destination (desktop + mobile); removed from the You sheet.
+- Today can claim the weekly reward inline when ready, and the ready strip says claim here (Details stays optional).
+
+### Changed
+- Claim ready badges sit on Week / Season tabs instead of the You menu.
+- Undo warns when reclaiming today's coins would leave the wallet negative (Keep Done / Undo anyway).
+
 ## 0.9.0 - Quiet RPG and Live Rewards
 
 ### Added

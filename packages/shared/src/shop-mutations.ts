@@ -18,9 +18,8 @@ export type ShopMutationResult =
   | { ok: false; error: string };
 
 /**
- * Purchasable ladder per category (price → level → id).
- * Exclusive challenge/quest/season grants sit outside the chain and never
- * gate (or get gated by) the buyable tiers.
+ * Purchasable items per category (price → level → id).
+ * Exclusive challenge/quest/season grants sit outside this list.
  */
 export function getPurchasableLadder(
   shopItems: ShopItem[],
@@ -35,41 +34,6 @@ export function getPurchasableLadder(
         a.requiredLevel - b.requiredLevel ||
         a.id.localeCompare(b.id),
     );
-}
-
-export function getShopLadderPrerequisite(
-  shopItems: ShopItem[],
-  item: ShopItem,
-): ShopItem | null {
-  if (item.exclusive) {
-    return null;
-  }
-  const ladder = getPurchasableLadder(shopItems, item.category);
-  const index = ladder.findIndex((entry) => entry.id === item.id);
-  if (index <= 0) {
-    return null;
-  }
-  // Require every earlier purchasable tier — owning a mid/high tier without
-  // lower ones does not let you skip ahead (e.g. own T3, missing T1–T2 → buy T4 blocked).
-  for (let i = 0; i < index; i += 1) {
-    const earlier = ladder[i];
-    if (earlier && !earlier.owned) {
-      return earlier;
-    }
-  }
-  return null;
-}
-
-/** Short UI / mutation reason when an earlier purchasable tier is missing. */
-export function getShopLadderLockReason(
-  shopItems: ShopItem[],
-  item: ShopItem,
-): string | null {
-  const prerequisite = getShopLadderPrerequisite(shopItems, item);
-  if (!prerequisite) {
-    return null;
-  }
-  return `Own ${prerequisite.name} first`;
 }
 
 function spendCoins(data: HabitQuestData, amount: number) {
@@ -110,10 +74,6 @@ export function applyPurchaseShopItem(
   }
   if (item.exclusive) {
     return { ok: false, error: "Exclusive item — earn it through gameplay." };
-  }
-  const ladderLock = getShopLadderLockReason(data.shopItems, item);
-  if (ladderLock) {
-    return { ok: false, error: ladderLock };
   }
   if (item.requiredFeature && !isFeatureUnlocked(data.levelUnlocks, item.requiredFeature)) {
     return { ok: false, error: `Requires ${item.requiredFeature}.` };

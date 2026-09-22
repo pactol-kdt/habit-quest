@@ -26,6 +26,11 @@ interface HabitListProps {
   dueHabitIds?: Set<string>;
   onComplete: (habitId: string) => void;
   onUncomplete?: (habitId: string) => void;
+  /** Return a warning when undo would reclaim spent coins into a negative wallet. */
+  evaluateUndo?: (habitId: string) => {
+    clawback: number;
+    coinsAfter: number;
+  } | null;
   onEdit: (habit: Habit) => void;
   onDelete: (habitId: string) => void;
 }
@@ -60,12 +65,30 @@ export function HabitList({
   dueHabitIds,
   onComplete,
   onUncomplete,
+  evaluateUndo,
   onEdit,
   onDelete,
 }: HabitListProps) {
   const catalog = allHabits ?? habits;
   const [menuHabit, setMenuHabit] = useState<Habit | null>(null);
   const [deleteHabit, setDeleteHabit] = useState<Habit | null>(null);
+  const [undoWarn, setUndoWarn] = useState<{
+    habit: Habit;
+    clawback: number;
+    coinsAfter: number;
+  } | null>(null);
+
+  function requestUncomplete(habit: Habit) {
+    if (!onUncomplete) {
+      return;
+    }
+    const warning = evaluateUndo?.(habit.id) ?? null;
+    if (warning) {
+      setUndoWarn({ habit, ...warning });
+      return;
+    }
+    onUncomplete(habit.id);
+  }
 
   if (!habits.length) {
     return (
@@ -103,10 +126,10 @@ export function HabitList({
 
           return (
             <motion.article
-              key={habit.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.03 }}
+              key={`${habit.id}-${completed ? "done" : "open"}`}
+              initial={completed ? { scale: 1.03, opacity: 0.85 } : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: completed ? 0 : index * 0.03, type: "spring", stiffness: 380, damping: 24 }}
               className={cn(
                 "relative min-w-0 overflow-hidden rounded-[1.35rem] border p-4 transition sm:rounded-3xl sm:p-5",
                 completed
@@ -165,7 +188,7 @@ export function HabitList({
                   {completed && onUncomplete ? (
                     <button
                       type="button"
-                      onClick={() => onUncomplete(habit.id)}
+                      onClick={() => requestUncomplete(habit)}
                       disabled={pendingSync}
                       className={cn(
                         "min-h-12 flex-1 rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2.5 text-sm text-amber-100 transition sm:min-h-11 sm:flex-none",
@@ -215,7 +238,6 @@ export function HabitList({
       <ConfirmDialog
         open={Boolean(menuHabit) && !deleteHabit}
         title={menuHabit?.title ?? "Habit"}
-        description="Edit the loop or remove this habit."
         onClose={() => setMenuHabit(null)}
       >
         <button
@@ -275,6 +297,38 @@ export function HabitList({
           className="min-h-12 rounded-full border border-rose-300/30 bg-rose-300/15 px-5 py-3 text-sm font-semibold text-rose-100 hover:bg-rose-300/25"
         >
           Delete habit
+        </button>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={Boolean(undoWarn)}
+        title="Undo will reclaim coins"
+        description={
+          undoWarn
+            ? `You already spent today's reward coins. Undoing "${undoWarn.habit.title}" reclaims ${undoWarn.clawback} coin${undoWarn.clawback === 1 ? "" : "s"} and leaves your wallet at ${undoWarn.coinsAfter}.`
+            : undefined
+        }
+        onClose={() => setUndoWarn(null)}
+      >
+        <button
+          type="button"
+          onClick={() => setUndoWarn(null)}
+          className="min-h-12 rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] hover:text-white"
+        >
+          Keep Done
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!undoWarn || !onUncomplete) {
+              return;
+            }
+            onUncomplete(undoWarn.habit.id);
+            setUndoWarn(null);
+          }}
+          className="min-h-12 rounded-full border border-amber-300/30 bg-amber-300/15 px-5 py-3 text-sm font-semibold text-amber-100 hover:bg-amber-300/25"
+        >
+          Undo anyway
         </button>
       </ConfirmDialog>
     </>

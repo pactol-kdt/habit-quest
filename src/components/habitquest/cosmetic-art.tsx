@@ -114,7 +114,7 @@ function TitleSigil({ itemId }: { itemId: string }) {
   const palette = getTitlePalette(itemId);
 
   return (
-    <svg viewBox="0 0 80 80" className="h-12 w-12">
+    <svg viewBox="0 0 80 80" className="h-full w-full p-[18%]">
       <defs>
         <linearGradient id={`title-${itemId}`} x1="0%" x2="100%">
           <stop offset="0%" stopColor={palette[0]} />

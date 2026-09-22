@@ -60,7 +60,7 @@ export function BossPage() {
           {hero.title}
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
-          {hero.support} Undo a Done anytime today.
+          {hero.support}
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
@@ -122,11 +122,7 @@ export function BossPage() {
                 ? "Claiming…"
                 : "Claim weekly reward"}
           </button>
-        ) : (
-          <p className="mt-6 text-sm text-[var(--color-text-muted)]">
-            Finish habits to fill the bar.
-          </p>
-        )}
+        ) : null}
 
         {weeklyChallenge ? (
           <div id="clears" className="mt-8 scroll-mt-24 border-t border-white/10 pt-6">

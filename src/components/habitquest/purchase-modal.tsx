@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useRef } from "react";
+import { CosmeticPreview } from "~/components/habitquest/cosmetic-art";
 import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
 import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import type { ShopItem } from "~/types/habitquest";
@@ -54,7 +55,36 @@ function PurchaseDialog({
         exit={{ y: 14, opacity: 0, scale: 0.96 }}
         onClick={(event) => event.stopPropagation()}
       >
-        <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
+        {item.exclusive ? (
+          <>
+            <CosmeticPreview
+              item={item}
+              className="mx-auto h-24 w-24 rounded-[1.5rem] border border-white/10 bg-white/5"
+            />
+            <p className="mt-5 text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
+              Exclusive
+            </p>
+            <h2 id="purchase-dialog-title" className="section-title mt-2 text-2xl text-white sm:text-3xl">
+              {item.name}
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
+              This cosmetic is earned through play, not bought.
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-6 min-h-12 rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)]"
+            >
+              Close
+            </button>
+          </>
+        ) : (
+          <>
+        <CosmeticPreview
+          item={item}
+          className="mx-auto h-24 w-24 rounded-[1.5rem] border border-white/10 bg-white/5"
+        />
+        <p className="mt-5 text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
           Confirm Purchase
         </p>
         <h2 id="purchase-dialog-title" className="section-title mt-2 text-2xl text-white sm:text-3xl">
@@ -68,7 +98,7 @@ function PurchaseDialog({
             size={14}
             className="align-middle font-medium text-amber-100"
           />{" "}
-          on this {item.category}. Purchases save to your account.
+          on this {item.category}.
         </p>
 
         <div className="mt-6 grid grid-cols-2 gap-3 sm:flex">
@@ -90,6 +120,8 @@ function PurchaseDialog({
             Purchase item
           </button>
         </div>
+          </>
+        )}
       </motion.div>
     </motion.div>
   );

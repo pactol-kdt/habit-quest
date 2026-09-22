@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ExpIcon } from "~/components/habitquest/icons/exp-icon";
+import { PulseOnChange } from "~/components/habitquest/pulse-on-change";
 import { formatNumber } from "~/lib/habitquest/utils";
 
 interface ExpProgressProps {
@@ -28,7 +29,9 @@ export function ExpProgress({
           <span>Level {level}</span>
           <span className="inline-flex items-center gap-1.5 tabular-nums">
             <ExpIcon size={12} title="EXP" />
-            {formatNumber(currentExp)} / {formatNumber(requiredExp)}
+            <PulseOnChange value={currentExp}>
+              {formatNumber(currentExp)} / {formatNumber(requiredExp)}
+            </PulseOnChange>
           </span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-white/6 ring-1 ring-white/8">
@@ -49,7 +52,9 @@ export function ExpProgress({
         <span>Level {level} progress</span>
         <span className="inline-flex items-center gap-1.5 tabular-nums">
           <ExpIcon size={14} title="EXP" />
-          {formatNumber(currentExp)} / {formatNumber(requiredExp)}
+          <PulseOnChange value={currentExp}>
+            {formatNumber(currentExp)} / {formatNumber(requiredExp)}
+          </PulseOnChange>
         </span>
       </div>
       <div className="h-4 overflow-hidden rounded-full bg-white/6 ring-1 ring-white/8">
