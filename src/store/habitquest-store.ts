@@ -120,6 +120,8 @@ type HabitQuestStore = HabitQuestData & {
   authChecked: boolean;
   authUser: AuthUser | null;
   guestPlay: boolean;
+  /** Set when a guest leaves play specifically to create an account and keep this run. */
+  accountIntent: "keep" | null;
   pendingHabitIds: string[];
   pendingHabitActions: Record<string, HabitPendingAction>;
   pendingShopItemIds: string[];
@@ -134,7 +136,7 @@ type HabitQuestStore = HabitQuestData & {
   setAuthChecked: (checked: boolean) => void;
   setAuthUser: (user: AuthUser | null) => void;
   startGuestPlay: () => void;
-  exitGuestPlay: () => void;
+  exitGuestPlay: (intent?: "keep") => void;
   projectSave: () => HabitQuestData;
   applyRemoteSave: (data: HabitQuestData, options?: ResolutionOptions) => void;
   applyAuthenticatedSave: (
@@ -1054,6 +1056,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
   authChecked: false,
   authUser: null,
   guestPlay: false,
+  accountIntent: null,
   pendingHabitIds: [],
   pendingHabitActions: {},
   pendingShopItemIds: [],
@@ -1096,19 +1099,19 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     }
     setLocalPersistenceEnabled(true);
     clearCachedAuthUser();
-    set({ authUser: null });
+    set({ authUser: null, guestPlay: false, accountIntent: null });
   },
   startGuestPlay: () => {
     setCloudSyncEnabled(false);
     setLocalPersistenceEnabled(true);
     setGuestPlayEnabled(true);
     clearCachedAuthUser();
-    set({ authUser: null, guestPlay: true, authChecked: true });
+    set({ authUser: null, guestPlay: true, authChecked: true, accountIntent: null });
     get().hydrate();
   },
-  exitGuestPlay: () => {
+  exitGuestPlay: (intent) => {
     setGuestPlayEnabled(false);
-    set({ guestPlay: false });
+    set({ guestPlay: false, accountIntent: intent === "keep" ? "keep" : null });
   },
   projectSave: () => projectData(get()),
   applyRemoteSave: (data, options = {}) => {

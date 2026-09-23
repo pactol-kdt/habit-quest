@@ -34,11 +34,6 @@ export function OnboardingModal() {
     }
   }
 
-  function handleSkip(name: string) {
-    finishName(name);
-    setReplayOpen(false);
-  }
-
   function handleFinish(name: string, createFirstHabit: boolean) {
     finishName(name);
     setReplayOpen(false);
@@ -54,7 +49,6 @@ export function OnboardingModal() {
         mode={mode}
         hasHabits={habits.length > 0}
         initialName={displayName}
-        onSkip={handleSkip}
         onFinish={handleFinish}
       />
       <HabitFormModal

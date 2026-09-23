@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AvatarWithFrame } from "~/components/habitquest/cosmetic-art";
@@ -19,12 +19,13 @@ import {
   flushCloudSaveNow,
   setCloudSyncEnabled,
 } from "~/lib/habitquest/cloud-sync";
-import { clearHabitQuestData } from "~/lib/habitquest/storage";
+import { clearHabitQuestData, invalidateClientSession } from "~/lib/habitquest/storage";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 export function ProfilePage() {
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const [signOutPending, startSignOut] = useTransition();
+  const [signOutPending, setSignOutPending] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const {
     hydrated,
     settings,
@@ -34,8 +35,6 @@ export function ProfilePage() {
     rewardSystems,
     completions,
     authUser,
-    setAuthUser,
-    setAuthChecked,
     projectSave,
     exitGuestPlay,
   } = useHabitQuestStore((state) => state);
@@ -67,15 +66,28 @@ export function ProfilePage() {
     updateSettings({ displayName: next });
   }
 
-  function onSignOut() {
-    startSignOut(async () => {
+  async function onSignOut() {
+    if (signOutPending) {
+      return;
+    }
+    setSignOutPending(true);
+    setSignOutError(null);
+    invalidateClientSession();
+    try {
       await flushCloudSaveNow(projectSave());
-      await signOutRequest();
+      const result = await signOutRequest();
+      if (!result.ok) {
+        setSignOutError(result.error);
+        setSignOutPending(false);
+        return;
+      }
       setCloudSyncEnabled(false);
       clearHabitQuestData();
-      setAuthUser(null);
-      setAuthChecked(true);
-    });
+      window.location.replace("/");
+    } catch (error) {
+      setSignOutError(error instanceof Error ? error.message : "Could not log out.");
+      setSignOutPending(false);
+    }
   }
 
   return (
@@ -94,11 +106,21 @@ export function ProfilePage() {
 
       <GlassCard className="rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
         <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
-          <AvatarWithFrame
-            avatar={profile.avatar}
-            frame={profile.frame}
-            className="h-24 w-24 border border-white/10 shadow-[0_0_36px_rgba(77,216,255,0.16)] sm:h-28 sm:w-28"
-          />
+          <div className="relative shrink-0">
+            <AvatarWithFrame
+              avatar={profile.avatar}
+              frame={profile.frame}
+              className="h-24 w-24 border border-white/10 shadow-[0_0_36px_rgba(77,216,255,0.16)] sm:h-28 sm:w-28"
+            />
+            <Link
+              href="/inventory"
+              aria-label="Inventory"
+              title="Inventory"
+              className="absolute -bottom-1 -right-1 flex h-10 w-10 items-center justify-center rounded-full border border-cyan-300/40 bg-[#041018] text-cyan-100 shadow-[0_8px_20px_rgba(4,16,24,0.55)] transition hover:border-cyan-200 hover:text-white"
+            >
+              <GearIcon />
+            </Link>
+          </div>
           <div className="min-w-0 flex-1 text-center sm:text-left">
             <p className="text-2xl font-semibold text-white sm:text-3xl">{displayName}</p>
             <p className="mt-1 text-sm font-medium text-white/90">
@@ -135,12 +157,6 @@ export function ProfilePage() {
         </label>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          <Link
-            href="/shop"
-            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
-          >
-            Change cosmetics
-          </Link>
           {authUser ? (
             <>
               <button
@@ -158,11 +174,14 @@ export function ProfilePage() {
               >
                 {signOutPending ? "Logging out…" : "Log out"}
               </button>
+              {signOutError ? (
+                <p className="w-full text-sm text-rose-200">{signOutError}</p>
+              ) : null}
             </>
           ) : (
             <button
               type="button"
-              onClick={() => exitGuestPlay()}
+              onClick={() => exitGuestPlay("keep")}
               className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100 transition hover:border-cyan-300/50"
             >
               Create account to keep progress
@@ -371,5 +390,16 @@ function ChangePasswordPanel({ onClose }: { onClose: () => void }) {
         </div>
       </motion.form>
     </motion.div>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+      <path
+        fill="currentColor"
+        d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.2 7.2 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.22-1.13.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.23.4.32.64.22l2.39-.96c.5.41 1.05.72 1.63.94l.36 2.54c.05.24.26.42.5.42h3.84c.24 0 .45-.18.5-.42l.36-2.54c.58-.22 1.13-.53 1.63-.94l2.39.96c.24.1.51 0 .64-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"
+      />
+    </svg>
   );
 }

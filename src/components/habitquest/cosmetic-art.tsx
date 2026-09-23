@@ -195,7 +195,19 @@ function FrameArt({ itemId, className }: { itemId: string; className?: string })
     return <GalaxyFrame className={className} />;
   }
 
+  if (itemId === "frame_default") {
+    return <PlainRingFrame className={className} />;
+  }
+
   return null;
+}
+
+function PlainRingFrame({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className={cn("pointer-events-none absolute inset-0 h-full w-full", className)}>
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#94a3b8" strokeWidth="3" />
+    </svg>
+  );
 }
 
 function DefaultAvatar({ className }: { className?: string }) {

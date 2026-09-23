@@ -6,6 +6,8 @@ import { getCurrentUser } from "~/lib/auth/session";
 import { SAVE_VERSION } from "~/lib/habitquest/constants";
 import { CLOUD_SYNC_TABLES } from "~/lib/habitquest/schema";
 import { validateSaveIntegrity, sanitizeSaveForSync } from "~/lib/habitquest/save-integrity";
+import { emptyCloudHandoff } from "~/lib/habitquest/guest-handoff";
+import { createSeedData } from "~/lib/habitquest/seed";
 import { normalizeHabitQuestData } from "~/lib/habitquest/storage";
 import { ensureDatabase } from "~/lib/db";
 import { loadCatalogFromDb } from "~/lib/db/catalog-repository";
@@ -170,7 +172,7 @@ export async function pushHabitQuestSaveAction(
 async function syncAfterPull(
   pull: PullSaveResult,
   localPayload: unknown,
-  options: { extractLocal?: boolean },
+  options: { extractLocal?: boolean; discardGuest?: boolean },
 ): Promise<
   | {
       status: "loaded";
@@ -229,19 +231,22 @@ async function syncAfterPull(
     };
   }
 
-  const push = await pushHabitQuestSaveAction(localPayload);
+  const handoffPayload =
+    emptyCloudHandoff(options) === "install-fresh" ? createSeedData() : localPayload;
+  const push = await pushHabitQuestSaveAction(handoffPayload);
   if (push.status === "ok") {
-    const validation = await validateHabitQuestSaveAction(localPayload);
+    const validation = await validateHabitQuestSaveAction(handoffPayload);
     if (!validation.ok) {
       return { status: "error", error: validation.error };
     }
 
+    const installedFresh = emptyCloudHandoff(options) === "install-fresh";
     return {
       status: "loaded",
       data: validation.data,
-      source: "local-migrated",
+      source: installedFresh ? "cloud" : "local-migrated",
       updatedAt: push.updatedAt,
-      extracted: true,
+      extracted: !installedFresh,
     };
   }
 
@@ -257,7 +262,7 @@ async function syncAfterPull(
 
 export async function syncHabitQuestOnAuthAction(
   localPayload: unknown,
-  options: { extractLocal?: boolean } = {},
+  options: { extractLocal?: boolean; discardGuest?: boolean } = {},
 ): Promise<
   | {
       status: "loaded";
@@ -279,7 +284,7 @@ export async function syncHabitQuestOnAuthAction(
  */
 export async function bootHabitQuestSessionAction(
   localPayload: unknown,
-  options: { extractLocal?: boolean } = {},
+  options: { extractLocal?: boolean; discardGuest?: boolean } = {},
 ): Promise<BootSessionResult> {
   let user: AuthUser | null = null;
   try {

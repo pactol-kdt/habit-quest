@@ -1,3 +1,4 @@
+import { isStarterCosmetic } from "./catalog";
 import { isFeatureUnlocked } from "./utils";
 import type {
   CoinWallet,
@@ -26,7 +27,7 @@ export function getPurchasableLadder(
   category: ShopCategory,
 ): ShopItem[] {
   return shopItems
-    .filter((item) => item.category === category && !item.exclusive)
+    .filter((item) => item.category === category && !item.exclusive && !isStarterCosmetic(item.id))
     .slice()
     .sort(
       (a, b) =>
@@ -132,20 +133,8 @@ export function applyEquipShopItem(
 }
 
 export function applyUnequipShopItem(
-  data: HabitQuestData,
-  category: ShopCategory,
+  _data: HabitQuestData,
+  _category: ShopCategory,
 ): ShopMutationResult {
-  const equippedItems = equippedPatchForCategory(data.equippedItems, category, null);
-  const next: HabitQuestData = {
-    ...data,
-    equippedItems,
-  };
-
-  return {
-    ok: true,
-    data: next,
-    itemId: category,
-    wallet: next.wallet,
-    equippedItems,
-  };
+  return { ok: false, error: "A cosmetic always stays equipped." };
 }

@@ -6,7 +6,11 @@ import {
   STORAGE_KEY,
 } from "~/lib/habitquest/constants";
 import { normalizeHabitRecord } from "~/lib/habitquest/habit-loop";
-import type { HabitQuestCatalog } from "~/lib/habitquest/catalog";
+import {
+  ensureStarterCosmetics,
+  isStarterCosmetic,
+  type HabitQuestCatalog,
+} from "~/lib/habitquest/catalog";
 import { createSeedData } from "~/lib/habitquest/seed";
 import { mergeRewardFreezeState } from "~/lib/habitquest/rewards";
 import { getTodayDateKey } from "~/lib/habitquest/utils";
@@ -213,12 +217,12 @@ export function normalizeHabitQuestData(
   const fallback = buildFallback(catalog);
 
   if (!parsed) {
-    return fallback;
+    return ensureStarterCosmetics(fallback);
   }
 
   const legacySave = parsed.settings === undefined;
 
-  return {
+  return ensureStarterCosmetics({
     version: SAVE_VERSION,
     habits: (parsed.habits ?? fallback.habits).map((habit) =>
       normalizeHabitRecord(habit as Parameters<typeof normalizeHabitRecord>[0]),
@@ -292,7 +296,7 @@ export function normalizeHabitQuestData(
         fallback.weeklyBoss.settledThroughDate ??
         null,
     },
-  };
+  });
 }
 
 function pickLaterDateKey(a: string | null | undefined, b: string | null | undefined) {
@@ -600,7 +604,7 @@ export function hasExtractableLocalProgress(data: HabitQuestData | null): boolea
     data.wallet.lifetimeCoinsEarned > 0 ||
     data.wallet.lifetimeCoinsSpent > 0 ||
     Boolean(data.settings.displayName.trim()) ||
-    data.shopItems.some((item) => item.owned) ||
+    data.shopItems.some((item) => item.owned && !isStarterCosmetic(item.id)) ||
     data.achievements.some((achievement) => achievement.unlocked) ||
     data.settings.onboardingCompleted
   );
@@ -656,6 +660,20 @@ export function saveHabitQuestData(data: HabitQuestData) {
     );
   } catch {
     // Ignore storage errors to keep the app functional.
+  }
+}
+
+/** Drop the on-device save without clearing the signed-in profile cache. */
+export function discardLocalGameSave() {
+  if (!isBrowser()) {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(GUEST_PLAY_KEY);
+  } catch {
+    // Ignore storage errors.
   }
 }
 
@@ -715,6 +733,17 @@ export function cacheAuthUser(user: AuthUser) {
   } catch {
     // Ignore storage errors.
   }
+}
+
+let clientSession = 0;
+
+/** Drops in-flight boot results so a logout cannot be overwritten by an older sign-in. */
+export function invalidateClientSession() {
+  clientSession += 1;
+}
+
+export function clientSessionId() {
+  return clientSession;
 }
 
 export function clearCachedAuthUser() {

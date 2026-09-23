@@ -84,7 +84,7 @@ export const PAGE_HEROES = {
   shop: {
     eyebrow: "Shop",
     title: "Cosmetics",
-    support: "Cosmetics to collect.",
+    support: "Buy cosmetics. Equip them in Inventory.",
   },
   leaderboard: {
     eyebrow: "Streaks",
@@ -115,6 +115,11 @@ export const PAGE_HEROES = {
     eyebrow: "Profile",
     title: "Your profile",
     support: "Activity, identity, honors, and account.",
+  },
+  inventory: {
+    eyebrow: "Profile",
+    title: "Inventory",
+    support: "Equip a cosmetic. Locked ones say where they come from.",
   },
   settings: {
     eyebrow: "Settings",

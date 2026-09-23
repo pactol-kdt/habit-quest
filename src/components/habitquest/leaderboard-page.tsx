@@ -224,7 +224,7 @@ export function LeaderboardPage() {
         {error ? (
           <p className="rounded-3xl border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-sm text-rose-100">
             {!authUser
-              ? "Rankings are account-only. Sign in from Settings to appear on the board."
+              ? "Rankings are account-only. Open Profile to create an account or sign in."
               : error}
           </p>
         ) : pending && entries.length === 0 ? (

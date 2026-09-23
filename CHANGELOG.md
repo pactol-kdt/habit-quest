@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.12.0 - Inventory and Starter Cosmetics
+
+### Changed
+- How to play opens as full-screen pages on first launch, and again from Habits. A name is required first, and the pages have to be finished. Inventory stays on the profile icon, not in the You menu.
+- A guest run is kept by creating an account. The keep-or-switch choice appears only after sign-in confirms that email already has an account, then that account loads and the guest run is dropped.
+- Inventory, opened from the gear on your profile icon, is where you equip cosmetics. Tabs show icons only; the name and how to obtain it appear when one is selected. Owned ones sit first, and locked ones stay shadowed.
+- Each slot starts on a starter cosmetic (Traveler, Plain Ring, Wayfarer, Keep). Empty slots fill with that starter, and a slot cannot be taken off.
+- Shop only sells. Items you already have say Owned. Exclusive titles and themes are not listed.
+
 ## 0.11.0 - Clear Copy and 15 Habits
 
 ### Changed

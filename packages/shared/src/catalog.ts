@@ -3,9 +3,11 @@ import { createQuestArcs, createSeasonPass } from "./rewards";
 import type {
   Achievement,
   Challenge,
+  EquippedItems,
   LevelUnlock,
   QuestArc,
   SeasonPassReward,
+  ShopCategory,
   ShopItem,
   UnlockFeature,
 } from "./types";
@@ -43,6 +45,57 @@ function createAchievement(
 
 function createShopItem(item: Omit<ShopItem, "owned">): ShopItem {
   return { ...item, owned: false };
+}
+
+/** Owned from the first session. A slot always wears one of these when nothing else is equipped. */
+export const DEFAULT_COSMETIC_IDS = {
+  avatar: "avatar_default",
+  frame: "frame_default",
+  title: "title_default",
+  theme: "theme_default",
+} as const satisfies Record<ShopCategory, string>;
+
+const STARTER_IDS = new Set<string>(Object.values(DEFAULT_COSMETIC_IDS));
+
+export function isStarterCosmetic(itemId: string) {
+  return STARTER_IDS.has(itemId);
+}
+
+const EQUIPPED_KEY = {
+  avatar: "avatarItemId",
+  frame: "frameItemId",
+  title: "titleItemId",
+  theme: "themeItemId",
+} as const satisfies Record<ShopCategory, keyof EquippedItems>;
+
+export function ensureStarterCosmetics<
+  T extends { shopItems: ShopItem[]; equippedItems: EquippedItems },
+>(data: T): T {
+  const starters = getBuiltinCatalog().shopItems.filter((item) => isStarterCosmetic(item.id));
+  const present = new Set(data.shopItems.map((item) => item.id));
+  const shopItems = [
+    ...starters.filter((item) => !present.has(item.id)),
+    ...data.shopItems.map((item) =>
+      isStarterCosmetic(item.id) ? { ...item, owned: true } : item,
+    ),
+  ];
+  const byId = new Map(shopItems.map((item) => [item.id, item]));
+  const equippedItems = { ...data.equippedItems };
+
+  for (const category of Object.keys(DEFAULT_COSMETIC_IDS) as ShopCategory[]) {
+    const key = EQUIPPED_KEY[category];
+    const currentId = equippedItems[key];
+    const current = currentId ? byId.get(currentId) : undefined;
+    if (!current?.owned || current.category !== category) {
+      equippedItems[key] = DEFAULT_COSMETIC_IDS[category];
+    }
+  }
+
+  return { ...data, shopItems, equippedItems };
+}
+
+function createStarterItem(item: Omit<ShopItem, "owned">): ShopItem {
+  return { ...item, owned: true };
 }
 
 function createLevelUnlock(
@@ -158,6 +211,30 @@ export function getBuiltinCatalog(): HabitQuestCatalog {
       }),
     ],
     shopItems: [
+      createStarterItem({ id: "avatar_default", name: "Traveler", description: "The face you start with.", category: "avatar", rarity: "common", price: 0, requiredLevel: 1, requiredFeature: null, preview: "Traveler", exclusive: false }),
+      createStarterItem({ id: "frame_default", name: "Plain Ring", description: "A simple ring around your mark.", category: "frame", rarity: "common", price: 0, requiredLevel: 1, requiredFeature: null, preview: "Plain ring", exclusive: false }),
+      createStarterItem({ id: "title_default", name: "Wayfarer", description: "The title you start with.", category: "title", rarity: "common", price: 0, requiredLevel: 1, requiredFeature: null, preview: "Wayfarer tag", exclusive: false }),
+      createStarterItem({
+        id: "theme_default",
+        name: "Keep",
+        description: "The look the Keep starts with.",
+        category: "theme",
+        rarity: "common",
+        price: 0,
+        requiredLevel: 1,
+        requiredFeature: null,
+        preview: "Keep",
+        exclusive: false,
+        themeVars: {
+          "--color-bg": "#07111f",
+          "--color-bg-muted": "#0d1729",
+          "--color-cyan": "#4dd8ff",
+          "--color-pink": "#f972b6",
+          "--color-gold": "#f5c15d",
+          "--color-green": "#5ef2b3",
+          "--hq-accent-ink": "#041018",
+        },
+      }),
       createShopItem({ id: "title_beginner", name: "Initiate", description: "First mark of the Keep — you showed up.", category: "title", rarity: "common", price: 20, requiredLevel: 1, requiredFeature: "titles", preview: "Initiate tag", exclusive: false }),
       createShopItem({ id: "title_dawn_runner", name: "Dawn Runner", description: "For early clears before the day hardens.", category: "title", rarity: "rare", price: 40, requiredLevel: 2, requiredFeature: "titles", preview: "Dawn sigil", exclusive: false }),
       createShopItem({ id: "title_habit_hunter", name: "Habit Hunter", description: "Treat daily discipline like a tracked quarry.", category: "title", rarity: "rare", price: 60, requiredLevel: 2, requiredFeature: "titles", preview: "Hunter sigil", exclusive: false }),

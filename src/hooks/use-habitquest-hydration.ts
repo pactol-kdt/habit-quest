@@ -9,6 +9,7 @@ import {
   peekCachedAuthUser,
   peekHabitQuestLocalSave,
   isGuestPlayEnabled,
+  clientSessionId,
 } from "~/lib/habitquest/storage";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
@@ -25,6 +26,7 @@ export function useHabitQuestHydration() {
     booted.current = true;
 
     void (async () => {
+      const session = clientSessionId();
       const localSave = peekHabitQuestLocalSave();
       const cachedUser = peekCachedAuthUser();
 
@@ -43,6 +45,10 @@ export function useHabitQuestHydration() {
         // Empty accounts still migrate leftover local progress, then clear it.
         extractLocal: false,
       });
+
+      if (clientSessionId() !== session) {
+        return;
+      }
 
       if (boot.status === "guest" || (boot.status === "error" && !boot.user?.id)) {
         setCloudSyncEnabled(false);

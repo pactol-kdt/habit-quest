@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { createSeedData } from "./seed.ts";
 import {
   calculateChallengeProgress,
+  checkLevelUnlocks,
   getContributionActivity,
   getContributionYears,
   getPeriodStreakDays,
@@ -11,8 +12,9 @@ import {
   isHabitDueOnDate,
   reconcileChallenges,
   removeCompletionsFromProgress,
+  unlockAchievements,
 } from "./utils.ts";
-import type { Challenge, Habit, HabitCompletion, ExpHistoryEntry } from "./types.ts";
+import type { Challenge, Habit, HabitCompletion, ExpHistoryEntry, LevelUnlock } from "./types.ts";
 
 function makeHabit(overrides: Partial<Habit> = {}): Habit {
   return {
@@ -314,5 +316,110 @@ describe("getStreakStats", () => {
   it("lets a shield date fill a one-day miss", () => {
     const completions = [makeCompletion("2026-09-07"), makeCompletion("2026-09-09")];
     assert.equal(getStreakStats(completions, "2026-09-09", ["2026-09-08"]).currentStreak, 3);
+  });
+});
+
+function makeUnlock(
+  feature: LevelUnlock["feature"],
+  requiredLevel: number,
+  label: string,
+): LevelUnlock {
+  return {
+    id: `unlock_${feature}`,
+    feature,
+    requiredLevel,
+    label,
+    description: "",
+    unlocked: false,
+    unlockedAt: null,
+  };
+}
+
+describe("buy first cosmetic", () => {
+  it("stays locked while only starter cosmetics are owned", () => {
+    const data = createSeedData();
+    const unlocked = unlockAchievements(data).find(
+      (achievement) => achievement.key === "buy-first-cosmetic",
+    );
+    assert.equal(unlocked?.unlocked, false);
+    assert.ok(data.shopItems.some((item) => item.owned));
+  });
+
+  it("locks it again when a previous unlock only counted starter cosmetics", () => {
+    const data = createSeedData();
+    data.achievements = data.achievements.map((achievement) =>
+      achievement.key === "buy-first-cosmetic"
+        ? { ...achievement, unlocked: true, unlockedAt: "2026-01-01T00:00:00.000Z", rewardedAt: "2026-01-01T00:00:00.000Z" }
+        : achievement,
+    );
+
+    const unlocked = unlockAchievements(data).find(
+      (achievement) => achievement.key === "buy-first-cosmetic",
+    );
+    assert.equal(unlocked?.unlocked, false);
+    assert.equal(unlocked?.unlockedAt, null);
+    assert.equal(unlocked?.rewardedAt, "2026-01-01T00:00:00.000Z");
+  });
+
+  it("unlocks after a priced shop cosmetic is owned", () => {
+    const data = createSeedData();
+    data.shopItems = data.shopItems.map((item) =>
+      item.id === "avatar_knight" ? { ...item, owned: true } : item,
+    );
+
+    const unlocked = unlockAchievements(data).find(
+      (achievement) => achievement.key === "buy-first-cosmetic",
+    );
+    assert.equal(unlocked?.unlocked, true);
+  });
+
+  it("ignores exclusive cosmetics that were earned, not bought", () => {
+    const data = createSeedData();
+    data.shopItems = data.shopItems.map((item) =>
+      item.id === "title_weekly_vanguard" ? { ...item, owned: true } : item,
+    );
+
+    const unlocked = unlockAchievements(data).find(
+      (achievement) => achievement.key === "buy-first-cosmetic",
+    );
+    assert.equal(unlocked?.unlocked, false);
+  });
+});
+
+describe("checkLevelUnlocks", () => {
+  it("unlocks level-1 features without treating them as newly unlocked", () => {
+    const result = checkLevelUnlocks(
+      [
+        makeUnlock("weekly-challenges", 1, "Weekly Challenges"),
+        makeUnlock("season-pass", 1, "Season Pass"),
+        makeUnlock("monthly-challenges", 1, "Monthly Challenges"),
+        makeUnlock("titles", 2, "Titles"),
+      ],
+      1,
+    );
+
+    assert.deepEqual(
+      result.levelUnlocks.map((unlock) => [unlock.feature, unlock.unlocked]),
+      [
+        ["weekly-challenges", true],
+        ["season-pass", true],
+        ["monthly-challenges", true],
+        ["titles", false],
+      ],
+    );
+    assert.deepEqual(result.newlyUnlocked, []);
+  });
+
+  it("reports features that unlock above the starting level", () => {
+    const result = checkLevelUnlocks(
+      [makeUnlock("titles", 2, "Titles"), makeUnlock("quest-arcs", 3, "Quest Arcs")],
+      2,
+    );
+
+    assert.deepEqual(
+      result.newlyUnlocked.map((unlock) => unlock.feature),
+      ["titles"],
+    );
+    assert.equal(result.levelUnlocks.find((unlock) => unlock.feature === "quest-arcs")?.unlocked, false);
   });
 });

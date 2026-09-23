@@ -1,8 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useRef, useState } from "react";
-import { useDialogA11y } from "~/hooks/use-dialog-a11y";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { TUTORIAL_LESSONS } from "~/lib/habitquest/copy";
 import { cn } from "~/lib/ui/cn";
 
@@ -13,7 +13,6 @@ interface TutorialModalProps {
   mode: TutorialMode;
   hasHabits: boolean;
   initialName?: string;
-  onSkip: (displayName: string) => void;
   onFinish: (displayName: string, createHabit: boolean) => void;
 }
 
@@ -22,30 +21,32 @@ export function TutorialModal({
   mode,
   hasHabits,
   initialName = "",
-  onSkip,
   onFinish,
 }: TutorialModalProps) {
-  return (
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <AnimatePresence>
       {open ? (
-        <TutorialDialog
+        <TutorialPages
           key={mode}
           mode={mode}
           hasHabits={hasHabits}
           initialName={initialName}
-          onSkip={onSkip}
           onFinish={onFinish}
         />
       ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 
-function TutorialDialog({
+function TutorialPages({
   mode,
   hasHabits,
   initialName = "",
-  onSkip,
   onFinish,
 }: Omit<TutorialModalProps, "open">) {
   const includeName = mode === "onboarding";
@@ -59,11 +60,21 @@ function TutorialDialog({
   const isLast = step === totalSteps - 1;
   const resolvedName = displayName.trim() || "Adventurer";
   const showCreateHabit = mode === "onboarding" || !hasHabits;
-  const panelRef = useRef<HTMLDivElement>(null);
 
-  useDialogA11y(panelRef, () => onSkip(resolvedName));
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
+  const nameMissing = isNameStep && displayName.trim().length === 0;
 
   function goNext() {
+    if (nameMissing) {
+      return;
+    }
     if (isLast) {
       onFinish(resolvedName, showCreateHabit);
       return;
@@ -77,62 +88,26 @@ function TutorialDialog({
 
   return (
     <motion.div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/80 p-0 backdrop-blur-md sm:items-center sm:p-4"
+      className="fixed inset-0 z-[90] flex flex-col bg-[var(--color-bg)] text-white"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      onClick={() => onSkip(resolvedName)}
     >
-    <motion.div
-      ref={panelRef}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="tutorial-title"
-      tabIndex={-1}
-      className="glass-panel flex max-h-[min(92dvh,900px)] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.5rem] border border-white/10 outline-none sm:rounded-[2rem]"
-      initial={{ y: 18, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      exit={{ y: 12, opacity: 0 }}
-      onClick={(event) => event.stopPropagation()}
-    >
-      <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4 md:px-8 md:pt-7">
-        <div>
-          <p className="text-xs uppercase tracking-[0.28em] text-cyan-200">
-            {isNameStep ? "Welcome" : "How to play"}
-          </p>
-          <p className="mt-2 text-xs text-[var(--color-text-muted)]">
-            {step + 1} of {totalSteps}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => onSkip(resolvedName)}
-          className="min-h-10 shrink-0 rounded-full border border-white/10 px-3 py-1 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
-        >
-          {mode === "onboarding" ? "Skip" : "Close"}
-        </button>
-      </div>
+      <header className="px-5 pt-[max(1rem,env(safe-area-inset-top))]">
+        <p className="text-xs uppercase tracking-[0.28em] text-cyan-200">
+          {isNameStep ? "Welcome" : "How to play"}
+        </p>
+      </header>
 
-      <div className="flex gap-1.5 px-5 pt-4 md:px-8">
-        {Array.from({ length: totalSteps }, (_, index) => (
-          <span
-            key={index}
-            className={cn(
-              "h-1 flex-1 rounded-full transition",
-              index <= step ? "hq-fill-accent" : "bg-white/10",
-            )}
-          />
-        ))}
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-6">
+      <div className="flex flex-1 items-center overflow-hidden px-6">
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
-            initial={{ opacity: 0, x: 12 }}
+            className="mx-auto w-full max-w-md"
+            initial={{ opacity: 0, x: 28 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -8 }}
-            transition={{ duration: 0.18 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.22 }}
           >
             {isNameStep ? (
               <NameStep displayName={displayName} onChange={setDisplayName} />
@@ -143,44 +118,59 @@ function TutorialDialog({
         </AnimatePresence>
       </div>
 
-      <div className="grid gap-2 border-t border-white/10 bg-slate-950/40 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex sm:justify-end md:px-8">
-        {step > 0 ? (
-          <button
-            type="button"
-            onClick={goBack}
-            className="min-h-12 rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
-          >
-            Back
-          </button>
-        ) : null}
-        {isLast && showCreateHabit ? (
-          <>
-            <button
-              type="button"
-              onClick={() => onFinish(resolvedName, false)}
-              className="min-h-12 rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
-            >
-              I&apos;ll add a habit later
-            </button>
-            <button
-              type="button"
-              onClick={() => onFinish(resolvedName, true)}
-              className="min-h-12 rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950"
-            >
-              Stack first habit
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={goNext}
-            className="min-h-12 rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950"
-          >
-            {isLast ? "Got it" : isNameStep ? "Show me how" : "Next"}
-          </button>
-        )}
-      </div>
-    </motion.div>
+      <footer className="px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex w-full max-w-md flex-col gap-5">
+          <div className="flex justify-center gap-2" aria-hidden>
+            {Array.from({ length: totalSteps }, (_, index) => (
+              <span
+                key={index}
+                className={cn(
+                  "h-2 rounded-full transition",
+                  index === step ? "w-6 hq-fill-accent" : "w-2 bg-white/20",
+                )}
+              />
+            ))}
+          </div>
+          <div className="grid gap-2">
+            {isLast && showCreateHabit ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onFinish(resolvedName, true)}
+                  className="min-h-12 w-full rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950"
+                >
+                  Stack first habit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onFinish(resolvedName, false)}
+                  className="min-h-11 w-full rounded-full px-5 py-3 text-sm text-[var(--color-text-muted)] transition hover:text-white"
+                >
+                  I&apos;ll add a habit later
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={nameMissing}
+                className="min-h-12 w-full rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950 disabled:opacity-40"
+              >
+                {isLast ? "Got it" : isNameStep ? "Show me how" : "Next"}
+              </button>
+            )}
+            {step > 0 ? (
+              <button
+                type="button"
+                onClick={goBack}
+                className="min-h-11 w-full rounded-full px-5 py-2 text-sm text-[var(--color-text-muted)] transition hover:text-white"
+              >
+                Back
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </footer>
     </motion.div>
   );
 }
@@ -193,39 +183,41 @@ function NameStep({
   onChange: (value: string) => void;
 }) {
   return (
-    <>
-      <h2 id="tutorial-title" className="section-title text-2xl text-white sm:text-3xl">
-        Welcome to HabitQuest
-      </h2>
+    <div className="text-center">
+      <img
+        src="/brand/habitquest-logo.png"
+        alt=""
+        className="mx-auto h-16 w-16 rounded-2xl border border-white/10 object-cover"
+      />
+      <h1 className="section-title mt-6 text-3xl text-white sm:text-4xl">Welcome to HabitQuest</h1>
       <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">
         Stack a habit onto something you already do, clear it each day, and keep the streak.
-        The next screens show the loop — it takes about a minute.
       </p>
-      <label className="mt-6 grid gap-2">
+      <label className="mt-8 grid gap-2 text-left">
         <span className="text-sm text-[var(--color-text-muted)]">Display name</span>
         <input
           value={displayName}
           onChange={(event) => onChange(event.target.value)}
           maxLength={32}
-          placeholder="Adventurer"
+          required
+          placeholder="Your name"
           className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50"
           autoFocus
         />
+        <span className="text-xs text-[var(--color-text-muted)]">Required before the tutorial.</span>
       </label>
-    </>
+    </div>
   );
 }
 
 function LessonStep({ lesson }: { lesson: (typeof TUTORIAL_LESSONS)[number] }) {
   return (
-    <>
+    <div className="text-center">
       <p className="text-xs uppercase tracking-[0.22em] text-cyan-200">{lesson.eyebrow}</p>
-      <h2 id="tutorial-title" className="section-title mt-2 text-2xl text-white sm:text-3xl">
-        {lesson.title}
-      </h2>
+      <h1 className="section-title mt-3 text-3xl text-white sm:text-4xl">{lesson.title}</h1>
       <p className="mt-3 text-sm leading-6 text-[var(--color-text-muted)]">{lesson.body}</p>
       <LessonVisual lessonId={lesson.id} />
-      <ul className="mt-4 space-y-2 text-sm leading-6 text-[var(--color-text-muted)]">
+      <ul className="mt-5 space-y-2 text-left text-sm leading-6 text-[var(--color-text-muted)]">
         {lesson.points.map((point) => (
           <li key={point} className="flex gap-2">
             <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300" />
@@ -233,14 +225,14 @@ function LessonStep({ lesson }: { lesson: (typeof TUTORIAL_LESSONS)[number] }) {
           </li>
         ))}
       </ul>
-    </>
+    </div>
   );
 }
 
 function LessonVisual({ lessonId }: { lessonId: (typeof TUTORIAL_LESSONS)[number]["id"] }) {
   if (lessonId === "stack") {
     return (
-      <div className="mt-5 rounded-[1.25rem] border border-cyan-300/20 bg-cyan-300/8 p-4">
+      <div className="mt-8 rounded-[1.25rem] border border-cyan-300/20 bg-cyan-300/8 p-4 text-left">
         <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">Your formula</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-cyan-300/15 px-3 py-1.5 text-sm text-cyan-50">
@@ -260,7 +252,7 @@ function LessonVisual({ lessonId }: { lessonId: (typeof TUTORIAL_LESSONS)[number
 
   if (lessonId === "clear") {
     return (
-      <div className="mt-5 rounded-[1.25rem] border border-white/10 bg-white/5 p-4">
+      <div className="mt-8 rounded-[1.25rem] border border-white/10 bg-white/5 p-4 text-left">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-white">Stretch for 5 minutes</p>
@@ -276,7 +268,7 @@ function LessonVisual({ lessonId }: { lessonId: (typeof TUTORIAL_LESSONS)[number
 
   if (lessonId === "lockin") {
     return (
-      <div className="mt-5 grid grid-cols-2 gap-2">
+      <div className="mt-8 grid grid-cols-2 gap-2 text-left">
         <div className="rounded-[1.15rem] border border-cyan-300/20 bg-cyan-300/8 p-3">
           <p className="text-xs text-[var(--color-text-muted)]">Level</p>
           <p className="mt-1 text-xl font-semibold text-cyan-100">25</p>
@@ -292,7 +284,7 @@ function LessonVisual({ lessonId }: { lessonId: (typeof TUTORIAL_LESSONS)[number
   }
 
   return (
-    <div className="mt-5 grid gap-2">
+    <div className="mt-8 grid gap-2 text-left">
       {[
         ["Home", "Today's due list"],
         ["Habits", "Stack, edit, replay how-to"],

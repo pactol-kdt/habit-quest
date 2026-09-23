@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { getBuiltinCatalog } from "./catalog.ts";
+import { ensureStarterCosmetics, getBuiltinCatalog } from "./catalog.ts";
 import { createSeedData } from "./seed.ts";
 import {
   applyPurchaseShopItem,
+  applyUnequipShopItem,
   getPurchasableLadder,
 } from "./shop-mutations.ts";
 import type { HabitQuestData } from "./types.ts";
@@ -30,6 +31,43 @@ function unlockFeatures(data: HabitQuestData): HabitQuestData {
     })),
   };
 }
+
+describe("starter cosmetics", () => {
+  it("owns and equips a default in every slot", () => {
+    const data = createSeedData();
+    assert.equal(data.equippedItems.avatarItemId, "avatar_default");
+    assert.equal(data.equippedItems.frameItemId, "frame_default");
+    assert.equal(data.equippedItems.titleItemId, "title_default");
+    assert.equal(data.equippedItems.themeItemId, "theme_default");
+    for (const id of ["avatar_default", "frame_default", "title_default", "theme_default"]) {
+      assert.equal(data.shopItems.find((item) => item.id === id)?.owned, true);
+    }
+  });
+
+  it("fills an empty slot with the starter and leaves a worn item in place", () => {
+    const seed = createSeedData();
+    const worn = ensureStarterCosmetics({
+      ...seed,
+      equippedItems: {
+        ...seed.equippedItems,
+        avatarItemId: "avatar_knight",
+        frameItemId: null,
+      },
+      shopItems: seed.shopItems.map((item) =>
+        item.id === "avatar_knight" ? { ...item, owned: true } : item,
+      ),
+    });
+    assert.equal(worn.equippedItems.avatarItemId, "avatar_knight");
+    assert.equal(worn.equippedItems.frameItemId, "frame_default");
+  });
+
+  it("refuses to clear a slot", () => {
+    const data = createSeedData();
+    const result = applyUnequipShopItem(data, "avatar");
+    assert.equal(result.ok, false);
+    assert.equal(data.equippedItems.avatarItemId, "avatar_default");
+  });
+});
 
 describe("progressive shop ladder", () => {
   it("orders purchasable titles by price and skips exclusives", () => {

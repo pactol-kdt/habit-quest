@@ -1,4 +1,4 @@
-import { getBuiltinCatalog } from "./catalog";
+import { DEFAULT_COSMETIC_IDS, ensureStarterCosmetics, getBuiltinCatalog } from "./catalog";
 import { DEFAULT_SETTINGS, SAVE_VERSION } from "./constants";
 import {
   createDefaultRewardSystems,
@@ -13,7 +13,7 @@ export function createSeedData(): HabitQuestData {
   const catalog = getBuiltinCatalog();
   const season = createSeasonPass();
 
-  return {
+  return ensureStarterCosmetics({
     version: SAVE_VERSION,
     habits: [
       {
@@ -90,10 +90,10 @@ export function createSeedData(): HabitQuestData {
     challenges: catalog.challenges,
     shopItems: catalog.shopItems,
     equippedItems: {
-      titleItemId: null,
-      frameItemId: null,
-      avatarItemId: null,
-      themeItemId: null,
+      titleItemId: DEFAULT_COSMETIC_IDS.title,
+      frameItemId: DEFAULT_COSMETIC_IDS.frame,
+      avatarItemId: DEFAULT_COSMETIC_IDS.avatar,
+      themeItemId: DEFAULT_COSMETIC_IDS.theme,
     },
     wallet: {
       totalCoins: 0,
@@ -125,5 +125,5 @@ export function createSeedData(): HabitQuestData {
       rewards: catalog.seasonRewards,
     },
     weeklyBoss: createWeeklyBoss(),
-  };
+  });
 }

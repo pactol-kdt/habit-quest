@@ -259,7 +259,7 @@ export function Navigation() {
             {!authUser ? (
               <button
                 type="button"
-                onClick={() => exitGuestPlay()}
+                onClick={() => exitGuestPlay("keep")}
                 className="min-h-10 shrink-0 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2.5 py-1.5 text-[11px] text-cyan-100 transition hover:border-cyan-300/50 sm:px-3 sm:text-xs"
                 title="Create an account to keep this device's progress"
               >

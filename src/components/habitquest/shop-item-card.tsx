@@ -6,28 +6,22 @@ import { GlassCard } from "~/components/habitquest/glass-card";
 import { CurrencyAmount } from "~/components/habitquest/icons/currency-amount";
 import { RARITY_STYLES } from "~/lib/habitquest/constants";
 import { cn } from "~/lib/ui/cn";
-import type { ShopCategory, ShopItem } from "~/types/habitquest";
+import type { ShopItem } from "~/types/habitquest";
 
 interface ShopItemCardProps {
   item: ShopItem;
   locked: boolean;
   lockReason: string | null;
-  equipped: boolean;
   pending?: boolean;
   onPurchase: (item: ShopItem) => void;
-  onEquip: (itemId: string) => void;
-  onUnequip?: (category: ShopCategory) => void;
 }
 
 export function ShopItemCard({
   item,
   locked,
   lockReason,
-  equipped,
   pending = false,
   onPurchase,
-  onEquip,
-  onUnequip,
 }: ShopItemCardProps) {
   return (
     <motion.div layout initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
@@ -43,11 +37,6 @@ export function ShopItemCard({
               >
                 {item.rarity}
               </span>
-              {item.exclusive ? (
-                <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-amber-200">
-                  Exclusive
-                </span>
-              ) : null}
             </div>
             <h3 className="mt-3 text-xl font-semibold text-white">{item.name}</h3>
             <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
@@ -62,43 +51,15 @@ export function ShopItemCard({
 
         <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
           <span className="rounded-full bg-white/5 px-3 py-1">{item.category}</span>
-          {item.exclusive ? (
-            <span className="rounded-full bg-white/5 px-3 py-1">Earned</span>
-          ) : (
-            <>
-              <span className="rounded-full bg-white/5 px-3 py-1">Lv {item.requiredLevel}</span>
-              <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 normal-case tracking-normal">
-                <CurrencyAmount kind="coins" value={item.price} size={13} />
-              </span>
-            </>
-          )}
+          <span className="rounded-full bg-white/5 px-3 py-1">Lv {item.requiredLevel}</span>
+          <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 normal-case tracking-normal">
+            <CurrencyAmount kind="coins" value={item.price} size={13} />
+          </span>
         </div>
 
         <div className="mt-5">
           {item.owned ? (
-            equipped ? (
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => onUnequip?.(item.category)}
-                className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm text-emerald-100 transition hover:bg-emerald-300/16 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {pending ? "Unequipping…" : "Unequip"}
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => onEquip(item.id)}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {pending ? "Equipping…" : "Equip"}
-              </button>
-            )
-          ) : item.exclusive ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-[var(--color-text-muted)]">
-              Not for sale. Earn it through a challenge, quest, or season reward.
-            </div>
+            <p className="text-sm font-semibold text-emerald-100">Owned</p>
           ) : locked ? (
             <div className="rounded-2xl border border-amber-300/20 bg-amber-300/8 px-4 py-3 text-sm text-amber-100">
               {lockReason}

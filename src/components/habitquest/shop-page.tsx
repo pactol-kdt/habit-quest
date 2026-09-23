@@ -7,6 +7,7 @@ import { PulseOnChange } from "~/components/habitquest/pulse-on-change";
 import { ProfilePanel } from "~/components/habitquest/profile-panel";
 import { PurchaseModal } from "~/components/habitquest/purchase-modal";
 import { ShopItemCard } from "~/components/habitquest/shop-item-card";
+import { isStarterCosmetic } from "~/lib/habitquest/catalog";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { previewPurchaseUndoRisk } from "~/lib/habitquest/habit-mutations";
 import { cn } from "~/lib/ui/cn";
@@ -31,8 +32,6 @@ export function ShopPage() {
     equippedItems,
     levelUnlocks,
     purchaseShopItem,
-    equipShopItem,
-    unequipShopItem,
     pendingShopItemIds,
     wallet,
     challenges,
@@ -51,7 +50,10 @@ export function ShopPage() {
   } = useHabitQuestStore((state) => state);
   const { userProgress } = useEffectiveProgress();
 
-  const filteredItems = shopItems.filter((item) => item.category === selectedCategory);
+  const filteredItems = shopItems.filter(
+    (item) =>
+      item.category === selectedCategory && !item.exclusive && !isStarterCosmetic(item.id),
+  );
   const hero = PAGE_HEROES.shop;
 
   return (
@@ -122,47 +124,34 @@ export function ShopPage() {
 
           <div className="max-h-[68vh] overflow-y-auto pr-1 md:max-h-none md:overflow-visible md:pr-0">
             <div className="grid gap-4 md:grid-cols-2">
-            {filteredItems.map((item) => {
-              const lockedByFeature = item.requiredFeature
-                ? !isFeatureUnlocked(levelUnlocks, item.requiredFeature)
-                : false;
-              const lockedByLevel = userProgress.level < item.requiredLevel;
-              const locked =
-                (!item.owned && lockedByFeature) || (!item.owned && lockedByLevel);
-              const lockReason = lockedByFeature
-                ? `Requires ${item.requiredLevel} and a feature unlock.`
-                : lockedByLevel
-                  ? `Unlocks at level ${item.requiredLevel}.`
-                  : null;
+            {filteredItems.length ? (
+              filteredItems.map((item) => {
+                const lockedByFeature = item.requiredFeature
+                  ? !isFeatureUnlocked(levelUnlocks, item.requiredFeature)
+                  : false;
+                const lockedByLevel = userProgress.level < item.requiredLevel;
+                const locked =
+                  (!item.owned && lockedByFeature) || (!item.owned && lockedByLevel);
+                const lockReason = lockedByFeature
+                  ? `Requires ${item.requiredLevel} and a feature unlock.`
+                  : lockedByLevel
+                    ? `Unlocks at level ${item.requiredLevel}.`
+                    : null;
 
-              const equipped =
-                equippedItems.titleItemId === item.id ||
-                equippedItems.frameItemId === item.id ||
-                equippedItems.avatarItemId === item.id ||
-                equippedItems.themeItemId === item.id;
-              const pending =
-                pendingShopItemIds.includes(item.id) ||
-                pendingShopItemIds.includes(`unequip:${item.category}`);
-
-              return (
-                <ShopItemCard
-                  key={item.id}
-                  item={item}
-                  locked={locked}
-                  lockReason={lockReason}
-                  equipped={equipped}
-                  pending={pending}
-                  onPurchase={(next) => {
-                    if (next.exclusive) {
-                      return;
-                    }
-                    setPendingPurchase(next);
-                  }}
-                  onEquip={equipShopItem}
-                  onUnequip={unequipShopItem}
-                />
-              );
-            })}
+                return (
+                  <ShopItemCard
+                    key={item.id}
+                    item={item}
+                    locked={locked}
+                    lockReason={lockReason}
+                    pending={pendingShopItemIds.includes(item.id)}
+                    onPurchase={setPendingPurchase}
+                  />
+                );
+              })
+            ) : (
+              <p className="text-sm text-[var(--color-text-muted)]">Nothing for sale here.</p>
+            )}
             </div>
           </div>
         </GlassCard>

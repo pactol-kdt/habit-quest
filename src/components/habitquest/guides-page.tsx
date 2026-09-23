@@ -62,15 +62,15 @@ const GUIDE_SECTIONS = [
   },
   {
     title: "Themes",
-    body: "Unlock at level 4. Equip themes from the shop to restyle app colors. Ember and Aurora come from quest chapters. Buyable themes are Coastal Mist, Archive Sepia, and Midnight.",
+    body: "Equip a theme in Inventory. Ember comes from quest chapter 2, Aurora from chapter 3. Buy Coastal Mist, Archive Sepia, and Midnight in the Shop.",
   },
   {
     title: "Cosmetics",
-    body: "Titles, frames, and avatars fill out your profile. Buy any unlocked cosmetic you can afford — exclusive titles from challenges, quests, and the season finale are earned, not bought. Season Cleared comes from claiming the season finale.",
+    body: "Equip titles, frames, and avatars in Inventory, opened from Profile. Buy them in the Shop. Exclusive titles are not sold: Weekly Vanguard from 15 habits this week, Monthly Archon from the monthly climb, and Season Cleared from the season finale.",
   },
   {
     title: "Account & sync",
-    body: "You can try HabitQuest as a guest on this device. Create an account to keep progress across devices — while signed in, cloud PostgreSQL is authoritative and progress syncs automatically.",
+    body: "You can try HabitQuest as a guest on this device. Create an account to keep that run. Signing in to an existing account loads that account and drops the guest run, even when the account has no habits yet.",
   },
 ];
 

@@ -34,7 +34,7 @@ export async function pushHabitQuestSaveAction(payload: unknown) {
 
 export async function syncHabitQuestOnAuthAction(
   localPayload: unknown,
-  options: { extractLocal?: boolean } = {},
+  options: { extractLocal?: boolean; discardGuest?: boolean } = {},
 ) {
   return syncHabitQuestOnAuth(localPayload, options);
 }

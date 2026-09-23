@@ -11,6 +11,7 @@ export async function POST(request: Request) {
   }
   const result = await syncHabitQuestOnAuthAction(body.data.localPayload, {
     extractLocal: Boolean(body.data.extractLocal),
+    discardGuest: Boolean(body.data.discardGuest),
   });
   if (result.status !== "loaded") {
     return jsonFromUnauthenticatedOrError(result);

@@ -39,7 +39,12 @@ export async function signUpRequest(
 }
 
 export async function signOutRequest() {
-  await v1Request("/auth/sign-out", { method: "POST" });
+  const result = await v1Request<{ signedOut: boolean }>("/auth/sign-out", {
+    method: "POST",
+  });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
   return { ok: true as const };
 }
 
@@ -227,7 +232,7 @@ export async function bootHabitQuestSessionRequest(
 
 export async function syncHabitQuestOnAuthRequest(
   localPayload: unknown,
-  options: { extractLocal?: boolean } = {},
+  options: { extractLocal?: boolean; discardGuest?: boolean } = {},
 ) {
   const result = await v1Request<{
     status: "loaded";
@@ -236,7 +241,11 @@ export async function syncHabitQuestOnAuthRequest(
     updatedAt: string;
     extracted: boolean;
   }>("/saves/sync", {
-    json: { localPayload, extractLocal: options.extractLocal },
+    json: {
+      localPayload,
+      extractLocal: options.extractLocal,
+      discardGuest: options.discardGuest,
+    },
   });
   if (result.status === 401) {
     return { status: "unauthenticated" as const };

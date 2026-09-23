@@ -28,6 +28,7 @@ const youLinks = [
 function isYouPath(pathname: string) {
   return (
     pathname === "/profile" ||
+    pathname === "/inventory" ||
     pathname === "/achievements" ||
     pathname === "/leaderboard" ||
     pathname === "/guides" ||

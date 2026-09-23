@@ -1,3 +1,4 @@
+import { isStarterCosmetic } from "./catalog";
 import {
   DAILY_COMPLETION_COINS,
   DAILY_LOGIN_COINS,
@@ -597,19 +598,20 @@ export function reconcileChallenges(
   };
 }
 
+function hasBoughtCosmetic(shopItems: ShopItem[]) {
+  return shopItems.some(
+    (item) => item.owned && item.price > 0 && !item.exclusive && !isStarterCosmetic(item.id),
+  );
+}
+
 export function unlockAchievements(data: HabitQuestData) {
   const now = new Date().toISOString();
+  const boughtCosmetic = hasBoughtCosmetic(data.shopItems);
+  const weeklyChallengeCompleted = data.challenges.some(
+    (challenge) => challenge.period === "weekly" && challenge.completed,
+  );
 
   return data.achievements.map((achievement) => {
-    if (achievement.unlocked) {
-      return achievement;
-    }
-
-    const ownsCosmetic = data.shopItems.some((item) => item.owned);
-    const weeklyChallengeCompleted = data.challenges.some(
-      (challenge) => challenge.period === "weekly" && challenge.completed,
-    );
-
     const shouldUnlock =
       (achievement.key === "first-habit-completed" && data.userProgress.totalCompletedHabits >= 1) ||
       (achievement.key === "reach-level-2" && data.userProgress.level >= 2) ||
@@ -619,12 +621,20 @@ export function unlockAchievements(data: HabitQuestData) {
       (achievement.key === "complete-100-habits" && data.userProgress.totalCompletedHabits >= 100) ||
       (achievement.key === "reach-level-5" && data.userProgress.level >= 5) ||
       (achievement.key === "reach-level-10" && data.userProgress.level >= 10) ||
-      (achievement.key === "buy-first-cosmetic" && ownsCosmetic) ||
+      (achievement.key === "buy-first-cosmetic" && boughtCosmetic) ||
       (achievement.key === "complete-weekly-challenge" && weeklyChallengeCompleted) ||
       (achievement.key === "complete-season-pass" &&
         data.rewardSystems.seasonPassCompletions >= 1);
 
-    if (!shouldUnlock) {
+    if (achievement.key === "buy-first-cosmetic" && achievement.unlocked && !shouldUnlock) {
+      return {
+        ...achievement,
+        unlocked: false,
+        unlockedAt: null,
+      };
+    }
+
+    if (achievement.unlocked || !shouldUnlock) {
       return achievement;
     }
 
@@ -658,7 +668,11 @@ export function checkLevelUnlocks(
       unlockedAt: now,
     };
 
-    newlyUnlocked.push(nextUnlock);
+    // Starting-level features are available immediately. Unlock them quietly
+    // so a new or existing level-1 save does not celebrate them.
+    if (unlock.requiredLevel > 1) {
+      newlyUnlocked.push(nextUnlock);
+    }
     return nextUnlock;
   });
 
