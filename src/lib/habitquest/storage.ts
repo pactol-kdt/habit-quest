@@ -269,13 +269,6 @@ export function normalizeHabitQuestData(
       seasonPassCompletions:
         parsed.rewardSystems?.seasonPassCompletions ??
         fallback.rewardSystems.seasonPassCompletions,
-      weeklyBossCompletions:
-        parsed.rewardSystems?.weeklyBossCompletions ??
-        fallback.rewardSystems.weeklyBossCompletions,
-      lastCountedBossWeekKey:
-        parsed.rewardSystems?.lastCountedBossWeekKey ??
-        fallback.rewardSystems.lastCountedBossWeekKey ??
-        null,
     },
     questArcs: mergeQuestArcs(parsed.questArcs, fallback.questArcs),
     seasonPass: {
@@ -287,14 +280,6 @@ export function normalizeHabitQuestData(
         : (parsed.seasonPass?.rewards ?? []),
       claimedLevels:
         parsed.seasonPass?.claimedLevels ?? fallback.seasonPass.claimedLevels,
-    },
-    weeklyBoss: {
-      ...fallback.weeklyBoss,
-      ...(parsed.weeklyBoss ?? {}),
-      settledThroughDate:
-        parsed.weeklyBoss?.settledThroughDate ??
-        fallback.weeklyBoss.settledThroughDate ??
-        null,
     },
   });
 }
@@ -507,7 +492,6 @@ export function mergeCloudSaveWithLocalDraft(
       // re-settles and the comeback bonus celebration / payout fires again.
       userProgress: localSettlementOwnsProgress ? local.userProgress : cloud.userProgress,
       seasonPass: localSettlementOwnsProgress ? local.seasonPass : cloud.seasonPass,
-      weeklyBoss: localSettlementOwnsProgress ? local.weeklyBoss : cloud.weeklyBoss,
       questArcs: localSettlementOwnsProgress ? local.questArcs : cloud.questArcs,
       shopItems: cloud.shopItems.map((item) => ({
         ...item,
@@ -546,14 +530,6 @@ export function mergeCloudSaveWithLocalDraft(
         seasonPassCompletions: Math.max(
           local.rewardSystems.seasonPassCompletions,
           cloud.rewardSystems.seasonPassCompletions,
-        ),
-        weeklyBossCompletions: Math.max(
-          local.rewardSystems.weeklyBossCompletions,
-          cloud.rewardSystems.weeklyBossCompletions,
-        ),
-        lastCountedBossWeekKey: pickLaterDateKey(
-          local.rewardSystems.lastCountedBossWeekKey,
-          cloud.rewardSystems.lastCountedBossWeekKey,
         ),
         todayCombo,
         comboDate: todayCombo > 0 ? today : null,
@@ -701,6 +677,7 @@ function isAuthUser(value: unknown): value is AuthUser {
     typeof candidate.id === "string" &&
     typeof candidate.email === "string" &&
     typeof candidate.displayName === "string" &&
+    (candidate.uid === undefined || typeof candidate.uid === "string") &&
     (candidate.role === "admin" || candidate.role === "user")
   );
 }
@@ -717,7 +694,10 @@ export function peekCachedAuthUser(): AuthUser | null {
       return null;
     }
     const parsed: unknown = JSON.parse(rawValue);
-    return isAuthUser(parsed) ? parsed : null;
+    if (!isAuthUser(parsed)) {
+      return null;
+    }
+    return { ...parsed, uid: parsed.uid ?? "" };
   } catch {
     return null;
   }

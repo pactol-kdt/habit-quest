@@ -6,7 +6,6 @@ import {
   getEffectiveSeasonPass,
   getEffectiveUserProgress,
   getEffectiveWalletCoins,
-  getEffectiveWeeklyBoss,
   getPendingComebackPreview,
   getPendingComboPreview,
   getPendingHabitExp,
@@ -16,7 +15,7 @@ import { useHabitQuestStore } from "~/store/habitquest-store";
 
 /**
  * Settled level / EXP / coins for UI gates.
- * Pending habit EXP, combo, comeback, season XP, and boss damage are included
+ * Pending habit EXP, combo, comeback, and season XP are included
  * once today's Done is applied. Undo today reverses them.
  */
 export function useEffectiveProgress() {
@@ -28,11 +27,6 @@ export function useEffectiveProgress() {
         userProgress: store.userProgress,
         seasonPass: store.seasonPass,
         walletCoins: store.wallet.totalCoins,
-        weeklyBoss: {
-          ...store.weeklyBoss,
-          pendingDamage: 0,
-          effectiveHp: store.weeklyBoss.currentHp,
-        },
         questArcs: store.questArcs,
         pendingHabitExp: 0,
         pendingSeasonXp: 0,
@@ -46,7 +40,6 @@ export function useEffectiveProgress() {
       userProgress: getEffectiveUserProgress(data),
       seasonPass: getEffectiveSeasonPass(data),
       walletCoins: getEffectiveWalletCoins(data),
-      weeklyBoss: getEffectiveWeeklyBoss(data),
       questArcs: getEffectiveQuestArcs(data),
       pendingHabitExp: getPendingHabitExp(data),
       pendingSeasonXp: getPendingSeasonXp(data),
@@ -61,7 +54,6 @@ export function useEffectiveProgress() {
     store.userProgress,
     store.seasonPass,
     store.wallet,
-    store.weeklyBoss,
     store.questArcs,
     store.rewardSystems,
     store.projectSave,

@@ -7,7 +7,7 @@ import { PAGE_HEROES } from "~/lib/habitquest/copy";
 import { isFeatureUnlocked } from "~/lib/habitquest/utils";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
-export function BossPage() {
+export function WeekPage() {
   const {
     claimChallengeReward,
     pendingClaimIds,
@@ -16,7 +16,7 @@ export function BossPage() {
     shopItems,
     levelUnlocks,
   } = useHabitQuestStore((state) => state);
-  const hero = PAGE_HEROES.boss;
+  const hero = PAGE_HEROES.week;
 
   const weeklyChallenge = challenges.find((challenge) => challenge.period === "weekly") ?? null;
   const weeklyUnlocked = isFeatureUnlocked(levelUnlocks, "weekly-challenges");
@@ -26,14 +26,14 @@ export function BossPage() {
 
   if (!hydrated) {
     return (
-      <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
+      <div className="grid gap-4 md:gap-6">
         <div className="glass-panel h-64 animate-pulse rounded-[2rem]" />
       </div>
     );
   }
 
   return (
-    <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
+    <div className="grid gap-4 md:gap-6">
       <GlassCard className="overflow-hidden rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
           {hero.eyebrow}

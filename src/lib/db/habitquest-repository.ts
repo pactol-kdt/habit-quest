@@ -78,7 +78,6 @@ export async function loadNormalizedSave(
     rewardRows,
     questRows,
     seasonRows,
-    bossRows,
   ] = await Promise.all([
     database.select().from(habits).where(eq(habits.userId, userId)),
     database.select().from(habitCompletions).where(eq(habitCompletions.userId, userId)),
@@ -95,7 +94,6 @@ export async function loadNormalizedSave(
     database.select().from(rewardSystems).where(eq(rewardSystems.userId, userId)).limit(1),
     database.select().from(userQuestArcs).where(eq(userQuestArcs.userId, userId)),
     database.select().from(seasonPasses).where(eq(seasonPasses.userId, userId)).limit(1),
-    database.select().from(weeklyBosses).where(eq(weeklyBosses.userId, userId)).limit(1),
   ]);
 
   const ownedIds = new Set(ownedRows.map((row) => row.itemId));
@@ -236,8 +234,6 @@ export async function loadNormalizedSave(
           comboDate: rewardRows[0].comboDate,
           progressSettledThroughDate: rewardRows[0].progressSettledThroughDate ?? null,
           seasonPassCompletions: rewardRows[0].seasonPassCompletions ?? 0,
-          weeklyBossCompletions: rewardRows[0].weeklyBossCompletions ?? 0,
-          lastCountedBossWeekKey: rewardRows[0].lastCountedBossWeekKey ?? null,
         }
       : undefined,
     questArcs: [...questByKey.entries()].map(([key, row]) => ({
@@ -256,17 +252,6 @@ export async function loadNormalizedSave(
             ? seasonRows[0].claimedLevels
             : [],
           rewards: [],
-        }
-      : undefined,
-    weeklyBoss: bossRows[0]
-      ? {
-          weekKey: bossRows[0].weekKey,
-          name: bossRows[0].name,
-          maxHp: bossRows[0].maxHp,
-          currentHp: bossRows[0].currentHp,
-          defeated: bossRows[0].defeated,
-          rewardClaimed: bossRows[0].rewardClaimed,
-          settledThroughDate: bossRows[0].settledThroughDate ?? null,
         }
       : undefined,
   } as Partial<HabitQuestData>;
@@ -527,8 +512,6 @@ export async function replaceNormalizedSave(
     partyWeeklyTarget: 20,
     progressSettledThroughDate: normalized.rewardSystems.progressSettledThroughDate,
     seasonPassCompletions: normalized.rewardSystems.seasonPassCompletions,
-    weeklyBossCompletions: normalized.rewardSystems.weeklyBossCompletions,
-    lastCountedBossWeekKey: normalized.rewardSystems.lastCountedBossWeekKey,
   });
 
   if (normalized.questArcs.length) {
@@ -550,17 +533,6 @@ export async function replaceNormalizedSave(
     xp: normalized.seasonPass.xp,
     level: normalized.seasonPass.level,
     claimedLevels: normalized.seasonPass.claimedLevels,
-  });
-
-  await tx.insert(weeklyBosses).values({
-    userId,
-    weekKey: normalized.weeklyBoss.weekKey,
-    name: normalized.weeklyBoss.name,
-    maxHp: normalized.weeklyBoss.maxHp,
-    currentHp: normalized.weeklyBoss.currentHp,
-    defeated: normalized.weeklyBoss.defeated,
-    rewardClaimed: normalized.weeklyBoss.rewardClaimed,
-    settledThroughDate: normalized.weeklyBoss.settledThroughDate,
   });
 
   await tx.insert(saveMeta).values({
@@ -960,8 +932,6 @@ type EconomyBundle = {
   newOwnedItemIds: string[];
   streakFreezes?: number;
   seasonPassCompletions?: number;
-  weeklyBossCompletions?: number;
-  lastCountedBossWeekKey?: string | null;
   challenge?: { challengeKey: string; startsAt: string; claimed: boolean };
   challenges?: Array<{ challengeKey: string; startsAt: string; claimed: boolean }>;
   quest?: { questKey: string; claimed: boolean };
@@ -972,7 +942,6 @@ type EconomyBundle = {
   seasonLevel?: number;
   progressSettledThroughDate?: string | null;
   levelUnlocks?: Array<{ feature: string; unlockedAt: string | null }>;
-  bossRewardClaimed?: boolean;
 };
 
 /** Surgical economy write used by claims / streak freeze. */
@@ -1017,23 +986,6 @@ export async function persistEconomyClaim(
       await tx
         .update(rewardSystems)
         .set({ seasonPassCompletions: bundle.seasonPassCompletions })
-        .where(eq(rewardSystems.userId, userId));
-    }
-
-    if (
-      bundle.weeklyBossCompletions !== undefined ||
-      bundle.lastCountedBossWeekKey !== undefined
-    ) {
-      await tx
-        .update(rewardSystems)
-        .set({
-          ...(bundle.weeklyBossCompletions !== undefined
-            ? { weeklyBossCompletions: bundle.weeklyBossCompletions }
-            : {}),
-          ...(bundle.lastCountedBossWeekKey !== undefined
-            ? { lastCountedBossWeekKey: bundle.lastCountedBossWeekKey }
-            : {}),
-        })
         .where(eq(rewardSystems.userId, userId));
     }
 
@@ -1112,13 +1064,6 @@ export async function persistEconomyClaim(
             },
           });
       }
-    }
-
-    if (bundle.bossRewardClaimed !== undefined) {
-      await tx
-        .update(weeklyBosses)
-        .set({ rewardClaimed: bundle.bossRewardClaimed })
-        .where(eq(weeklyBosses.userId, userId));
     }
 
     await touchSaveMeta(tx, userId, updatedAt);
@@ -1209,8 +1154,6 @@ export async function persistGamePatch(
           comboDate: rs.comboDate,
           progressSettledThroughDate: rs.progressSettledThroughDate,
           seasonPassCompletions: rs.seasonPassCompletions,
-          weeklyBossCompletions: rs.weeklyBossCompletions,
-          lastCountedBossWeekKey: rs.lastCountedBossWeekKey,
         })
         .where(eq(rewardSystems.userId, userId));
     }
@@ -1321,21 +1264,6 @@ export async function persistGamePatch(
           claimedLevels: patch.seasonPass.claimedLevels,
         })
         .where(eq(seasonPasses.userId, userId));
-    }
-
-    if (patch.weeklyBoss) {
-      await tx
-        .update(weeklyBosses)
-        .set({
-          weekKey: patch.weeklyBoss.weekKey,
-          name: patch.weeklyBoss.name,
-          maxHp: patch.weeklyBoss.maxHp,
-          currentHp: patch.weeklyBoss.currentHp,
-          defeated: patch.weeklyBoss.defeated,
-          rewardClaimed: patch.weeklyBoss.rewardClaimed,
-          settledThroughDate: patch.weeklyBoss.settledThroughDate,
-        })
-        .where(eq(weeklyBosses.userId, userId));
     }
 
     if (patch.levelUnlocks?.length) {

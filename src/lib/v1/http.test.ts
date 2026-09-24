@@ -23,6 +23,8 @@ describe("v1 command error status", () => {
     assert.equal(statusForCommandError("dateKey must be YYYY-MM-DD."), 400);
     assert.equal(statusForCommandError("habitId is required."), 400);
     assert.equal(statusForCommandError("Invalid current password."), 400);
+    assert.equal(statusForCommandError("That UID is invalid."), 400);
+    assert.equal(statusForCommandError("Too many UID lookups. Try again later."), 429);
   });
 
   it("maps domain rule failures to 409", () => {

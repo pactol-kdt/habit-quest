@@ -9,7 +9,6 @@ import type { CelebrationEvent, CelebrationKind } from "~/types/habitquest";
 
 const KIND_ACCENT: Record<CelebrationKind, string> = {
   "streak-milestone": "from-emerald-400/30 via-cyan-300/20 to-transparent",
-  "boss-clear": "from-rose-400/30 via-amber-300/20 to-transparent",
   "quest-chapter": "from-pink-400/30 via-violet-300/20 to-transparent",
   comeback: "from-sky-400/30 via-cyan-300/20 to-transparent",
   crit: "from-amber-300/35 via-orange-400/20 to-transparent",
@@ -21,7 +20,6 @@ const KIND_ACCENT: Record<CelebrationKind, string> = {
 
 const KIND_LABEL: Record<CelebrationKind, string> = {
   "streak-milestone": "Streak",
-  "boss-clear": "Weekly challenge",
   "quest-chapter": "Quest",
   comeback: "Comeback",
   crit: "Bonus",

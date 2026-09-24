@@ -11,7 +11,6 @@ import {
 import {
   applyBuyStreakFreeze,
   applyClaimAllRewards,
-  applyClaimBossReward,
   applyClaimChallengeReward,
   applyClaimQuestArcReward,
   applyClaimSeasonPassLevel,
@@ -28,7 +27,6 @@ import type {
   SeasonPassState,
   UserProgress,
   UserSettings,
-  WeeklyBossState,
 } from "~/types/habitquest";
 
 export type SettingsActionResult =
@@ -44,7 +42,6 @@ export type ClaimActionResult =
       challenges?: HabitQuestData["challenges"];
       questArcs?: QuestArc[];
       seasonPass?: SeasonPassState;
-      weeklyBoss?: WeeklyBossState;
       rewardSystems?: HabitQuestData["rewardSystems"];
       shopItems?: HabitQuestData["shopItems"];
       updatedAt: string;
@@ -291,7 +288,7 @@ export async function claimSeasonPassLevelAction(level: number): Promise<ClaimAc
   }
 }
 
-const CLAIMABLE_KINDS = new Set<ClaimableKind>(["challenge", "quest", "season", "boss"]);
+const CLAIMABLE_KINDS = new Set<ClaimableKind>(["challenge", "quest", "season"]);
 
 function normalizeClaimKinds(kinds?: string[]): ClaimableKind[] | undefined {
   if (!kinds?.length) {
@@ -362,8 +359,6 @@ export async function claimAllRewardsAction(
 
     const seasonChanged =
       mutation.data.seasonPass.claimedLevels.length !== ready.seasonPass.claimedLevels.length;
-    const bossChanged =
-      mutation.data.weeklyBoss.rewardClaimed && !ready.weeklyBoss.rewardClaimed;
 
     const saved = await persistEconomyClaim(database, user.id, {
       ...economyFromMutation(mutation.data, mutation),
@@ -376,13 +371,6 @@ export async function claimAllRewardsAction(
       seasonPassCompletions: seasonChanged
         ? mutation.data.rewardSystems.seasonPassCompletions
         : undefined,
-      bossRewardClaimed: bossChanged ? true : undefined,
-      weeklyBossCompletions: bossChanged
-        ? mutation.data.rewardSystems.weeklyBossCompletions
-        : undefined,
-      lastCountedBossWeekKey: bossChanged
-        ? mutation.data.rewardSystems.lastCountedBossWeekKey
-        : undefined,
     });
 
     return {
@@ -392,7 +380,6 @@ export async function claimAllRewardsAction(
       challenges: mutation.data.challenges,
       questArcs: mutation.data.questArcs,
       seasonPass: mutation.data.seasonPass,
-      weeklyBoss: mutation.data.weeklyBoss,
       rewardSystems: mutation.data.rewardSystems,
       shopItems: mutation.data.shopItems,
       updatedAt: saved.updatedAt,
@@ -401,50 +388,6 @@ export async function claimAllRewardsAction(
     return {
       status: "error",
       error: error instanceof Error ? error.message : "Failed to claim rewards.",
-    };
-  }
-}
-
-export async function claimBossRewardAction(): Promise<ClaimActionResult> {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return { status: "unauthenticated" };
-    }
-
-    const database = await ensureDatabase();
-    const catalog = await loadCatalogFromDb(database);
-    const existing = await loadNormalizedSave(database, user.id, catalog);
-    if (!existing) {
-      return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
-    }
-
-    const ready = prepareSaveForRewards(existing.data);
-    const mutation = applyClaimBossReward(ready);
-    if (!mutation.ok) {
-      return { status: "error", error: mutation.error };
-    }
-
-    const saved = await persistEconomyClaim(database, user.id, {
-      ...economyFromMutation(mutation.data, mutation),
-      ...settledProgressFields(mutation.data),
-      bossRewardClaimed: true,
-      weeklyBossCompletions: mutation.data.rewardSystems.weeklyBossCompletions,
-      lastCountedBossWeekKey: mutation.data.rewardSystems.lastCountedBossWeekKey,
-    });
-
-    return {
-      status: "ok",
-      wallet: mutation.wallet,
-      userProgress: mutation.userProgress,
-      weeklyBoss: mutation.data.weeklyBoss,
-      rewardSystems: mutation.data.rewardSystems,
-      updatedAt: saved.updatedAt,
-    };
-  } catch (error) {
-    return {
-      status: "error",
-      error: error instanceof Error ? error.message : "Failed to claim boss reward.",
     };
   }
 }

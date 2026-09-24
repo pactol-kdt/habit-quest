@@ -91,7 +91,7 @@ export function GuidesPage() {
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
-            href="/boss"
+            href="/week"
             className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
           >
             This week

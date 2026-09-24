@@ -17,7 +17,6 @@ export type UnlockFeature =
 export type QuestObjectiveType = "habit-completions" | "hard-completions" | "streak-days";
 export type CelebrationKind =
   | "streak-milestone"
-  | "boss-clear"
   | "quest-chapter"
   | "comeback"
   | "crit"
@@ -72,7 +71,6 @@ export interface ExpHistoryEntry {
     | "challenge"
     | "comeback"
     | "quest"
-    | "boss"
     | "season"
     | "combo";
   label: string;
@@ -186,14 +184,10 @@ export interface RewardSystems {
   lastComebackDate: string | null;
   todayCombo: number;
   comboDate: string | null;
-  /** Last calendar date whose habit clears are fully applied to EXP/season/comeback/daily/boss. */
+  /** Last calendar date whose habit clears are fully applied to EXP/season/comeback/daily. */
   progressSettledThroughDate: string | null;
   /** Lifetime months where the season finale (L30) was claimed. Never reset on month roll. */
   seasonPassCompletions: number;
-  /** Lifetime weeks the raid boss was actually dropped. Never reset on week roll. */
-  weeklyBossCompletions: number;
-  /** Week key already counted in weeklyBossCompletions, if any. */
-  lastCountedBossWeekKey: string | null;
 }
 
 export interface QuestArc {
@@ -229,17 +223,6 @@ export interface SeasonPassState {
   rewards: SeasonPassReward[];
 }
 
-export interface WeeklyBossState {
-  weekKey: string;
-  name: string;
-  maxHp: number;
-  currentHp: number;
-  defeated: boolean;
-  rewardClaimed: boolean;
-  /** Last calendar date whose damage is already baked into currentHp. */
-  settledThroughDate: string | null;
-}
-
 export interface CelebrationEvent {
   id: string;
   kind: CelebrationKind;
@@ -259,7 +242,6 @@ export interface SettlementRecap {
   comebackExp: number;
   comebackCoins: number;
   perfectDayCoins: number;
-  bossDamage: number;
   streak: number;
 }
 
@@ -279,7 +261,6 @@ export interface HabitQuestData {
   rewardSystems: RewardSystems;
   questArcs: QuestArc[];
   seasonPass: SeasonPassState;
-  weeklyBoss: WeeklyBossState;
 }
 
 export interface HabitFormValues {

@@ -1,12 +1,10 @@
 import {
-  BOSS_CLEAR_COINS,
-  BOSS_CLEAR_EXP,
   MAX_STREAK_FREEZES,
   SEASON_PASS_MAX_LEVEL,
   STREAK_FREEZE_COST,
 } from "./constants";
 import { listClaimableRewards, type ClaimableKind } from "./claimables";
-import { createCelebration, recordWeeklyBossCompletion } from "./rewards";
+import { createCelebration } from "./rewards";
 import { DEFAULT_REMINDER_LOCAL_TIME } from "./reminder-time";
 import { createId, createExpEntry, getTodayDateKey, isFeatureUnlocked, syncProgress } from "./utils";
 import type {
@@ -283,40 +281,6 @@ export function applyClaimSeasonPassLevel(
   return finish(before, next, floatingRewards, celebrations);
 }
 
-export function applyClaimBossReward(data: HabitQuestData): ClaimMutationResult {
-  if (!data.weeklyBoss.defeated || data.weeklyBoss.rewardClaimed) {
-    return { ok: false, error: "Boss reward unavailable." };
-  }
-
-  const before = data;
-  const next: HabitQuestData = {
-    ...data,
-    weeklyBoss: {
-      ...data.weeklyBoss,
-      rewardClaimed: true,
-    },
-    wallet: { ...data.wallet },
-    userProgress: {
-      ...data.userProgress,
-      expHistory: [...data.userProgress.expHistory],
-    },
-    rewardSystems: recordWeeklyBossCompletion(
-      data.rewardSystems,
-      data.weeklyBoss.weekKey,
-      data.weeklyBoss.defeated,
-    ),
-  };
-
-  const label = "Weekly challenge clear";
-  const floatingRewards: FloatingReward[] = [];
-  grantCoins(next, BOSS_CLEAR_COINS);
-  floatingRewards.push(createFloating("coins", BOSS_CLEAR_COINS, label));
-  grantExp(next, BOSS_CLEAR_EXP, "boss", label);
-  floatingRewards.push(createFloating("exp", BOSS_CLEAR_EXP, label));
-
-  return finish(before, next, floatingRewards, []);
-}
-
 /**
  * Claim every currently claimable reward in one pass (ordered by listClaimableRewards).
  * Optional `kinds` filters which reward types to claim.
@@ -345,11 +309,9 @@ export function applyClaimAllRewards(
       mutation = applyClaimChallengeReward(next, item.id.replace("challenge:", ""));
     } else if (item.kind === "quest") {
       mutation = applyClaimQuestArcReward(next, item.id.replace("quest:", ""));
-    } else if (item.kind === "season") {
+    } else {
       const level = Number(item.id.replace("season:", ""));
       mutation = applyClaimSeasonPassLevel(next, level);
-    } else {
-      mutation = applyClaimBossReward(next);
     }
 
     if (!mutation.ok) {

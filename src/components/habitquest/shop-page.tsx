@@ -44,7 +44,6 @@ export function ShopPage() {
     rewardSystems,
     questArcs,
     seasonPass,
-    weeklyBoss,
     userProgress: settledProgress,
     projectSave,
   } = useHabitQuestStore((state) => state);
@@ -99,7 +98,6 @@ export function ShopPage() {
             rewardSystems,
             questArcs,
             seasonPass,
-            weeklyBoss,
           }}
         />
 

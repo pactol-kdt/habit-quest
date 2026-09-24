@@ -3,7 +3,6 @@ import { DEFAULT_SETTINGS, SAVE_VERSION } from "./constants";
 import {
   createDefaultRewardSystems,
   createSeasonPass,
-  createWeeklyBoss,
 } from "./rewards";
 import { createId } from "./utils";
 import type { HabitQuestData } from "./types";
@@ -124,6 +123,5 @@ export function createSeedData(): HabitQuestData {
       ...season,
       rewards: catalog.seasonRewards,
     },
-    weeklyBoss: createWeeklyBoss(),
   });
 }

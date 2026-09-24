@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { getBuiltinCatalog } from "./catalog.ts";
 import {
-  BOSS_CLEAR_COINS,
-  BOSS_MAX_HP,
   COMEBACK_COINS,
   COMBO_COIN_THRESHOLDS,
   DAILY_COMPLETION_COINS,
@@ -11,12 +9,12 @@ import {
   SEASON_PASS_XP_PER_LEVEL,
   STREAK_FREEZE_COST,
 } from "./constants.ts";
-import { createQuestArcs, createSeasonPass, createWeeklyBoss } from "./rewards.ts";
+import { createQuestArcs, createSeasonPass } from "./rewards.ts";
 
 /** Purchasable shop total after Paths of the Keep cosmetics pass. */
 const TARGET_PURCHASABLE_SHOP_SUM = 2430;
-/** Achievement coin payout sum after season-clear achievement. */
-const TARGET_ACHIEVEMENT_COIN_SUM = 129;
+/** Achievement coin payout sum after the weekly boss achievement was removed. */
+const TARGET_ACHIEVEMENT_COIN_SUM = 119;
 /** Season L2–L30 coin sum after the long-track redesign. */
 const TARGET_SEASON_COIN_SUM = 71;
 
@@ -60,11 +58,8 @@ describe("economy balance guardrails", () => {
     assert.equal(DAILY_COMPLETION_COINS, 1);
     assert.deepEqual([...COMBO_COIN_THRESHOLDS], [4, 7]);
     assert.equal(COMEBACK_COINS, 6);
-    assert.equal(BOSS_CLEAR_COINS, 20);
     assert.equal(STREAK_FREEZE_COST, 40);
     assert.equal(SEASON_PASS_XP_PER_LEVEL, 40);
-    assert.equal(createWeeklyBoss().maxHp, BOSS_MAX_HP);
-    assert.equal(BOSS_MAX_HP, 160);
   });
 
   it("keeps challenge, quest, season, and achievement coin totals leaner", () => {

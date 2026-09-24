@@ -5,13 +5,10 @@ import {
   createDefaultRewardSystems,
   createQuestArcs,
   createSeasonPass,
-  createWeeklyBoss,
   maybeGrantStreakFreeze,
   reconcileSeasonPass,
   reconcileStreakShields,
   reconcileTodayCombo,
-  reconcileWeeklyBoss,
-  recordWeeklyBossCompletion,
   syncQuestArcs,
 } from "./rewards";
 import {
@@ -173,15 +170,12 @@ function ensureRewardFields(data: HabitQuestData): HabitQuestData {
     ...defaults,
     ...(data.rewardSystems ?? {}),
     seasonPassCompletions: data.rewardSystems?.seasonPassCompletions ?? 0,
-    weeklyBossCompletions: data.rewardSystems?.weeklyBossCompletions ?? 0,
-    lastCountedBossWeekKey: data.rewardSystems?.lastCountedBossWeekKey ?? null,
   };
   return {
     ...data,
     rewardSystems,
     questArcs: data.questArcs?.length ? data.questArcs : createQuestArcs(),
     seasonPass: data.seasonPass ?? createSeasonPass(),
-    weeklyBoss: data.weeklyBoss ?? createWeeklyBoss(),
     equippedItems: {
       titleItemId: data.equippedItems?.titleItemId ?? null,
       frameItemId: data.equippedItems?.frameItemId ?? null,
@@ -193,16 +187,11 @@ function ensureRewardFields(data: HabitQuestData): HabitQuestData {
 
 function normalizePersistentData(data: HabitQuestData) {
   const withRewards = ensureRewardFields(data);
-  const rewardSystems = recordWeeklyBossCompletion(
-    reconcileTodayCombo(withRewards.rewardSystems, withRewards.completions),
-    withRewards.weeklyBoss.weekKey,
-    withRewards.weeklyBoss.defeated,
-  );
+  const rewardSystems = reconcileTodayCombo(withRewards.rewardSystems, withRewards.completions);
   return {
     ...withRewards,
     rewardSystems,
     seasonPass: reconcileSeasonPass(withRewards.seasonPass),
-    weeklyBoss: reconcileWeeklyBoss(withRewards.weeklyBoss),
     userProgress: syncWithShields({ ...withRewards, rewardSystems }),
   };
 }

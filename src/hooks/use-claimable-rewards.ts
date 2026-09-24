@@ -18,7 +18,6 @@ export function useClaimableRewards() {
     store.challenges,
     store.questArcs,
     store.seasonPass,
-    store.weeklyBoss,
     store.levelUnlocks,
     store.userProgress.level,
     store.projectSave,

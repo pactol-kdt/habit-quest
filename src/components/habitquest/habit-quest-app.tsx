@@ -80,7 +80,6 @@ export function HabitQuestApp() {
       store.rewardSystems,
       store.questArcs,
       store.seasonPass,
-      store.weeklyBoss,
     ],
   );
 
@@ -309,7 +308,7 @@ export function HabitQuestApp() {
                   {claimingWeek ? "Claiming…" : "Claim"}
                 </button>
                 <Link
-                  href="/boss"
+                  href="/week"
                   className="min-h-11 rounded-full border border-white/15 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/25 hover:text-white"
                 >
                   Open Week
@@ -317,7 +316,7 @@ export function HabitQuestApp() {
               </div>
             </GlassCard>
           ) : (
-            <Link href="/boss" className="block rounded-[1.75rem] outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50">
+            <Link href="/week" className="block rounded-[1.75rem] outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50">
               <GlassCard className="rounded-[1.75rem] p-4 transition hover:border-white/20 md:p-6">
                 <WeekGoal
                   status={weekStatus}

@@ -4,6 +4,7 @@ import { AuthGate } from "~/components/habitquest/auth-gate";
 import { CelebrationOverlay } from "~/components/habitquest/celebration-overlay";
 import { OnboardingModal } from "~/components/habitquest/onboarding-modal";
 import { FloatingRewardLayer } from "~/components/habitquest/floating-reward-layer";
+import { FriendNudgeBanner } from "~/components/habitquest/friend-nudge-banner";
 import { MobileBottomNav } from "~/components/habitquest/mobile-bottom-nav";
 import { Navigation } from "~/components/habitquest/navigation";
 import { NotificationPermissionPrompt } from "~/components/habitquest/notification-permission-prompt";
@@ -120,6 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         tabIndex={-1}
         className="mx-auto min-w-0 w-full max-w-7xl px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-6 md:pt-8 lg:pb-10"
       >
+        <FriendNudgeBanner />
         {children}
       </div>
       <MobileBottomNav />

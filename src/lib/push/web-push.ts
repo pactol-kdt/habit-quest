@@ -46,5 +46,6 @@ export async function sendWebPush(
   const client = configureWebPush();
   await client.sendNotification(subscription, JSON.stringify(payload), {
     TTL: 60 * 60 * 12,
+    timeout: 4000,
   });
 }

@@ -3,7 +3,6 @@
 import {
   buyStreakFreezeAction as buyStreakFreeze,
   claimAllRewardsAction as claimAllRewards,
-  claimBossRewardAction as claimBossReward,
   claimChallengeRewardAction as claimChallengeReward,
   claimQuestArcRewardAction as claimQuestArcReward,
   claimSeasonPassLevelAction as claimSeasonPassLevel,
@@ -36,10 +35,6 @@ export async function claimSeasonPassLevelAction(level: number) {
 
 export async function claimAllRewardsAction(kinds?: string[]) {
   return claimAllRewards(kinds);
-}
-
-export async function claimBossRewardAction() {
-  return claimBossReward();
 }
 
 export async function buyStreakFreezeAction() {

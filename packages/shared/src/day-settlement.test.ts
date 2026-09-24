@@ -68,7 +68,6 @@ describe("live day settle", () => {
     assert.ok(settled.data.userProgress.totalExp >= completed.completion.expEarned);
     assert.equal(settled.data.rewardSystems.progressSettledThroughDate, today);
     assert.equal(getPendingHabitExp(settled.data, today), 0);
-    assert.ok(settled.data.weeklyBoss.currentHp < settled.data.weeklyBoss.maxHp);
 
     const undone = applyUncompleteHabitForToday(settled.data, habitId, today);
     assert.equal(undone.ok, true);
@@ -82,7 +81,6 @@ describe("live day settle", () => {
       afterUndo.data.completions.some((entry) => entry.habitId === habitId && entry.date === today),
       false,
     );
-    assert.equal(afterUndo.data.weeklyBoss.currentHp, afterUndo.data.weeklyBoss.maxHp);
   });
 
   it("lets the wallet go negative if those coins were already spent", () => {

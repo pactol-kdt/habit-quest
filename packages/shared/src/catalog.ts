@@ -179,7 +179,6 @@ export function getBuiltinCatalog(): HabitQuestCatalog {
       createAchievement("reach-level-10", "Reach Level 10", "Enter the elite progression bracket.", "level", "Astral", { coins: 25, exp: 250 }),
       createAchievement("buy-first-cosmetic", "Buy First Cosmetic", "Spend coins on identity, not just numbers.", "shop", "Mask", { coins: 5, exp: 40 }),
       createAchievement("complete-weekly-challenge", "Complete Weekly Challenge", "Finish your first weekly contract.", "challenge", "Banner", { coins: 10, exp: 100 }),
-      createAchievement("defeat-weekly-boss", "Defeat Weekly Boss", "Bring a weekly boss HP bar to zero.", "challenge", "Raid", { coins: 10, exp: 100 }),
       createAchievement("complete-season-pass", "Complete Season Pass", "Claim the season finale for the first time.", "challenge", "Season", { coins: 12, exp: 120 }),
     ],
     challenges: [

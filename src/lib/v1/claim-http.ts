@@ -11,7 +11,6 @@ export function jsonFromClaimResult(result: ClaimActionResult) {
     challenges: result.challenges,
     questArcs: result.questArcs,
     seasonPass: result.seasonPass,
-    weeklyBoss: result.weeklyBoss,
     rewardSystems: result.rewardSystems,
     shopItems: result.shopItems,
     updatedAt: result.updatedAt,

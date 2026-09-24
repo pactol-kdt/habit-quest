@@ -14,6 +14,7 @@ export const users = pgTable("users", {
   email: varchar("email", { length: 255 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   displayName: varchar("display_name", { length: 64 }).notNull().default(""),
+  uid: varchar("uid", { length: 16 }).notNull().unique(),
   role: varchar("role", { length: 16 }).notNull().default("user"),
   createdAt: varchar("created_at", { length: 40 }).notNull(),
   updatedAt: varchar("updated_at", { length: 40 }).notNull(),
@@ -378,6 +379,43 @@ export const catalogQuestArcs = pgTable("catalog_quest_arcs", {
   sortOrder: integer("sort_order").notNull().default(0),
   active: boolean("active").notNull().default(true),
 });
+
+export const friendships = pgTable(
+  "friendships",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userLowId: varchar("user_low_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    userHighId: varchar("user_high_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    requestedBy: varchar("requested_by", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: varchar("status", { length: 16 }).notNull(),
+    blockedBy: varchar("blocked_by", { length: 36 }),
+    createdAt: varchar("created_at", { length: 40 }).notNull(),
+    updatedAt: varchar("updated_at", { length: 40 }).notNull(),
+  },
+  (table) => [uniqueIndex("uniq_friendships_pair").on(table.userLowId, table.userHighId)],
+);
+
+export const friendNudges = pgTable(
+  "friend_nudges",
+  {
+    fromUserId: varchar("from_user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    toUserId: varchar("to_user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    localDate: varchar("local_date", { length: 10 }).notNull(),
+    createdAt: varchar("created_at", { length: 40 }).notNull(),
+    seenAt: varchar("seen_at", { length: 40 }),
+  },
+  (table) => [primaryKey({ columns: [table.fromUserId, table.toUserId, table.localDate] })],
+);
 
 export const catalogSeasonRewards = pgTable("catalog_season_rewards", {
   level: integer("level").primaryKey(),

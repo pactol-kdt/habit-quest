@@ -6,17 +6,11 @@
 import { getComboRewards } from "./combo";
 import {
   addSeasonPassXp,
-  applyBossDamage,
   createCelebration,
   getActiveShieldDates,
-  getBossDamageForDate,
-  getEffectiveBossHp,
-  getPendingBossDamage,
   isStreakMilestone,
   maybeApplyComeback,
   reconcileSeasonPass,
-  reconcileWeeklyBoss,
-  recordWeeklyBossCompletion,
   syncQuestArcs,
 } from "./rewards";
 import {
@@ -35,7 +29,6 @@ import type {
   SeasonPassState,
   SettlementRecap,
   UserProgress,
-  WeeklyBossState,
 } from "./types";
 
 export { SETTLEMENT_LOCK_HINT };
@@ -159,19 +152,6 @@ export function getEffectiveSeasonPass(
   return addSeasonPassXp(settled, getPendingSeasonXp(data, today));
 }
 
-export function getEffectiveWeeklyBoss(
-  data: HabitQuestData,
-  today = getTodayDateKey(),
-): WeeklyBossState & { pendingDamage: number; effectiveHp: number } {
-  const boss = reconcileWeeklyBoss(data.weeklyBoss);
-  const pendingDamage = getPendingBossDamage(data, today);
-  return {
-    ...boss,
-    pendingDamage,
-    effectiveHp: getEffectiveBossHp(boss, pendingDamage),
-  };
-}
-
 /** Spendable coins include combo and comeback once a Done is applied. */
 export function getEffectiveWalletCoins(data: HabitQuestData, _today = getTodayDateKey()) {
   return data.wallet.totalCoins;
@@ -215,34 +195,6 @@ function rebuildSeasonXpFromSettledCompletions(
 
   pass = { ...pass, xp: 0, level: 1 };
   return addSeasonPassXp(pass, xp);
-}
-
-function rebuildBossFromSettledCompletions(
-  data: HabitQuestData,
-  settledThrough: string | null,
-): WeeklyBossState {
-  let boss = reconcileWeeklyBoss(data.weeklyBoss);
-  if (!settledThrough || settledThrough < boss.weekKey) {
-    return {
-      ...boss,
-      currentHp: boss.maxHp,
-      defeated: false,
-      settledThroughDate: null,
-    };
-  }
-
-  const end = settledThrough;
-  const damage = eachDateInclusive(boss.weekKey, end).reduce(
-    (sum, dateKey) => sum + getBossDamageForDate(data, dateKey),
-    0,
-  );
-  const currentHp = Math.max(0, boss.maxHp - damage);
-  return {
-    ...boss,
-    currentHp,
-    defeated: currentHp <= 0,
-    settledThroughDate: end,
-  };
 }
 
 function stripPendingDayFromProgress(data: HabitQuestData, today: string): HabitQuestData {
@@ -292,7 +244,6 @@ function emptyRecap(throughDate: string): SettlementRecap {
     comebackExp: 0,
     comebackCoins: 0,
     perfectDayCoins: 0,
-    bossDamage: 0,
     streak: 0,
   };
 }
@@ -359,19 +310,6 @@ function rewindOpenDay(data: HabitQuestData, today: string): HabitQuestData {
   };
 
   next.seasonPass = rebuildSeasonXpFromSettledCompletions(next, priorThrough);
-  next.weeklyBoss = rebuildBossFromSettledCompletions(next, priorThrough);
-
-  if (
-    !next.weeklyBoss.defeated &&
-    next.rewardSystems.lastCountedBossWeekKey === next.weeklyBoss.weekKey &&
-    !next.weeklyBoss.rewardClaimed
-  ) {
-    next.rewardSystems = {
-      ...next.rewardSystems,
-      weeklyBossCompletions: Math.max(0, (next.rewardSystems.weeklyBossCompletions ?? 0) - 1),
-      lastCountedBossWeekKey: null,
-    };
-  }
 
   return next;
 }
@@ -516,24 +454,6 @@ function applyCalendarDaySettlement(
     data.seasonPass = addSeasonPassXp(reconcileSeasonPass(data.seasonPass), daySeasonXp);
   }
 
-  const weekBoss = reconcileWeeklyBoss(data.weeklyBoss);
-  const dayBossDamage = getBossDamageForDate(data, dateKey);
-  const bossHit = applyBossDamage(weekBoss, dayBossDamage);
-  if (recap) {
-    recap.bossDamage += dayBossDamage;
-  }
-  data.weeklyBoss = {
-    ...bossHit.boss,
-    settledThroughDate: dateKey >= weekBoss.weekKey ? dateKey : weekBoss.settledThroughDate,
-  };
-  if (bossHit.defeatedNow) {
-    data.rewardSystems = recordWeeklyBossCompletion(
-      data.rewardSystems,
-      data.weeklyBoss.weekKey,
-      true,
-    );
-  }
-
   const daily = checkDailyCompletion(data, dateKey);
   if (
     daily.qualifiesForReward &&
@@ -602,14 +522,10 @@ export function settleHabitDayProgress(
 ): DaySettlementResult {
   let data: HabitQuestData = {
     ...input,
-    rewardSystems: recordWeeklyBossCompletion(
-      {
-        ...input.rewardSystems,
-        progressSettledThroughDate: input.rewardSystems.progressSettledThroughDate ?? null,
-      },
-      input.weeklyBoss.weekKey,
-      input.weeklyBoss.defeated,
-    ),
+    rewardSystems: {
+      ...input.rewardSystems,
+      progressSettledThroughDate: input.rewardSystems.progressSettledThroughDate ?? null,
+    },
   };
 
   const celebrations: CelebrationEvent[] = [];
@@ -624,15 +540,10 @@ export function settleHabitDayProgress(
     const settledThrough = committedThrough;
 
     data.seasonPass = rebuildSeasonXpFromSettledCompletions(data, settledThrough);
-    data.weeklyBoss = rebuildBossFromSettledCompletions(data, settledThrough);
-    data.rewardSystems = recordWeeklyBossCompletion(
-      {
-        ...data.rewardSystems,
-        progressSettledThroughDate: settledThrough,
-      },
-      data.weeklyBoss.weekKey,
-      data.weeklyBoss.defeated,
-    );
+    data.rewardSystems = {
+      ...data.rewardSystems,
+      progressSettledThroughDate: settledThrough,
+    };
 
     const settledCompletions = data.completions.filter(
       (completion) => completion.date <= settledThrough,
@@ -689,8 +600,7 @@ export function settleHabitDayProgress(
     recap.comboCoins > 0 ||
     recap.comebackExp > 0 ||
     recap.comebackCoins > 0 ||
-    recap.perfectDayCoins > 0 ||
-    recap.bossDamage > 0;
+    recap.perfectDayCoins > 0;
 
   return {
     data,

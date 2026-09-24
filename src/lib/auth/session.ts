@@ -42,6 +42,7 @@ function toAuthUser(user: DbUser): AuthUser {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
+    uid: user.uid,
     role: user.role === "admin" ? "admin" : "user",
   };
 }

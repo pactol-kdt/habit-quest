@@ -16,7 +16,6 @@ export function PendingProgressCard() {
     pendingSeasonXp,
     pendingCombo,
     pendingComeback,
-    weeklyBoss,
   } = useEffectiveProgress();
 
   const today = getTodayDateKey();
@@ -30,7 +29,6 @@ export function PendingProgressCard() {
     previewExp > 0 ||
     previewCoins > 0 ||
     pendingSeasonXp > 0 ||
-    weeklyBoss.pendingDamage > 0 ||
     todayCombo > 0;
 
   return (
@@ -54,7 +52,7 @@ export function PendingProgressCard() {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-white/4 p-3 sm:rounded-3xl sm:p-4">
           <p className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] sm:text-sm">
             <ExpIcon size={13} title="EXP" />
@@ -79,17 +77,11 @@ export function PendingProgressCard() {
             {formatNumber(pendingSeasonXp)}
           </p>
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/4 p-3 sm:rounded-3xl sm:p-4">
-          <p className="text-xs text-[var(--color-text-muted)] sm:text-sm">Weekly progress</p>
-          <p className="mt-1 text-xl font-semibold sm:text-2xl" style={{ color: "var(--color-pink)" }}>
-            {weeklyBoss.pendingDamage}
-          </p>
-        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
         <Link
-          href="/boss"
+          href="/week"
           className="flex min-h-11 items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
         >
           Weekly goal

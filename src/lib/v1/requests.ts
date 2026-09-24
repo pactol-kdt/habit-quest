@@ -3,6 +3,7 @@ import type { UserRole } from "~/lib/auth/session-types";
 import type { ClaimActionResult, SettingsActionResult } from "~/lib/v1/claims";
 import type { HabitActionResult, HabitBatchActionResult, HabitCrudActionResult } from "~/lib/v1/habits";
 import type { AuthCommandResult } from "~/lib/v1/identity";
+import type { FriendCard, FriendRequestCard } from "~/lib/v1/friend-rules";
 import type { LevelLeaderboardEntry } from "~/lib/v1/leaderboard";
 import type { PushSubscribeResult, PushTestResult } from "~/lib/v1/push";
 import type { ShopEquipResult, ShopPurchaseResult } from "~/lib/v1/shop";
@@ -183,10 +184,6 @@ export async function claimAllRewardsRequest(kinds?: string[]): Promise<ClaimAct
   );
 }
 
-export async function claimBossRewardRequest(): Promise<ClaimActionResult> {
-  return asCommand<ClaimActionResult>(await v1Request("/claims/boss", { method: "POST" }));
-}
-
 export async function buyStreakFreezeRequest(): Promise<ClaimActionResult> {
   return asCommand<ClaimActionResult>(await v1Request("/claims/streak-freeze", { method: "POST" }));
 }
@@ -212,6 +209,83 @@ export async function getLeaderboardRequest() {
   };
 }
 
+export async function getFriendsRequest() {
+  const result = await v1Request<{
+    uid: string;
+    friends: FriendCard[];
+    requests: FriendRequestCard[];
+  }>("/friends");
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, ...result.data };
+}
+
+export async function sendFriendRequest(uid: string) {
+  return getFriendsRequestResult("/friends/requests", { uid });
+}
+
+export async function acceptFriendRequest(requestId: string) {
+  return getFriendsRequestResult(`/friends/requests/${encodeURIComponent(requestId)}/accept`);
+}
+
+export async function declineFriendRequest(requestId: string) {
+  return getFriendsRequestResult(`/friends/requests/${encodeURIComponent(requestId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function removeFriendRequest(userId: string) {
+  return getFriendsRequestResult(`/friends/${encodeURIComponent(userId)}`, { method: "DELETE" });
+}
+
+export async function nudgeFriendRequest(userId: string) {
+  const result = await v1Request<{ nudge: "sent"; delivery: "push" | "in-app" }>(
+    `/friends/${encodeURIComponent(userId)}/nudge`,
+    { method: "POST" },
+  );
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, nudge: result.data.nudge, delivery: result.data.delivery };
+}
+
+export async function getIncomingNudgesRequest() {
+  const result = await v1Request<{
+    nudges: Array<{ fromUserId: string; localDate: string; title: string; body: string }>;
+  }>("/friends/nudges");
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, nudges: result.data.nudges };
+}
+
+export async function markNudgeSeenRequest(fromUserId: string) {
+  const result = await v1Request("/friends/nudges/seen", { json: { fromUserId } });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const };
+}
+
+async function getFriendsRequestResult(
+  path: string,
+  init: { method?: string; uid?: string } = {},
+) {
+  const result = await v1Request<{
+    uid: string;
+    friends: FriendCard[];
+    requests: FriendRequestCard[];
+  }>(path, {
+    method: init.method,
+    json: init.uid !== undefined ? { uid: init.uid } : init.method === "DELETE" ? undefined : {},
+  });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, ...result.data };
+}
+
 export async function bootHabitQuestSessionRequest(
   localPayload: unknown,
   options: { extractLocal?: boolean } = {},
@@ -230,7 +304,7 @@ export async function bootHabitQuestSessionRequest(
     if (result.status === 401) {
       return { status: "guest" };
     }
-    return { status: "error", user: { id: "", email: "", displayName: "", role: "user" }, error: result.error };
+    return { status: "error", user: { id: "", email: "", displayName: "", uid: "", role: "user" }, error: result.error };
   }
   return result.data;
 }

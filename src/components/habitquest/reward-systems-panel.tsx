@@ -44,7 +44,6 @@ export function RewardSystemsPanel() {
     store.rewardSystems,
     store.questArcs,
     store.seasonPass,
-    store.weeklyBoss,
     store.userProgress,
     projectSave,
   ]);
@@ -191,10 +190,6 @@ export function RewardSystemsPanel() {
             <div>
               <p className="text-[var(--color-text-muted)]">Hard clears</p>
               <p className="mt-1 text-lg font-semibold text-white">{recap.hardClears}</p>
-            </div>
-            <div>
-              <p className="text-[var(--color-text-muted)]">Boss damage</p>
-              <p className="mt-1 text-lg font-semibold text-white">{recap.bossDamageDealt}</p>
             </div>
           </div>
         </div>

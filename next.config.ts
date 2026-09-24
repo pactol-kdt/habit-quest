@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/boss",
+        destination: "/week",
+        permanent: false,
+      },
+    ];
+  },
   transpilePackages: ["@habitquest/shared"],
   serverExternalPackages: ["pg", "bcryptjs", "web-push"],
   // Let phones/PCs on the same network hit the dev server (HMR + /_next assets).

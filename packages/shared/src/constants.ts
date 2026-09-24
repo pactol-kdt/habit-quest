@@ -78,14 +78,6 @@ export const UNBANKED_LABEL = PREVIEW_LABEL;
 export const SEASON_PASS_XP_PER_LEVEL = 40;
 /** Highest claimable season tier (finale). */
 export const SEASON_PASS_MAX_LEVEL = 30;
-export const BOSS_DAMAGE: Record<HabitDifficulty, number> = {
-  easy: 8,
-  medium: 14,
-  hard: 22,
-};
-export const BOSS_MAX_HP = 160;
-export const BOSS_CLEAR_COINS = 20;
-export const BOSS_CLEAR_EXP = 150;
 
 export const DAILY_LOGIN_COINS = 1;
 export const DAILY_COMPLETION_COINS = 1;

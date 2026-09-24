@@ -1,11 +1,9 @@
 import {
-  BOSS_DAMAGE,
   COMEBACK_COINS,
   COMEBACK_EXP,
   COMEBACK_MIN_GAP_DAYS,
   CRIT_CHANCE,
   CRIT_MULTIPLIER,
-  BOSS_MAX_HP,
   MAX_STREAK_FREEZES,
   SEASON_PASS_MAX_LEVEL,
   SEASON_PASS_XP_PER_LEVEL,
@@ -24,13 +22,11 @@ import type {
   CelebrationEvent,
   Habit,
   HabitCompletion,
-  HabitDifficulty,
   HabitQuestData,
   QuestArc,
   RewardSystems,
   SeasonPassReward,
   SeasonPassState,
-  WeeklyBossState,
 } from "./types";
 
 export function createDefaultRewardSystems(): RewardSystems {
@@ -43,28 +39,6 @@ export function createDefaultRewardSystems(): RewardSystems {
     comboDate: null,
     progressSettledThroughDate: null,
     seasonPassCompletions: 0,
-    weeklyBossCompletions: 0,
-    lastCountedBossWeekKey: null,
-  };
-}
-
-export function recordWeeklyBossCompletion(
-  systems: RewardSystems,
-  weekKey: string,
-  defeated: boolean,
-): RewardSystems {
-  if (!defeated || systems.lastCountedBossWeekKey === weekKey) {
-    return {
-      ...systems,
-      weeklyBossCompletions: systems.weeklyBossCompletions ?? 0,
-      lastCountedBossWeekKey: systems.lastCountedBossWeekKey ?? null,
-    };
-  }
-
-  return {
-    ...systems,
-    weeklyBossCompletions: (systems.weeklyBossCompletions ?? 0) + 1,
-    lastCountedBossWeekKey: weekKey,
   };
 }
 
@@ -142,20 +116,6 @@ export function createSeasonPass(monthKey = getStartOfCurrentMonthKey()): Season
   };
 }
 
-const WEEKLY_CHALLENGE_NAME = "Weekly challenge";
-
-export function createWeeklyBoss(weekKey = getStartOfCurrentWeekKey()): WeeklyBossState {
-  return {
-    weekKey,
-    name: WEEKLY_CHALLENGE_NAME,
-    maxHp: BOSS_MAX_HP,
-    currentHp: BOSS_MAX_HP,
-    defeated: false,
-    rewardClaimed: false,
-    settledThroughDate: null,
-  };
-}
-
 export function rollCrit(random = Math.random()) {
   return random < CRIT_CHANCE;
 }
@@ -222,10 +182,6 @@ export function reconcileTodayCombo(
     comboDate: today,
     todayCombo: clearsToday,
   };
-}
-
-export function getBossDamage(difficulty: HabitDifficulty) {
-  return BOSS_DAMAGE[difficulty];
 }
 
 export function applyCritMultiplier(baseExp: number, isCrit: boolean) {
@@ -493,157 +449,6 @@ export function addSeasonPassXp(pass: SeasonPassState, amount: number) {
   };
 }
 
-export function reconcileWeeklyBoss(boss: WeeklyBossState, weekKey = getStartOfCurrentWeekKey()) {
-  if (boss.weekKey === weekKey) {
-    return {
-      ...boss,
-      name: WEEKLY_CHALLENGE_NAME,
-      settledThroughDate: boss.settledThroughDate ?? null,
-    };
-  }
-  return createWeeklyBoss(weekKey);
-}
-
-export function applyBossDamage(boss: WeeklyBossState, damage: number) {
-  if (boss.defeated || damage <= 0) {
-    return { boss, defeatedNow: false };
-  }
-
-  const currentHp = Math.max(0, boss.currentHp - damage);
-  const defeated = currentHp <= 0;
-  return {
-    boss: {
-      ...boss,
-      currentHp,
-      defeated,
-    },
-    defeatedNow: defeated && !boss.defeated,
-  };
-}
-
-export function getBossDamageForDate(
-  data: Pick<HabitQuestData, "habits" | "completions">,
-  dateKey: string,
-) {
-  return data.completions.reduce((sum, completion) => {
-    if (completion.date !== dateKey) {
-      return sum;
-    }
-    const habit = data.habits.find((entry) => entry.id === completion.habitId);
-    if (!habit) {
-      return sum;
-    }
-    return sum + getBossDamage(habit.difficulty);
-  }, 0);
-}
-
-export function getPendingBossDamage(
-  data: Pick<HabitQuestData, "habits" | "completions" | "rewardSystems">,
-  today = getTodayDateKey(),
-) {
-  const through = data.rewardSystems.progressSettledThroughDate;
-  if (through && through >= today) {
-    return 0;
-  }
-  return getBossDamageForDate(data, today);
-}
-
-export function getEffectiveBossHp(
-  boss: WeeklyBossState,
-  pendingDamage: number,
-) {
-  return Math.max(0, boss.currentHp - Math.max(0, pendingDamage));
-}
-
-function eachDateInclusive(start: string, end: string) {
-  if (start > end) {
-    return [] as string[];
-  }
-
-  const dates: string[] = [];
-  let cursor = start;
-  while (cursor <= end) {
-    dates.push(cursor);
-    cursor = shiftDateKey(cursor, 1);
-  }
-  return dates;
-}
-
-function rebuildCommittedBossHp(
-  boss: WeeklyBossState,
-  data: Pick<HabitQuestData, "habits" | "completions">,
-  committedThrough: string | null,
-) {
-  if (!committedThrough || committedThrough < boss.weekKey) {
-    return {
-      ...boss,
-      currentHp: boss.maxHp,
-      defeated: false,
-      settledThroughDate: null,
-    };
-  }
-
-  const committedDamage = eachDateInclusive(boss.weekKey, committedThrough).reduce(
-    (sum, dateKey) => sum + getBossDamageForDate(data, dateKey),
-    0,
-  );
-  const currentHp = Math.max(0, boss.maxHp - committedDamage);
-
-  return {
-    ...boss,
-    currentHp,
-    defeated: currentHp <= 0,
-    settledThroughDate: committedThrough,
-  };
-}
-
-/**
- * Commits boss damage for finished calendar days only.
- * Today's clears stay as reversible pending damage until the next day resolves.
- */
-export function settleWeeklyBossDamage(
-  boss: WeeklyBossState,
-  data: Pick<HabitQuestData, "habits" | "completions">,
-  today = getTodayDateKey(),
-) {
-  let nextBoss = reconcileWeeklyBoss(boss);
-  const yesterday = shiftDateKey(today, -1);
-  const committedThrough =
-    yesterday >= nextBoss.weekKey ? yesterday : null;
-
-  // Migration / first settle: rebuild from weekStart..yesterday so old instant
-  // damage is not double-counted when switching to end-of-day settlement.
-  if (nextBoss.settledThroughDate == null) {
-    const migrated = rebuildCommittedBossHp(nextBoss, data, committedThrough);
-    const defeatedNow = migrated.defeated && !nextBoss.defeated;
-    return { boss: migrated, defeatedNow };
-  }
-
-  if (!committedThrough) {
-    return { boss: nextBoss, defeatedNow: false };
-  }
-
-  const settleStart = shiftDateKey(nextBoss.settledThroughDate, 1);
-  const rangeStart = settleStart < nextBoss.weekKey ? nextBoss.weekKey : settleStart;
-  if (rangeStart > committedThrough) {
-    return { boss: nextBoss, defeatedNow: false };
-  }
-
-  let defeatedNow = false;
-  for (const dateKey of eachDateInclusive(rangeStart, committedThrough)) {
-    const hit = applyBossDamage(nextBoss, getBossDamageForDate(data, dateKey));
-    nextBoss = {
-      ...hit.boss,
-      settledThroughDate: dateKey,
-    };
-    if (hit.defeatedNow) {
-      defeatedNow = true;
-    }
-  }
-
-  return { boss: nextBoss, defeatedNow };
-}
-
 export function createCelebration(
   kind: CelebrationEvent["kind"],
   title: string,
@@ -683,9 +488,6 @@ export function getWeeklyRecap(data: HabitQuestData) {
     exp,
     hardClears,
     streak: data.userProgress.currentStreak,
-    bossDamageDealt:
-      data.weeklyBoss.maxHp -
-      getEffectiveBossHp(data.weeklyBoss, getPendingBossDamage(data)),
   };
 }
 

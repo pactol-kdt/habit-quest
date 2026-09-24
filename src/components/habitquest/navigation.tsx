@@ -14,19 +14,21 @@ import { formatNumber, getProfileDisplay } from "~/lib/habitquest/utils";
 import { getStreakFireTier } from "~/lib/habitquest/streak-fire-tier";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
 import { useClaimableRewards } from "~/hooks/use-claimable-rewards";
+import { useIncomingFriendRequestCount } from "~/hooks/use-incoming-friend-requests";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 type NavLink = {
   href: string;
   label: string;
   adminOnly?: boolean;
+  activeHrefs?: string[];
 };
 
 const primaryNav: NavLink[] = [
   { href: "/", label: "Today" },
   { href: "/habits", label: "Habits" },
-  { href: "/boss", label: "Week" },
-  { href: "/season", label: "Season" },
+  { href: "/week", label: "Rewards", activeHrefs: ["/week", "/season"] },
+  { href: "/friends", label: "Friends" },
   { href: "/shop", label: "Shop" },
 ];
 
@@ -142,6 +144,7 @@ function NavMenu({
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               role="menuitem"
               onClick={onClose}
               className={navLinkClass(pathname === item.href)}
@@ -162,6 +165,7 @@ export function Navigation() {
     useHabitQuestStore((state) => state);
   const { userProgress } = useEffectiveProgress();
   const claimables = useClaimableRewards();
+  const incomingFriendRequests = useIncomingFriendRequestCount();
   const spendableCoins = wallet.totalCoins;
   const currentStreak = userProgress.currentStreak;
   const streakTier = getStreakFireTier(currentStreak);
@@ -182,6 +186,7 @@ export function Navigation() {
           <div className="flex min-w-0 items-center gap-2 lg:gap-6">
             <Link
               href="/"
+              prefetch={false}
               className="flex shrink-0 items-center gap-2 text-white sm:gap-2.5"
             >
               <img
@@ -212,23 +217,30 @@ export function Navigation() {
             </motion.div>
             <nav className="hidden items-center gap-2 lg:flex">
               {primaryNav.map((item) => {
-                const active = pathname === item.href;
+                const active = item.activeHrefs
+                  ? item.activeHrefs.includes(pathname)
+                  : pathname === item.href;
+                const weekClaims = claimables.filter(
+                  (c) => c.kind === "challenge" && c.href.startsWith("/week"),
+                ).length;
+                const seasonClaims = claimables.filter(
+                  (c) =>
+                    c.kind === "season" ||
+                    c.kind === "quest" ||
+                    (c.kind === "challenge" && c.href.startsWith("/season")),
+                ).length;
                 const badge =
-                  item.href === "/boss"
-                    ? claimables.filter((c) => c.kind === "challenge" && c.href.startsWith("/boss")).length
-                    : item.href === "/season"
-                      ? claimables.filter(
-                          (c) =>
-                            c.kind === "season" ||
-                            c.kind === "quest" ||
-                            (c.kind === "challenge" && c.href.startsWith("/season")),
-                        ).length
+                  item.href === "/week"
+                    ? weekClaims + seasonClaims
+                    : item.href === "/friends"
+                      ? incomingFriendRequests
                       : 0;
 
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={false}
                     className={navButtonClass(active, false)}
                   >
                     {item.label}
@@ -269,6 +281,7 @@ export function Navigation() {
             ) : null}
             <Link
               href="/shop"
+              prefetch={false}
               className="hq-chip-gold inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
               title="Open shop"
             >
@@ -282,6 +295,7 @@ export function Navigation() {
             </Link>
             <Link
               href="/profile"
+              prefetch={false}
               aria-label={`Open profile for ${displayName}`}
               title="Open profile"
               className="flex min-w-0 max-w-[7.5rem] items-center gap-1.5 rounded-full border border-white/10 bg-white/5 p-1 transition hover:border-white/20 sm:max-w-none sm:gap-3 sm:py-2 sm:pl-2 sm:pr-4"

@@ -15,7 +15,6 @@ import type {
   ShopItem,
   UserProgress,
   UserSettings,
-  WeeklyBossState,
 } from "./types";
 
 /** Surgical response: only slices that a command actually changed. */
@@ -43,7 +42,6 @@ export type GamePatch = {
   questArcs?: QuestArc[];
   achievements?: Achievement[];
   seasonPass?: SeasonPassState;
-  weeklyBoss?: WeeklyBossState;
   levelUnlocks?: LevelUnlock[];
   dailyRewards?: DailyRewardState;
   shopItems?: ShopItem[];
@@ -188,10 +186,6 @@ export function buildGamePatch(before: HabitQuestData, after: HabitQuestData): G
     patch.seasonPass = after.seasonPass;
   }
 
-  if (stableJson(before.weeklyBoss) !== stableJson(after.weeklyBoss)) {
-    patch.weeklyBoss = after.weeklyBoss;
-  }
-
   const levelUnlocks = changedLevelUnlocks(before.levelUnlocks, after.levelUnlocks);
   if (levelUnlocks) {
     patch.levelUnlocks = levelUnlocks;
@@ -324,10 +318,6 @@ export function applyGamePatch(data: HabitQuestData, patch: GamePatch): HabitQue
 
   if (patch.seasonPass) {
     next = { ...next, seasonPass: patch.seasonPass };
-  }
-
-  if (patch.weeklyBoss) {
-    next = { ...next, weeklyBoss: patch.weeklyBoss };
   }
 
   if (patch.levelUnlocks) {

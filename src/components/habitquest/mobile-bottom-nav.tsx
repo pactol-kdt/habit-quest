@@ -6,13 +6,14 @@ import { useEffect, useRef, useState } from "react";
 import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import { cn } from "~/lib/ui/cn";
 import { useClaimableRewards } from "~/hooks/use-claimable-rewards";
+import { useIncomingFriendRequestCount } from "~/hooks/use-incoming-friend-requests";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 const tabs = [
   { id: "today", href: "/", label: "Today", icon: HomeIcon },
   { id: "habits", href: "/habits", label: "Habits", icon: HabitsIcon },
-  { id: "week", href: "/boss", label: "Week", icon: WeekIcon },
-  { id: "season", href: "/season", label: "Season", icon: SeasonIcon },
+  { id: "rewards", href: "/week", label: "Rewards", icon: SeasonIcon },
+  { id: "friends", href: "/friends", label: "Friends", icon: FriendsIcon },
   { id: "shop", href: "/shop", label: "Shop", icon: ShopIcon },
   { id: "you", href: null, label: "You", icon: ProfileIcon },
 ] as const;
@@ -41,17 +42,13 @@ function tabBadgeCount(
   href: string | null,
   claimables: ReturnType<typeof useClaimableRewards>,
 ) {
-  if (href === "/boss") {
-    return claimables.filter(
-      (c) => c.kind === "challenge" && c.href.startsWith("/boss"),
-    ).length;
-  }
-  if (href === "/season") {
+  if (href === "/week") {
     return claimables.filter(
       (c) =>
         c.kind === "season" ||
         c.kind === "quest" ||
-        (c.kind === "challenge" && c.href.startsWith("/season")),
+        (c.kind === "challenge" &&
+          (c.href.startsWith("/week") || c.href.startsWith("/season"))),
     ).length;
   }
   return 0;
@@ -61,6 +58,7 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const isAdmin = useHabitQuestStore((state) => state.authUser?.role === "admin");
   const claimables = useClaimableRewards();
+  const incomingFriendRequests = useIncomingFriendRequestCount();
   const [youOpen, setYouOpen] = useState(false);
 
   useEffect(() => {
@@ -92,9 +90,11 @@ export function MobileBottomNav() {
             const isYouTab = tab.href === null;
             const active = isYouTab
               ? youOpen || isYouPath(pathname)
-              : tab.href === "/"
-                ? pathname === "/"
-                : pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+              : tab.id === "rewards"
+                ? pathname === "/week" || pathname === "/season"
+                : tab.href === "/"
+                  ? pathname === "/"
+                  : pathname === tab.href || pathname.startsWith(`${tab.href}/`);
             const Icon = tab.icon;
 
             if (isYouTab) {
@@ -117,12 +117,14 @@ export function MobileBottomNav() {
               );
             }
 
-            const badge = tabBadgeCount(tab.href, claimables);
+            const badge =
+              tab.id === "friends" ? incomingFriendRequests : tabBadgeCount(tab.href, claimables);
 
             return (
               <Link
                 key={tab.id}
                 href={tab.href}
+                prefetch={false}
                 aria-current={active ? "page" : undefined}
                 onClick={() => setYouOpen(false)}
                 className={cn(
@@ -191,6 +193,7 @@ function NavSheet({
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   onClick={onClose}
                   aria-current={active ? "page" : undefined}
                   className={cn(
@@ -238,19 +241,26 @@ function HabitsIcon() {
   );
 }
 
-function WeekIcon() {
-  return (
-    <svg className={iconClass()} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M5 19V10M12 19V5M19 19v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function SeasonIcon() {
   return (
     <svg className={iconClass()} viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8" />
       <path d="M12 8v4l3 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function FriendsIcon() {
+  return (
+    <svg className={iconClass()} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="9" cy="9" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="16" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M4.5 18.2c.9-2.4 2.6-3.6 4.5-3.6s3.6 1.2 4.5 3.6M13.2 14.8c1.4-.3 2.6.1 3.5 1.1 1 .9 1.6 2 1.8 3.3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

@@ -1,7 +1,7 @@
 import { isFeatureUnlocked } from "./utils";
 import type { HabitQuestData } from "./types";
 
-export type ClaimableKind = "challenge" | "quest" | "season" | "boss";
+export type ClaimableKind = "challenge" | "quest" | "season";
 
 export type ClaimableReward = {
   id: string;
@@ -38,7 +38,7 @@ export function listClaimableRewards(data: HabitQuestData): ClaimableReward[] {
               ? "Monthly climb"
               : challenge.title,
         detail: "Ready to claim",
-        href: challenge.period === "weekly" ? "/boss#clears" : "/season#month",
+        href: challenge.period === "weekly" ? "/week#clears" : "/season#month",
       });
     }
   }

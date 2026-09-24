@@ -3,6 +3,7 @@ import "server-only";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "~/lib/db/schema";
+import { generateUid } from "~/lib/v1/generate-uid";
 
 const DEFAULT_DATABASE_URL = "postgresql://postgres@127.0.0.1:5432/habitquest";
 
@@ -36,9 +37,11 @@ function needsSsl(connectionString: string) {
   }
 }
 
+const SCHEMA_REVISION = 4;
+
 type GlobalDb = {
   habitquestPgPool?: Pool;
-  habitquestMigrated?: boolean;
+  habitquestMigrated?: number;
   habitquestMigratePromise?: Promise<ReturnType<typeof createDrizzle>>;
 };
 
@@ -49,7 +52,7 @@ function getPool() {
     const connectionString = resolveDatabaseUrl();
     globalForDb.habitquestPgPool = new Pool({
       connectionString,
-      max: 5,
+      max: 10,
       idleTimeoutMillis: 60_000,
       connectionTimeoutMillis: 15_000,
       ssl: needsSsl(connectionString) ? { rejectUnauthorized: false } : undefined,
@@ -345,6 +348,24 @@ const DDL = [
     label VARCHAR(120) NOT NULL,
     active BOOLEAN NOT NULL DEFAULT true
   )`,
+  `CREATE TABLE IF NOT EXISTS friendships (
+    id VARCHAR(36) PRIMARY KEY NOT NULL,
+    user_low_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_high_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    requested_by VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(16) NOT NULL,
+    blocked_by VARCHAR(36),
+    created_at VARCHAR(40) NOT NULL,
+    updated_at VARCHAR(40) NOT NULL
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uniq_friendships_pair ON friendships (user_low_id, user_high_id)`,
+  `CREATE TABLE IF NOT EXISTS friend_nudges (
+    from_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    local_date VARCHAR(10) NOT NULL,
+    created_at VARCHAR(40) NOT NULL,
+    PRIMARY KEY (from_user_id, to_user_id, local_date)
+  )`,
 ];
 
 async function columnExists(
@@ -376,6 +397,35 @@ async function runMigrations(database: ReturnType<typeof createDrizzle>) {
         `ALTER TABLE users ADD COLUMN role VARCHAR(16) NOT NULL DEFAULT 'user'`,
       );
     }
+
+    if (!(await columnExists(client, "users", "uid"))) {
+      await client.query(`ALTER TABLE users ADD COLUMN uid VARCHAR(16)`);
+    }
+
+    const missingUids = await client.query<{ id: string }>(
+      `SELECT id FROM users WHERE uid IS NULL OR uid = ''`,
+    );
+    if ((missingUids.rowCount ?? 0) > 0) {
+      const taken = await client.query<{ uid: string }>(
+        `SELECT uid FROM users WHERE uid IS NOT NULL AND uid <> ''`,
+      );
+      const used = new Set(taken.rows.map((row) => row.uid));
+      for (const row of missingUids.rows) {
+        let uid = generateUid();
+        while (used.has(uid)) {
+          uid = generateUid();
+        }
+        used.add(uid);
+        await client.query(`UPDATE users SET uid = $1 WHERE id = $2`, [uid, row.id]);
+      }
+    }
+
+    if (!(await columnExists(client, "friend_nudges", "seen_at"))) {
+      await client.query(`ALTER TABLE friend_nudges ADD COLUMN seen_at VARCHAR(40)`);
+    }
+
+    await client.query(`ALTER TABLE users ALTER COLUMN uid SET NOT NULL`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_users_uid ON users (uid)`);
 
     if (!(await columnExists(client, "weekly_bosses", "settled_through_date"))) {
       await client.query(
@@ -484,14 +534,14 @@ async function runMigrations(database: ReturnType<typeof createDrizzle>) {
 }
 
 export async function ensureDatabase() {
-  if (globalForDb.habitquestMigrated) {
+  if (globalForDb.habitquestMigrated === SCHEMA_REVISION) {
     return db;
   }
 
   if (!globalForDb.habitquestMigratePromise) {
     globalForDb.habitquestMigratePromise = (async () => {
       await runMigrations(db);
-      globalForDb.habitquestMigrated = true;
+      globalForDb.habitquestMigrated = SCHEMA_REVISION;
       return db;
     })().catch((error) => {
       globalForDb.habitquestMigratePromise = undefined;

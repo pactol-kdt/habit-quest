@@ -12,7 +12,6 @@ function claimAction(
     claimChallengeReward: (id: string) => void;
     claimQuestArcReward: (id: string) => void;
     claimSeasonPassLevel: (level: number) => void;
-    claimBossReward: () => void;
   },
 ) {
   if (item.kind === "challenge") {
@@ -23,25 +22,18 @@ function claimAction(
     actions.claimQuestArcReward(item.id.replace("quest:", ""));
     return;
   }
-  if (item.kind === "season") {
-    const level = Number(item.id.replace("season:", ""));
-    if (Number.isFinite(level)) {
-      actions.claimSeasonPassLevel(level);
-    }
-    return;
+  const level = Number(item.id.replace("season:", ""));
+  if (Number.isFinite(level)) {
+    actions.claimSeasonPassLevel(level);
   }
-  actions.claimBossReward();
 }
 
 export function ClaimableRewardsStrip() {
-  const claimables = useClaimableRewards().filter(
-    (item) => item.kind !== "boss" && item.href !== "/boss#clears",
-  );
+  const claimables = useClaimableRewards();
   const claimChallengeReward = useHabitQuestStore((state) => state.claimChallengeReward);
   const claimQuestArcReward = useHabitQuestStore((state) => state.claimQuestArcReward);
   const claimSeasonPassLevel = useHabitQuestStore((state) => state.claimSeasonPassLevel);
   const claimAllRewards = useHabitQuestStore((state) => state.claimAllRewards);
-  const claimBossReward = useHabitQuestStore((state) => state.claimBossReward);
   const pendingClaimIds = useHabitQuestStore((state) => state.pendingClaimIds);
 
   if (!claimables.length) {
@@ -109,7 +101,6 @@ export function ClaimableRewardsStrip() {
                     claimChallengeReward,
                     claimQuestArcReward,
                     claimSeasonPassLevel,
-                    claimBossReward,
                   })
                 }
                 className="min-h-11 shrink-0 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"

@@ -11,6 +11,7 @@ import {
 import { hashPassword, verifyPassword } from "~/lib/auth/password";
 import { ensureDatabase } from "~/lib/db";
 import { users } from "~/lib/db/schema";
+import { generateUid } from "~/lib/v1/generate-uid";
 
 export type { AuthUser } from "~/lib/auth/session-types";
 
@@ -73,12 +74,14 @@ export async function signUp(
   const userId = randomUUID();
   const passwordHash = await hashPassword(password);
   const resolvedName = displayName.trim().slice(0, 32);
+  const uid = generateUid();
 
   await database.insert(users).values({
     id: userId,
     email,
     passwordHash,
     displayName: resolvedName,
+    uid,
     role,
     createdAt: now,
     updatedAt: now,
@@ -92,6 +95,7 @@ export async function signUp(
       id: userId,
       email,
       displayName: resolvedName,
+      uid,
       role,
     },
   };
@@ -127,6 +131,7 @@ export async function signIn(
       id: user.id,
       email: user.email,
       displayName: user.displayName,
+      uid: user.uid,
       role: user.role === "admin" ? "admin" : "user",
     },
   };

@@ -54,14 +54,14 @@ export function SeasonPassPage() {
 
   if (!hydrated) {
     return (
-      <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
+      <div className="grid gap-4 md:gap-6">
         <div className="glass-panel h-64 animate-pulse rounded-[2rem]" />
       </div>
     );
   }
 
   return (
-    <div className="grid gap-4 pt-4 md:gap-6 md:pt-6">
+    <div className="grid gap-4 md:gap-6">
       <GlassCard className="overflow-hidden rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
         <div className="grid gap-8 xl:grid-cols-[1.35fr_0.85fr]">
           <div>

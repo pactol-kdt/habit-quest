@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.14.0 - Friends and Rewards
+
+### Added
+- Friends. Each signed-in account has one UID on the profile, with Copy. Add someone by that UID. The Friends page shows how many of today's due habits they have finished, and their streak. Habit names stay hidden.
+- A notify button asks a friend to finish today's open habits, once per their local day. Confirm first. If they have not turned on phone alerts, the nudge still shows in the app the next time they open it.
+- Incoming friend requests badge the Friends item in the nav and the mobile bar. Guests see a sign-in prompt.
+
+### Changed
+- Week and Season are one Rewards item. Week and Season stay as tabs. Old Week and Season links still open the right tab.
+- The weekly boss is gone. /boss opens Week. Week is still the 15-habit clear.
+
 ## 0.13.0 - Server Settle and Patches
 
 ### Added

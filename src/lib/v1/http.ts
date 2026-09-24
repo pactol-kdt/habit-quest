@@ -38,6 +38,9 @@ export function statusForCommandError(error: string) {
   if (/no cloud save/i.test(error)) {
     return 404;
   }
+  if (/too many/i.test(error)) {
+    return 429;
+  }
   if (/required|must be|invalid/i.test(error)) {
     return 400;
   }

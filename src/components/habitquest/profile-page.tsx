@@ -11,6 +11,7 @@ import { StreakFlame } from "~/components/habitquest/streak-flame";
 import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
+import { formatUid } from "~/lib/v1/friend-rules";
 import { formatNumber, getProfileDisplay } from "~/lib/habitquest/utils";
 import { getStreakFireTier } from "~/lib/habitquest/streak-fire-tier";
 import { cn } from "~/lib/ui/cn";
@@ -25,6 +26,7 @@ export function ProfilePage() {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [signOutPending, setSignOutPending] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [uidCopied, setUidCopied] = useState(false);
   const {
     hydrated,
     settings,
@@ -127,6 +129,28 @@ export function ProfilePage() {
               Level {userProgress.level}
               {authUser ? ` · ${authUser.email}` : " · Playing as guest"}
             </p>
+            {authUser?.uid ? (
+              <div className="mt-1 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                <p className="font-mono text-sm tracking-[0.14em] text-cyan-100">
+                  UID {formatUid(authUser.uid)}
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(formatUid(authUser.uid));
+                      setUidCopied(true);
+                      window.setTimeout(() => setUidCopied(false), 1500);
+                    } catch {
+                      setUidCopied(false);
+                    }
+                  }}
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
+                >
+                  {uidCopied ? "Copied" : "Copy"}
+                </button>
+              </div>
+            ) : null}
             <div className="mt-1 inline-flex items-center gap-1.5 text-sm text-[var(--color-text-muted)]">
               <StreakFlame tier={streakTier} size="xs" />
               {userProgress.currentStreak === 1

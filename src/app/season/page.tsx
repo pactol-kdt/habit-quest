@@ -1,5 +1,5 @@
-import { SeasonPassPage } from "~/components/habitquest/season-pass-page";
+import { RewardsPage } from "~/components/habitquest/rewards-page";
 
 export default function SeasonRoute() {
-  return <SeasonPassPage />;
+  return <RewardsPage tab="season" />;
 }

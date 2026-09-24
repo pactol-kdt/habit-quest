@@ -41,7 +41,6 @@ describe("game patch merge", () => {
     assert.ok(patch.wallet);
     assert.equal(patch.achievements, undefined);
     assert.equal(patch.seasonPass, undefined);
-    assert.equal(patch.weeklyBoss, undefined);
     assert.equal(patch.shopItems, undefined);
     assert.ok(patch.deltas);
     assert.equal(patch.deltas.coins, 1);

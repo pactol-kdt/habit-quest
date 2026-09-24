@@ -91,7 +91,7 @@ export const PAGE_HEROES = {
     title: "Streak board",
     support: "Climb by streak. See how your consistency stacks up.",
   },
-  boss: {
+  week: {
     eyebrow: "Week",
     title: "This week",
     support: "Complete 15 habits this week.",

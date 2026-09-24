@@ -136,7 +136,7 @@ function SettlementRecapDialog({
                 Continue
               </button>
               <Link
-                href="/boss"
+                href="/week"
                 onClick={onClose}
                 className="rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] hover:text-white"
               >

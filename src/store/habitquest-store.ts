@@ -5,7 +5,6 @@ import type { AuthUser } from "~/lib/auth/session-types";
 import {
   buyStreakFreezeRequest,
   claimAllRewardsRequest,
-  claimBossRewardRequest,
   claimChallengeRewardRequest,
   claimQuestArcRewardRequest,
   claimSeasonPassLevelRequest,
@@ -42,7 +41,6 @@ import {
 import {
   applyBuyStreakFreeze,
   applyClaimAllRewards,
-  applyClaimBossReward,
   applyClaimChallengeReward,
   applyClaimQuestArcReward,
   applyClaimSeasonPassLevel,
@@ -127,7 +125,6 @@ type HabitQuestStore = HabitQuestData & {
   claimQuestArcReward: (arcId: string) => void;
   claimSeasonPassLevel: (level: number) => void;
   claimAllRewards: (kinds?: ClaimableKind[]) => void;
-  claimBossReward: () => void;
   buyStreakFreeze: () => void;
   purchaseShopItem: (itemId: string) => void;
   equipShopItem: (itemId: string) => void;
@@ -324,7 +321,6 @@ function projectData(state: HabitQuestStore): HabitQuestData {
     rewardSystems: state.rewardSystems,
     questArcs: state.questArcs,
     seasonPass: state.seasonPass,
-    weeklyBoss: state.weeklyBoss,
   };
 }
 
@@ -788,7 +784,7 @@ async function runClaimAgainstCloud(
   seqKey: string,
   seq: number,
   claim: () => Promise<
-    | { status: "ok"; wallet: HabitQuestData["wallet"]; userProgress: HabitQuestData["userProgress"]; challenges?: HabitQuestData["challenges"]; questArcs?: HabitQuestData["questArcs"]; seasonPass?: HabitQuestData["seasonPass"]; weeklyBoss?: HabitQuestData["weeklyBoss"]; rewardSystems?: HabitQuestData["rewardSystems"]; shopItems?: HabitQuestData["shopItems"] }
+    | { status: "ok"; wallet: HabitQuestData["wallet"]; userProgress: HabitQuestData["userProgress"]; challenges?: HabitQuestData["challenges"]; questArcs?: HabitQuestData["questArcs"]; seasonPass?: HabitQuestData["seasonPass"]; rewardSystems?: HabitQuestData["rewardSystems"]; shopItems?: HabitQuestData["shopItems"] }
     | { status: "unauthenticated" }
     | { status: "error"; error: string }
   >,
@@ -798,7 +794,6 @@ async function runClaimAgainstCloud(
     challenges?: HabitQuestData["challenges"];
     questArcs?: HabitQuestData["questArcs"];
     seasonPass?: HabitQuestData["seasonPass"];
-    weeklyBoss?: HabitQuestData["weeklyBoss"];
     rewardSystems?: HabitQuestData["rewardSystems"];
     shopItems?: HabitQuestData["shopItems"];
   }) => void,
@@ -1618,7 +1613,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             challenges: result.challenges ?? current.challenges,
             questArcs: result.questArcs ?? current.questArcs,
             seasonPass: result.seasonPass ?? current.seasonPass,
-            weeklyBoss: result.weeklyBoss ?? current.weeklyBoss,
             rewardSystems: result.rewardSystems ?? current.rewardSystems,
             shopItems: result.shopItems ?? current.shopItems,
           });
@@ -1627,61 +1621,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             ...current,
             ...nextData,
             pendingClaimIds: current.pendingClaimIds.filter((id) => !clearKeys.has(id)),
-          };
-        });
-      },
-    );
-  },
-  claimBossReward: () => {
-    const state = get();
-    const pendingKey = "boss-reward";
-    if (state.pendingClaimIds.includes(pendingKey)) {
-      return;
-    }
-    const snapshot = projectData(state);
-    const mutation = applyClaimBossReward(snapshot);
-    if (!mutation.ok) {
-      return;
-    }
-
-    const seqKey = "boss-reward";
-    const seq = nextShopMutationSeq(seqKey);
-    const resolution = resolveGameState(mutation.data);
-    const persisted = persistLocalOnly(resolution.data);
-
-    set((current) => ({
-      ...mergeTransientState(current, {
-        ...resolution,
-        data: persisted,
-        floatingRewards: currencyFloats(snapshot, persisted),
-        celebrations: compactCelebrations([
-          createCelebration("boss-clear", "Weekly reward claimed", ""),
-          ...mutation.celebrations,
-          ...resolution.celebrations,
-        ]),
-      }),
-      pendingClaimIds: [...current.pendingClaimIds, pendingKey],
-    }));
-
-    void runClaimAgainstCloud(
-      snapshot,
-      pendingKey,
-      seqKey,
-      seq,
-      () => claimBossRewardRequest(),
-      (result) => {
-        set((current) => {
-          const nextData = persistLocalOnly({
-            ...projectData(current),
-            wallet: result.wallet,
-            userProgress: result.userProgress,
-            weeklyBoss: result.weeklyBoss ?? current.weeklyBoss,
-            rewardSystems: result.rewardSystems ?? current.rewardSystems,
-          });
-          return {
-            ...current,
-            ...nextData,
-            pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
           };
         });
       },
