@@ -21,6 +21,7 @@ import {
 } from "./rewards";
 import {
   checkDailyCompletion,
+  checkLevelUnlocks,
   createExpEntry,
   createId,
   getLevelState,
@@ -696,5 +697,22 @@ export function settleHabitDayProgress(
     celebrations,
     floatingRewards,
     recap: settledAnyDay && hasPayout ? recap : null,
+  };
+}
+
+/**
+ * Apply today's clears and level gates before a reward claim.
+ * Focused habit writes store completions only, so a claim that reads the
+ * cloud row directly would still see yesterday's season level and a locked pass.
+ */
+export function prepareSaveForRewards(
+  input: HabitQuestData,
+  today = getTodayDateKey(),
+): HabitQuestData {
+  const settled = settleHabitDayProgress(input, today).data;
+  const unlocks = checkLevelUnlocks(settled.levelUnlocks, settled.userProgress.level);
+  return {
+    ...settled,
+    levelUnlocks: unlocks.levelUnlocks,
   };
 }

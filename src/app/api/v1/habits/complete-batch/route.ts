@@ -1,5 +1,6 @@
 import { completeHabits } from "~/lib/v1/habits";
 import { isRecord, jsonError, jsonFromUnauthenticatedOrError, jsonOk, readJsonBody } from "~/lib/v1/http";
+import { patchBodyFromOk } from "~/lib/v1/patch-http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,10 +26,5 @@ export async function POST(request: Request) {
     return jsonFromUnauthenticatedOrError(result);
   }
 
-  return jsonOk({
-    date: result.date,
-    completions: result.completions,
-    rewardSystems: result.rewardSystems,
-    updatedAt: result.updatedAt,
-  });
+  return jsonOk(patchBodyFromOk(result) as Record<string, unknown>);
 }

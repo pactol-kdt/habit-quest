@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { bootHabitQuestSessionRequest } from "~/lib/v1/requests";
-import { flushCloudSaveNow, setCloudSyncEnabled } from "~/lib/habitquest/cloud-sync";
+import { setCloudSyncEnabled } from "~/lib/habitquest/cloud-sync";
 import { createSeedData } from "~/lib/habitquest/seed";
 import {
   mergeCloudSaveWithLocalDraft,
@@ -70,14 +70,10 @@ export function useHabitQuestHydration() {
             ? useHabitQuestStore.getState().projectSave()
             : localSave;
         const merged = mergeCloudSaveWithLocalDraft(boot.data, draft);
+        // processDailyLogin triggers POST /session/settle (patch), not a full save.
         applyAuthenticatedSave(merged.data, {
           processDailyLogin: true,
         });
-        // Flush the *resolved* payload already scheduled by applyAuthenticatedSave —
-        // never push the pre-resolve merge.
-        if (merged.shouldPush) {
-          void flushCloudSaveNow();
-        }
         setAuthChecked(true);
         return;
       }

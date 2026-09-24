@@ -28,6 +28,7 @@ import {
   wallets,
   weeklyBosses,
 } from "~/lib/db/schema";
+import type { GamePatch } from "~/lib/habitquest/game-patch";
 import type {
   Challenge,
   ExpHistoryEntry,
@@ -321,27 +322,28 @@ export async function replaceNormalizedSave(
     ),
   };
 
-  await database.delete(habitCompletions).where(eq(habitCompletions.userId, userId));
-  await database.delete(expHistory).where(eq(expHistory.userId, userId));
-  await database.delete(ownedShopItems).where(eq(ownedShopItems.userId, userId));
-  await database.delete(userAchievements).where(eq(userAchievements.userId, userId));
-  await database.delete(userChallenges).where(eq(userChallenges.userId, userId));
-  await database.delete(userLevelUnlocks).where(eq(userLevelUnlocks.userId, userId));
-  await database.delete(userQuestArcs).where(eq(userQuestArcs.userId, userId));
-  await database.delete(wallets).where(eq(wallets.userId, userId));
-  await database.delete(userProgress).where(eq(userProgress.userId, userId));
-  await database.delete(dailyRewards).where(eq(dailyRewards.userId, userId));
-  await database.delete(userSettings).where(eq(userSettings.userId, userId));
-  await database.delete(equippedCosmetics).where(eq(equippedCosmetics.userId, userId));
-  await database.delete(rewardSystems).where(eq(rewardSystems.userId, userId));
-  await database.delete(seasonPasses).where(eq(seasonPasses.userId, userId));
-  await database.delete(weeklyBosses).where(eq(weeklyBosses.userId, userId));
-  await database.delete(saveMeta).where(eq(saveMeta.userId, userId));
+  await database.transaction(async (tx) => {
+  await tx.delete(habitCompletions).where(eq(habitCompletions.userId, userId));
+  await tx.delete(expHistory).where(eq(expHistory.userId, userId));
+  await tx.delete(ownedShopItems).where(eq(ownedShopItems.userId, userId));
+  await tx.delete(userAchievements).where(eq(userAchievements.userId, userId));
+  await tx.delete(userChallenges).where(eq(userChallenges.userId, userId));
+  await tx.delete(userLevelUnlocks).where(eq(userLevelUnlocks.userId, userId));
+  await tx.delete(userQuestArcs).where(eq(userQuestArcs.userId, userId));
+  await tx.delete(wallets).where(eq(wallets.userId, userId));
+  await tx.delete(userProgress).where(eq(userProgress.userId, userId));
+  await tx.delete(dailyRewards).where(eq(dailyRewards.userId, userId));
+  await tx.delete(userSettings).where(eq(userSettings.userId, userId));
+  await tx.delete(equippedCosmetics).where(eq(equippedCosmetics.userId, userId));
+  await tx.delete(rewardSystems).where(eq(rewardSystems.userId, userId));
+  await tx.delete(seasonPasses).where(eq(seasonPasses.userId, userId));
+  await tx.delete(weeklyBosses).where(eq(weeklyBosses.userId, userId));
+  await tx.delete(saveMeta).where(eq(saveMeta.userId, userId));
 
   if (isInitialCloudSeed) {
     // First cloud save / legacy migration — seed habit rows once.
     if (normalized.habits.length) {
-      await database.insert(habits).values(
+      await tx.insert(habits).values(
         normalized.habits.map((habit) => ({
           id: habit.id,
           userId,
@@ -390,7 +392,7 @@ export async function replaceNormalizedSave(
   }
 
   if (normalized.completions.length) {
-    await database.insert(habitCompletions).values(
+    await tx.insert(habitCompletions).values(
       normalized.completions.map((completion) => ({
         id: completion.id,
         userId,
@@ -405,7 +407,7 @@ export async function replaceNormalizedSave(
   }
 
   if (normalized.userProgress.expHistory.length) {
-    await database.insert(expHistory).values(
+    await tx.insert(expHistory).values(
       normalized.userProgress.expHistory.map((entry) => ({
         id: entry.id,
         userId,
@@ -417,14 +419,14 @@ export async function replaceNormalizedSave(
     );
   }
 
-  await database.insert(wallets).values({
+  await tx.insert(wallets).values({
     userId,
     totalCoins: normalized.wallet.totalCoins,
     lifetimeCoinsEarned: normalized.wallet.lifetimeCoinsEarned,
     lifetimeCoinsSpent: normalized.wallet.lifetimeCoinsSpent,
   });
 
-  await database.insert(userProgress).values({
+  await tx.insert(userProgress).values({
     userId,
     totalExp: normalized.userProgress.totalExp,
     level: normalized.userProgress.level,
@@ -434,14 +436,14 @@ export async function replaceNormalizedSave(
     lastCompletedDate: normalized.userProgress.lastCompletedDate,
   });
 
-  await database.insert(dailyRewards).values({
+  await tx.insert(dailyRewards).values({
     userId,
     lastLoginDate: normalized.dailyRewards.lastLoginDate,
     claimedDailyLoginDate: normalized.dailyRewards.claimedDailyLoginDate,
     claimedDailyCompletionRewardDate: normalized.dailyRewards.claimedDailyCompletionRewardDate,
   });
 
-  await database.insert(userSettings).values({
+  await tx.insert(userSettings).values({
     userId,
     displayName: normalized.settings.displayName,
     onboardingCompleted: normalized.settings.onboardingCompleted,
@@ -449,7 +451,7 @@ export async function replaceNormalizedSave(
     reminderTime: normalized.settings.reminderTime,
   });
 
-  await database.insert(equippedCosmetics).values({
+  await tx.insert(equippedCosmetics).values({
     userId,
     titleItemId: normalized.equippedItems.titleItemId,
     frameItemId: normalized.equippedItems.frameItemId,
@@ -459,7 +461,7 @@ export async function replaceNormalizedSave(
 
   const owned = normalized.shopItems.filter((item) => item.owned);
   if (owned.length) {
-    await database.insert(ownedShopItems).values(
+    await tx.insert(ownedShopItems).values(
       owned.map((item) => ({
         userId,
         itemId: item.id,
@@ -468,7 +470,7 @@ export async function replaceNormalizedSave(
   }
 
   if (normalized.achievements.length) {
-    await database.insert(userAchievements).values(
+    await tx.insert(userAchievements).values(
       normalized.achievements.map((achievement) => ({
         userId,
         achievementKey: achievement.key,
@@ -480,7 +482,7 @@ export async function replaceNormalizedSave(
   }
 
   if (normalized.challenges.length) {
-    await database.insert(userChallenges).values(
+    await tx.insert(userChallenges).values(
       normalized.challenges.map((challenge) => ({
         userId,
         challengeKey: challenge.key,
@@ -503,7 +505,7 @@ export async function replaceNormalizedSave(
   }
 
   if (normalized.levelUnlocks.length) {
-    await database.insert(userLevelUnlocks).values(
+    await tx.insert(userLevelUnlocks).values(
       normalized.levelUnlocks.map((unlock) => ({
         userId,
         feature: unlock.feature,
@@ -513,7 +515,7 @@ export async function replaceNormalizedSave(
     );
   }
 
-  await database.insert(rewardSystems).values({
+  await tx.insert(rewardSystems).values({
     userId,
     streakFreezes: normalized.rewardSystems.streakFreezes,
     streakShieldDates: normalized.rewardSystems.streakShieldDates,
@@ -530,7 +532,7 @@ export async function replaceNormalizedSave(
   });
 
   if (normalized.questArcs.length) {
-    await database.insert(userQuestArcs).values(
+    await tx.insert(userQuestArcs).values(
       normalized.questArcs.map((arc) => ({
         userId,
         questKey: arc.key,
@@ -542,7 +544,7 @@ export async function replaceNormalizedSave(
     );
   }
 
-  await database.insert(seasonPasses).values({
+  await tx.insert(seasonPasses).values({
     userId,
     seasonKey: normalized.seasonPass.seasonKey,
     xp: normalized.seasonPass.xp,
@@ -550,7 +552,7 @@ export async function replaceNormalizedSave(
     claimedLevels: normalized.seasonPass.claimedLevels,
   });
 
-  await database.insert(weeklyBosses).values({
+  await tx.insert(weeklyBosses).values({
     userId,
     weekKey: normalized.weeklyBoss.weekKey,
     name: normalized.weeklyBoss.name,
@@ -561,14 +563,16 @@ export async function replaceNormalizedSave(
     settledThroughDate: normalized.weeklyBoss.settledThroughDate,
   });
 
-  await database.insert(saveMeta).values({
+  await tx.insert(saveMeta).values({
     userId,
     version: SAVE_VERSION,
     updatedAt,
   });
 
   // Drop legacy blob once rows are authoritative.
-  await database.delete(habitquestSaves).where(eq(habitquestSaves.userId, userId));
+  await tx.delete(habitquestSaves).where(eq(habitquestSaves.userId, userId));
+
+  });
 
   return { updatedAt, version: SAVE_VERSION, data: normalized };
 }
@@ -963,6 +967,11 @@ type EconomyBundle = {
   quest?: { questKey: string; claimed: boolean };
   quests?: Array<{ questKey: string; claimed: boolean }>;
   seasonClaimedLevels?: number[];
+  seasonKey?: string;
+  seasonXp?: number;
+  seasonLevel?: number;
+  progressSettledThroughDate?: string | null;
+  levelUnlocks?: Array<{ feature: string; unlockedAt: string | null }>;
   bossRewardClaimed?: boolean;
 };
 
@@ -1061,11 +1070,48 @@ export async function persistEconomyClaim(
         );
     }
 
-    if (bundle.seasonClaimedLevels) {
+    if (
+      bundle.seasonClaimedLevels ||
+      bundle.seasonXp !== undefined ||
+      bundle.seasonLevel !== undefined ||
+      bundle.seasonKey
+    ) {
       await tx
         .update(seasonPasses)
-        .set({ claimedLevels: bundle.seasonClaimedLevels })
+        .set({
+          ...(bundle.seasonClaimedLevels ? { claimedLevels: bundle.seasonClaimedLevels } : {}),
+          ...(bundle.seasonXp !== undefined ? { xp: bundle.seasonXp } : {}),
+          ...(bundle.seasonLevel !== undefined ? { level: bundle.seasonLevel } : {}),
+          ...(bundle.seasonKey ? { seasonKey: bundle.seasonKey } : {}),
+        })
         .where(eq(seasonPasses.userId, userId));
+    }
+
+    if (bundle.progressSettledThroughDate !== undefined) {
+      await tx
+        .update(rewardSystems)
+        .set({ progressSettledThroughDate: bundle.progressSettledThroughDate })
+        .where(eq(rewardSystems.userId, userId));
+    }
+
+    if (bundle.levelUnlocks?.length) {
+      for (const unlock of bundle.levelUnlocks) {
+        await tx
+          .insert(userLevelUnlocks)
+          .values({
+            userId,
+            feature: unlock.feature,
+            unlocked: true,
+            unlockedAt: unlock.unlockedAt,
+          })
+          .onConflictDoUpdate({
+            target: [userLevelUnlocks.userId, userLevelUnlocks.feature],
+            set: {
+              unlocked: true,
+              unlockedAt: unlock.unlockedAt,
+            },
+          });
+      }
     }
 
     if (bundle.bossRewardClaimed !== undefined) {
@@ -1073,6 +1119,306 @@ export async function persistEconomyClaim(
         .update(weeklyBosses)
         .set({ rewardClaimed: bundle.bossRewardClaimed })
         .where(eq(weeklyBosses.userId, userId));
+    }
+
+    await touchSaveMeta(tx, userId, updatedAt);
+    return { updatedAt, version: SAVE_VERSION };
+  });
+}
+
+/**
+ * Persist only the dirty slices from a GamePatch (complete / undo / settle / etc.).
+ * Does not call replaceNormalizedSave.
+ */
+export async function persistGamePatch(
+  database: Database,
+  userId: string,
+  patch: GamePatch,
+) {
+  const updatedAt = new Date().toISOString();
+
+  return database.transaction(async (tx) => {
+    if (patch.completions?.length) {
+      await tx.insert(habitCompletions).values(
+        patch.completions.map((completion) => ({
+          id: completion.id,
+          userId,
+          habitId: completion.habitId,
+          date: completion.date,
+          expEarned: completion.expEarned,
+          streakBonusExp: completion.streakBonusExp,
+          completedAt: completion.completedAt,
+          crit: Boolean(completion.crit),
+        })),
+      );
+    }
+
+    if (patch.removedCompletions?.length) {
+      for (const entry of patch.removedCompletions) {
+        await tx
+          .delete(habitCompletions)
+          .where(
+            and(
+              eq(habitCompletions.userId, userId),
+              eq(habitCompletions.habitId, entry.habitId),
+              eq(habitCompletions.date, entry.date),
+            ),
+          );
+      }
+    }
+
+    if (patch.wallet) {
+      await writeWallet(tx, userId, patch.wallet);
+    }
+
+    if (patch.userProgress) {
+      await writeUserProgress(tx, userId, patch.userProgress);
+    }
+
+    if (patch.expHistory?.length) {
+      await tx.insert(expHistory).values(
+        patch.expHistory.map((entry) => ({
+          id: entry.id,
+          userId,
+          date: entry.date,
+          amount: entry.amount,
+          source: entry.source,
+          label: entry.label,
+        })),
+      );
+    }
+
+    if (patch.removedExpHistoryIds?.length) {
+      for (const id of patch.removedExpHistoryIds) {
+        await tx
+          .delete(expHistory)
+          .where(and(eq(expHistory.userId, userId), eq(expHistory.id, id)));
+      }
+    }
+
+    if (patch.rewardSystems) {
+      const rs = patch.rewardSystems;
+      await tx
+        .update(rewardSystems)
+        .set({
+          streakFreezes: rs.streakFreezes,
+          streakShieldDates: rs.streakShieldDates,
+          lastFreezeUsedDate: rs.lastFreezeUsedDate,
+          lastComebackDate: rs.lastComebackDate,
+          todayCombo: rs.todayCombo,
+          comboDate: rs.comboDate,
+          progressSettledThroughDate: rs.progressSettledThroughDate,
+          seasonPassCompletions: rs.seasonPassCompletions,
+          weeklyBossCompletions: rs.weeklyBossCompletions,
+          lastCountedBossWeekKey: rs.lastCountedBossWeekKey,
+        })
+        .where(eq(rewardSystems.userId, userId));
+    }
+
+    if (patch.dailyRewards) {
+      await tx
+        .update(dailyRewards)
+        .set({
+          lastLoginDate: patch.dailyRewards.lastLoginDate,
+          claimedDailyLoginDate: patch.dailyRewards.claimedDailyLoginDate,
+          claimedDailyCompletionRewardDate:
+            patch.dailyRewards.claimedDailyCompletionRewardDate,
+        })
+        .where(eq(dailyRewards.userId, userId));
+    }
+
+    if (patch.achievements?.length) {
+      for (const achievement of patch.achievements) {
+        await tx
+          .insert(userAchievements)
+          .values({
+            userId,
+            achievementKey: achievement.key,
+            unlocked: achievement.unlocked,
+            unlockedAt: achievement.unlockedAt,
+            rewardedAt: achievement.rewardedAt,
+          })
+          .onConflictDoUpdate({
+            target: [userAchievements.userId, userAchievements.achievementKey],
+            set: {
+              unlocked: achievement.unlocked,
+              unlockedAt: achievement.unlockedAt,
+              rewardedAt: achievement.rewardedAt,
+            },
+          });
+      }
+    }
+
+    if (patch.challenges?.length) {
+      for (const challenge of patch.challenges) {
+        await tx
+          .insert(userChallenges)
+          .values({
+            userId,
+            challengeKey: challenge.key,
+            startsAt: challenge.startsAt,
+            id: challenge.id,
+            title: challenge.title,
+            description: challenge.description,
+            period: challenge.period,
+            type: challenge.type,
+            target: challenge.target,
+            progress: challenge.progress,
+            completed: challenge.completed,
+            claimed: challenge.claimed,
+            endsAt: challenge.endsAt,
+            rewardCoins: challenge.reward.coins,
+            rewardExp: challenge.reward.exp,
+            rewardTitleItemId: challenge.reward.titleItemId,
+          })
+          .onConflictDoUpdate({
+            target: [
+              userChallenges.userId,
+              userChallenges.challengeKey,
+              userChallenges.startsAt,
+            ],
+            set: {
+              id: challenge.id,
+              title: challenge.title,
+              description: challenge.description,
+              period: challenge.period,
+              type: challenge.type,
+              target: challenge.target,
+              progress: challenge.progress,
+              completed: challenge.completed,
+              claimed: challenge.claimed,
+              endsAt: challenge.endsAt,
+              rewardCoins: challenge.reward.coins,
+              rewardExp: challenge.reward.exp,
+              rewardTitleItemId: challenge.reward.titleItemId,
+            },
+          });
+      }
+    }
+
+    if (patch.questArcs?.length) {
+      for (const arc of patch.questArcs) {
+        await tx
+          .update(userQuestArcs)
+          .set({
+            progress: arc.progress,
+            completed: arc.completed,
+            claimed: arc.claimed,
+          })
+          .where(
+            and(eq(userQuestArcs.userId, userId), eq(userQuestArcs.questKey, arc.key)),
+          );
+      }
+    }
+
+    if (patch.seasonPass) {
+      await tx
+        .update(seasonPasses)
+        .set({
+          seasonKey: patch.seasonPass.seasonKey,
+          xp: patch.seasonPass.xp,
+          level: patch.seasonPass.level,
+          claimedLevels: patch.seasonPass.claimedLevels,
+        })
+        .where(eq(seasonPasses.userId, userId));
+    }
+
+    if (patch.weeklyBoss) {
+      await tx
+        .update(weeklyBosses)
+        .set({
+          weekKey: patch.weeklyBoss.weekKey,
+          name: patch.weeklyBoss.name,
+          maxHp: patch.weeklyBoss.maxHp,
+          currentHp: patch.weeklyBoss.currentHp,
+          defeated: patch.weeklyBoss.defeated,
+          rewardClaimed: patch.weeklyBoss.rewardClaimed,
+          settledThroughDate: patch.weeklyBoss.settledThroughDate,
+        })
+        .where(eq(weeklyBosses.userId, userId));
+    }
+
+    if (patch.levelUnlocks?.length) {
+      for (const unlock of patch.levelUnlocks) {
+        await tx
+          .insert(userLevelUnlocks)
+          .values({
+            userId,
+            feature: unlock.feature,
+            unlocked: unlock.unlocked,
+            unlockedAt: unlock.unlockedAt,
+          })
+          .onConflictDoUpdate({
+            target: [userLevelUnlocks.userId, userLevelUnlocks.feature],
+            set: {
+              unlocked: unlock.unlocked,
+              unlockedAt: unlock.unlockedAt,
+            },
+          });
+      }
+    }
+
+    if (patch.shopOwnedIds?.length) {
+      for (const itemId of patch.shopOwnedIds) {
+        await tx
+          .insert(ownedShopItems)
+          .values({ userId, itemId })
+          .onConflictDoNothing();
+      }
+    } else if (patch.shopItems?.length) {
+      for (const item of patch.shopItems.filter((entry) => entry.owned)) {
+        await tx
+          .insert(ownedShopItems)
+          .values({ userId, itemId: item.id })
+          .onConflictDoNothing();
+      }
+    }
+
+    if (patch.equippedItems) {
+      await tx
+        .update(equippedCosmetics)
+        .set({
+          titleItemId: patch.equippedItems.titleItemId,
+          frameItemId: patch.equippedItems.frameItemId,
+          avatarItemId: patch.equippedItems.avatarItemId,
+          themeItemId: patch.equippedItems.themeItemId,
+        })
+        .where(eq(equippedCosmetics.userId, userId));
+    }
+
+    if (patch.settings) {
+      await tx
+        .update(userSettings)
+        .set({
+          displayName: patch.settings.displayName,
+          onboardingCompleted: patch.settings.onboardingCompleted,
+          remindersEnabled: patch.settings.remindersEnabled,
+          reminderTime: DEFAULT_REMINDER_LOCAL_TIME,
+        })
+        .where(eq(userSettings.userId, userId));
+    }
+
+    if (patch.habits?.length) {
+      for (const habit of patch.habits) {
+        await tx
+          .update(habits)
+          .set({
+            title: habit.title,
+            description: habit.description,
+            difficulty: habit.difficulty,
+            recurrence: habit.recurrence,
+            customDays: habit.customDays,
+            stackAfter: habit.stackAfter,
+            stackAfterHabitId: habit.stackAfterHabitId,
+            cueTime: habit.cueTime,
+            cueContext: habit.cueContext,
+            identityWhy: habit.identityWhy,
+            desiredFeeling: habit.desiredFeeling,
+            tinyVersion: habit.tinyVersion,
+            updatedAt: habit.updatedAt,
+          })
+          .where(and(eq(habits.userId, userId), eq(habits.id, habit.id)));
+      }
     }
 
     await touchSaveMeta(tx, userId, updatedAt);

@@ -12,22 +12,19 @@ import { patchBodyFromOk } from "~/lib/v1/patch-http";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(
-  request: Request,
-  context: { params: Promise<{ habitId: string }> },
-) {
-  const { habitId } = await context.params;
+export async function POST(request: Request) {
   const body = await readJsonBody(request);
   if (!body.ok) {
     return jsonError(body.error, 400);
   }
   if (!isRecord(body.data)) {
-    return jsonError("dateKey must be YYYY-MM-DD.", 400);
+    return jsonError("habitId and dateKey are required.", 400);
   }
 
+  const habitId = asNonEmptyString(body.data.habitId);
   const dateKey = asNonEmptyString(body.data.dateKey);
-  if (!dateKey) {
-    return jsonError("dateKey must be YYYY-MM-DD.", 400);
+  if (!habitId || !dateKey) {
+    return jsonError("habitId and dateKey are required.", 400);
   }
 
   const result = await uncompleteHabit(habitId, dateKey);

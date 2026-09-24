@@ -333,7 +333,8 @@ export async function getHabitQuestMigrationPlanAction() {
       "Authenticate via email/password",
       "Load HabitQuestData from normalized PostgreSQL tables",
       "Hydrate Zustand as the optimistic client cache",
-      "Debounced pushHabitQuestSaveAction replaces user rows",
+      "Signed-in play uses command endpoints that return GamePatch rows",
+      "POST /api/v1/session/settle grants daily login / comeback / day settlement",
       "Legacy habitquest_saves blobs migrate once into rows",
     ],
   };

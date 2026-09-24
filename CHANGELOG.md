@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.13.0 - Server Settle and Patches
+
+### Added
+- Signed-in play settles the day on the server. Opening the app grants daily login, comeback, and missed-day catch-up through POST /api/v1/session/settle, and only the slices that changed come back. Running it again after a grant does nothing.
+
+### Changed
+- Done and Undo no longer upload the whole save. The server writes the rows that changed and the app applies that patch. Sign out no longer pushes a full save first.
+- Undo is POST /api/v1/habits/uncomplete with the habit and the day in the body. Completing one habit or a batch returns the same kind of patch.
+- Guest play still settles on this device. A signed-in open shows the rewards immediately, then the server settle is what sticks. If that call fails, the next refresh tries again.
+- The floating coin and EXP pop stays up a little longer before it fades.
+
+### Fixed
+- Claiming a reward settles today's clears and unlocks level gates first. A season claim no longer sees yesterday's level and a locked pass when the cloud row has not caught up.
+
 ## 0.12.0 - Inventory and Starter Cosmetics
 
 ### Changed

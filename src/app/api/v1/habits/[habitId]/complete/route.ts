@@ -7,6 +7,7 @@ import {
   jsonOk,
   readJsonBody,
 } from "~/lib/v1/http";
+import { patchBodyFromOk } from "~/lib/v1/patch-http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,11 +34,5 @@ export async function POST(
   if (result.status !== "ok") {
     return jsonFromUnauthenticatedOrError(result);
   }
-  return jsonOk({
-    habitId: result.habitId,
-    date: result.date,
-    completion: result.completion,
-    rewardSystems: result.rewardSystems,
-    updatedAt: result.updatedAt,
-  });
+  return jsonOk(patchBodyFromOk(result) as Record<string, unknown>);
 }

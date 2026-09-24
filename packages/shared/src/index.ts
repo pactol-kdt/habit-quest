@@ -6,6 +6,8 @@ export * from "./copy";
 export * from "./utils";
 export * from "./rewards";
 export * from "./day-settlement";
+export * from "./game-resolution";
+export * from "./game-patch";
 export * from "./habit-mutations";
 export * from "./habit-crud-mutations";
 export * from "./shop-mutations";

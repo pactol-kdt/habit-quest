@@ -6,6 +6,7 @@ import type { AuthCommandResult } from "~/lib/v1/identity";
 import type { LevelLeaderboardEntry } from "~/lib/v1/leaderboard";
 import type { PushSubscribeResult, PushTestResult } from "~/lib/v1/push";
 import type { ShopEquipResult, ShopPurchaseResult } from "~/lib/v1/shop";
+import type { SettleSessionResult } from "~/lib/v1/settle";
 import type {
   BootSessionResult,
   PullSaveResult,
@@ -105,8 +106,8 @@ export async function completeHabitsRequest(
 
 export async function uncompleteHabitRequest(habitId: string, dateKey: string): Promise<HabitActionResult> {
   return asCommand<HabitActionResult>(
-    await v1Request(`/habits/${encodeURIComponent(habitId)}/uncomplete`, {
-      json: { dateKey },
+    await v1Request("/habits/uncomplete", {
+      json: { habitId, dateKey },
     }),
   );
 }
@@ -188,6 +189,10 @@ export async function claimBossRewardRequest(): Promise<ClaimActionResult> {
 
 export async function buyStreakFreezeRequest(): Promise<ClaimActionResult> {
   return asCommand<ClaimActionResult>(await v1Request("/claims/streak-freeze", { method: "POST" }));
+}
+
+export async function settleSessionRequest(): Promise<SettleSessionResult> {
+  return asCommand<SettleSessionResult>(await v1Request("/session/settle", { method: "POST" }));
 }
 
 export async function getLeaderboardRequest() {

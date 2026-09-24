@@ -39,7 +39,7 @@ export function FloatingRewardLayer() {
             initial={{ opacity: 0, y: 12, scale: 0.92 }}
             animate={{ opacity: [0, 1, 1, 0], y: -56, scale: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: FLOAT_MS / 1000, times: [0, 0.12, 0.55, 1], ease: "easeOut" }}
+            transition={{ duration: FLOAT_MS / 1000, times: [0, 0.12, 0.75, 1], ease: "easeOut" }}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold tabular-nums",
               reward.kind === "coins" ? "text-amber-100" : "text-cyan-100",

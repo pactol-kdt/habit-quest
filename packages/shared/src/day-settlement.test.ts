@@ -9,17 +9,20 @@ import {
 import {
   getEffectiveUserProgress,
   getPendingHabitExp,
+  prepareSaveForRewards,
   settleHabitDayProgress,
 } from "./day-settlement.ts";
+import { applyClaimSeasonPassLevel } from "./reward-claim-mutations.ts";
 import { createSeedData } from "./seed.ts";
+import { isFeatureUnlocked } from "./utils.ts";
 import type { HabitCompletion } from "./types.ts";
 
-function makeCompletion(habitId: string, date: string): HabitCompletion {
+function makeCompletion(habitId: string, date: string, expEarned = 10): HabitCompletion {
   return {
     id: `c_${habitId}_${date}`,
     habitId,
     date,
-    expEarned: 10,
+    expEarned,
     streakBonusExp: 0,
     completedAt: `${date}T12:00:00.000Z`,
   };
@@ -144,5 +147,32 @@ describe("live day settle", () => {
       true,
     );
     assert.equal(previewPurchaseUndoRisk(buffered, 1, today).risksClawback, false);
+  });
+});
+
+describe("prepareSaveForRewards", () => {
+  it("unlocks the season pass and reaches tier 3 from clears the cloud row has not settled", () => {
+    const data = createSeedData();
+    const today = "2026-09-24";
+    data.rewardSystems = {
+      ...data.rewardSystems,
+      progressSettledThroughDate: "2026-09-23",
+    };
+    data.seasonPass = { ...data.seasonPass, xp: 0, level: 1, claimedLevels: [] };
+    data.levelUnlocks = data.levelUnlocks.map((unlock) =>
+      unlock.feature === "season-pass"
+        ? { ...unlock, requiredLevel: 1, unlocked: false, unlockedAt: null }
+        : unlock,
+    );
+    data.completions = [0, 1, 2, 3].map((index) =>
+      makeCompletion(`habit_${index}`, today, 40),
+    );
+
+    const ready = prepareSaveForRewards(data, today);
+    assert.equal(isFeatureUnlocked(ready.levelUnlocks, "season-pass"), true);
+    assert.ok(ready.seasonPass.level >= 3);
+
+    const claim = applyClaimSeasonPassLevel(ready, 3);
+    assert.equal(claim.ok, true);
   });
 });

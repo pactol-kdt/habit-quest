@@ -16,7 +16,6 @@ import { getStreakFireTier } from "~/lib/habitquest/streak-fire-tier";
 import { cn } from "~/lib/ui/cn";
 import { changePasswordRequest, signOutRequest } from "~/lib/v1/requests";
 import {
-  flushCloudSaveNow,
   setCloudSyncEnabled,
 } from "~/lib/habitquest/cloud-sync";
 import { clearHabitQuestData, invalidateClientSession } from "~/lib/habitquest/storage";
@@ -35,7 +34,6 @@ export function ProfilePage() {
     rewardSystems,
     completions,
     authUser,
-    projectSave,
     exitGuestPlay,
   } = useHabitQuestStore((state) => state);
   const { userProgress } = useEffectiveProgress();
@@ -74,7 +72,6 @@ export function ProfilePage() {
     setSignOutError(null);
     invalidateClientSession();
     try {
-      await flushCloudSaveNow(projectSave());
       const result = await signOutRequest();
       if (!result.ok) {
         setSignOutError(result.error);

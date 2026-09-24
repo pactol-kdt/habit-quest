@@ -5,12 +5,13 @@ import { ensureDatabase } from "~/lib/db";
 import { loadCatalogFromDb } from "~/lib/db/catalog-repository";
 import {
   loadNormalizedSave,
+  persistGamePatch,
   persistHabitCreate,
   persistHabitDelete,
   persistHabitUpdate,
-  persistTodayHabitCompletions,
-  removeTodayHabitCompletion,
 } from "~/lib/db/habitquest-repository";
+import { buildGamePatch, type GamePatch } from "~/lib/habitquest/game-patch";
+import { resolvePersistentGameState } from "~/lib/habitquest/game-resolution";
 import {
   applyCreateHabit,
   applyDeleteHabit,
@@ -24,25 +25,23 @@ import { coerceFormValues, isValidDateKey } from "~/lib/v1/parse";
 import type { Habit, HabitCompletion, RewardSystems, UserProgress } from "~/types/habitquest";
 
 export type HabitActionResult =
-  | {
+  | ({
       status: "ok";
       habitId: string;
       date: string;
       completion: HabitCompletion | null;
-      rewardSystems: Pick<RewardSystems, "todayCombo" | "comboDate">;
-      updatedAt: string;
-    }
+      rewardSystems: Pick<RewardSystems, "todayCombo" | "comboDate"> | RewardSystems;
+    } & Omit<GamePatch, "completions" | "rewardSystems">)
   | { status: "unauthenticated" }
   | { status: "error"; error: string };
 
 export type HabitBatchActionResult =
-  | {
+  | ({
       status: "ok";
       date: string;
       completions: Array<{ habitId: string; completion: HabitCompletion }>;
-      rewardSystems: Pick<RewardSystems, "todayCombo" | "comboDate">;
-      updatedAt: string;
-    }
+      rewardSystems: Pick<RewardSystems, "todayCombo" | "comboDate"> | RewardSystems;
+    } & Omit<GamePatch, "completions" | "rewardSystems">)
   | { status: "unauthenticated" }
   | { status: "error"; error: string };
 
@@ -69,6 +68,11 @@ export type ListHabitsResult =
   | { status: "ok"; habits: Habit[]; updatedAt: string }
   | { status: "unauthenticated" }
   | { status: "error"; error: string };
+
+function patchResponse(patch: GamePatch, updatedAt: string): Omit<GamePatch, "completions" | "rewardSystems"> {
+  const { completions: _completions, rewardSystems: _rewardSystems, ...rest } = patch;
+  return { ...rest, updatedAt };
+}
 
 export async function listHabits(): Promise<ListHabitsResult> {
   const user = await getCurrentUser();
@@ -121,18 +125,19 @@ export async function completeHabit(
     return { status: "error", error: "Missing completion." };
   }
 
+  const { status: _s, date, completions: _c, ...patchFields } = batch;
   return {
     status: "ok",
     habitId,
-    date: batch.date,
+    date,
     completion: entry.completion,
-    rewardSystems: batch.rewardSystems,
-    updatedAt: batch.updatedAt,
+    ...patchFields,
   };
 }
 
 /**
  * Complete many habits for one local calendar day in a single load + write.
+ * Resolves live-day rewards and persists only dirty rows; returns a GamePatch.
  */
 export async function completeHabits(
   habitIdsInput: string[],
@@ -160,7 +165,8 @@ export async function completeHabits(
       return { status: "error", error: "No cloud save found." };
     }
 
-    let working = existing.data;
+    const before = existing.data;
+    let working = before;
     const prepared: HabitCompletion[] = [];
     const toInsert: HabitCompletion[] = [];
     const errors: string[] = [];
@@ -190,13 +196,34 @@ export async function completeHabits(
       };
     }
 
-    const saved = toInsert.length
-      ? await persistTodayHabitCompletions(database, user.id, toInsert)
-      : {
-          updatedAt: existing.updatedAt,
+    if (!toInsert.length) {
+      return {
+        status: "ok",
+        date: dateKey,
+        completions: prepared.map((completion) => ({
+          habitId: completion.habitId,
+          completion,
+        })),
+        rewardSystems: {
           todayCombo: working.rewardSystems.todayCombo,
           comboDate: working.rewardSystems.comboDate,
-        };
+        },
+        updatedAt: existing.updatedAt,
+        wallet: working.wallet,
+        userProgress: {
+          totalExp: working.userProgress.totalExp,
+          level: working.userProgress.level,
+          currentStreak: working.userProgress.currentStreak,
+          bestStreak: working.userProgress.bestStreak,
+          totalCompletedHabits: working.userProgress.totalCompletedHabits,
+          lastCompletedDate: working.userProgress.lastCompletedDate,
+        },
+      };
+    }
+
+    const resolution = resolvePersistentGameState(working, { today: dateKey });
+    const patch = buildGamePatch(before, resolution.data);
+    const saved = await persistGamePatch(database, user.id, patch);
 
     return {
       status: "ok",
@@ -205,11 +232,8 @@ export async function completeHabits(
         habitId: completion.habitId,
         completion,
       })),
-      rewardSystems: {
-        todayCombo: saved.todayCombo,
-        comboDate: saved.comboDate,
-      },
-      updatedAt: saved.updatedAt,
+      rewardSystems: resolution.data.rewardSystems,
+      ...patchResponse(patch, saved.updatedAt),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to complete habits.";
@@ -225,11 +249,17 @@ export async function completeHabits(
           status: "ok",
           date: dateKey,
           completions: recovered,
-          rewardSystems: {
-            todayCombo: refreshed.data.rewardSystems.todayCombo,
-            comboDate: refreshed.data.rewardSystems.comboDate,
-          },
+          rewardSystems: refreshed.data.rewardSystems,
           updatedAt: refreshed.updatedAt,
+          wallet: refreshed.data.wallet,
+          userProgress: {
+            totalExp: refreshed.data.userProgress.totalExp,
+            level: refreshed.data.userProgress.level,
+            currentStreak: refreshed.data.userProgress.currentStreak,
+            bestStreak: refreshed.data.userProgress.bestStreak,
+            totalCompletedHabits: refreshed.data.userProgress.totalCompletedHabits,
+            lastCompletedDate: refreshed.data.userProgress.lastCompletedDate,
+          },
         };
       }
       return { status: "error", error: "Already completed today." };
@@ -265,23 +295,23 @@ export async function uncompleteHabit(
       return { status: "error", error: "No cloud save found." };
     }
 
-    const mutation = applyUncompleteHabitForToday(existing.data, habitId, dateKey);
+    const before = existing.data;
+    const mutation = applyUncompleteHabitForToday(before, habitId, dateKey);
     if (!mutation.ok) {
       return { status: "error", error: mutation.error };
     }
 
-    const saved = await removeTodayHabitCompletion(database, user.id, habitId, dateKey);
+    const resolution = resolvePersistentGameState(mutation.data, { today: dateKey });
+    const patch = buildGamePatch(before, resolution.data);
+    const saved = await persistGamePatch(database, user.id, patch);
 
     return {
       status: "ok",
       habitId,
       date: dateKey,
       completion: null,
-      rewardSystems: {
-        todayCombo: saved.todayCombo,
-        comboDate: saved.comboDate,
-      },
-      updatedAt: saved.updatedAt,
+      rewardSystems: resolution.data.rewardSystems,
+      ...patchResponse(patch, saved.updatedAt),
     };
   } catch (error) {
     return {

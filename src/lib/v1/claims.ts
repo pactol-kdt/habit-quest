@@ -20,6 +20,7 @@ import {
   type ClaimableKind,
 } from "~/lib/habitquest/reward-claim-mutations";
 import { listClaimableRewards } from "~/lib/habitquest/claimables";
+import { prepareSaveForRewards } from "~/lib/habitquest/day-settlement";
 import type {
   CoinWallet,
   HabitQuestData,
@@ -50,6 +51,21 @@ export type ClaimActionResult =
     }
   | { status: "unauthenticated" }
   | { status: "error"; error: string };
+
+function settledProgressFields(data: HabitQuestData) {
+  return {
+    seasonKey: data.seasonPass.seasonKey,
+    seasonXp: data.seasonPass.xp,
+    seasonLevel: data.seasonPass.level,
+    progressSettledThroughDate: data.rewardSystems.progressSettledThroughDate,
+    levelUnlocks: data.levelUnlocks
+      .filter((unlock) => unlock.unlocked)
+      .map((unlock) => ({
+        feature: unlock.feature,
+        unlockedAt: unlock.unlockedAt,
+      })),
+  };
+}
 
 function economyFromMutation(data: HabitQuestData, mutation: {
   wallet: CoinWallet;
@@ -143,7 +159,8 @@ export async function claimChallengeRewardAction(
       return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
     }
 
-    const mutation = applyClaimChallengeReward(existing.data, challengeId);
+    const ready = prepareSaveForRewards(existing.data);
+    const mutation = applyClaimChallengeReward(ready, challengeId);
     if (!mutation.ok) {
       return { status: "error", error: mutation.error };
     }
@@ -155,6 +172,7 @@ export async function claimChallengeRewardAction(
 
     const saved = await persistEconomyClaim(database, user.id, {
       ...economyFromMutation(mutation.data, mutation),
+      ...settledProgressFields(mutation.data),
       challenge: {
         challengeKey: challenge.key,
         startsAt: challenge.startsAt,
@@ -192,7 +210,8 @@ export async function claimQuestArcRewardAction(arcId: string): Promise<ClaimAct
       return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
     }
 
-    const mutation = applyClaimQuestArcReward(existing.data, arcId);
+    const ready = prepareSaveForRewards(existing.data);
+    const mutation = applyClaimQuestArcReward(ready, arcId);
     if (!mutation.ok) {
       return { status: "error", error: mutation.error };
     }
@@ -204,6 +223,7 @@ export async function claimQuestArcRewardAction(arcId: string): Promise<ClaimAct
 
     const saved = await persistEconomyClaim(database, user.id, {
       ...economyFromMutation(mutation.data, mutation),
+      ...settledProgressFields(mutation.data),
       quest: { questKey: arc.key, claimed: true },
     });
 
@@ -241,13 +261,15 @@ export async function claimSeasonPassLevelAction(level: number): Promise<ClaimAc
       return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
     }
 
-    const mutation = applyClaimSeasonPassLevel(existing.data, level);
+    const ready = prepareSaveForRewards(existing.data);
+    const mutation = applyClaimSeasonPassLevel(ready, level);
     if (!mutation.ok) {
       return { status: "error", error: mutation.error };
     }
 
     const saved = await persistEconomyClaim(database, user.id, {
       ...economyFromMutation(mutation.data, mutation),
+      ...settledProgressFields(mutation.data),
       seasonClaimedLevels: mutation.data.seasonPass.claimedLevels,
       seasonPassCompletions: mutation.data.rewardSystems.seasonPassCompletions,
     });
@@ -304,23 +326,24 @@ export async function claimAllRewardsAction(
       };
     }
 
-    const claimables = listClaimableRewards(existing.data).filter(
+    const ready = prepareSaveForRewards(existing.data);
+    const claimables = listClaimableRewards(ready).filter(
       (item) => !kinds || kinds.includes(item.kind),
     );
     if (!claimables.length) {
       return { status: "error", error: "No rewards ready to claim." };
     }
 
-    const mutation = applyClaimAllRewards(existing.data, kinds);
+    const mutation = applyClaimAllRewards(ready, kinds);
     if (!mutation.ok) {
       return { status: "error", error: mutation.error };
     }
 
     const beforeChallenges = new Map(
-      existing.data.challenges.map((entry) => [entry.id, entry] as const),
+      ready.challenges.map((entry) => [entry.id, entry] as const),
     );
     const beforeQuests = new Map(
-      existing.data.questArcs.map((entry) => [entry.id, entry] as const),
+      ready.questArcs.map((entry) => [entry.id, entry] as const),
     );
 
     const challenges = mutation.data.challenges
@@ -338,13 +361,13 @@ export async function claimAllRewardsAction(
       }));
 
     const seasonChanged =
-      mutation.data.seasonPass.claimedLevels.length !==
-      existing.data.seasonPass.claimedLevels.length;
+      mutation.data.seasonPass.claimedLevels.length !== ready.seasonPass.claimedLevels.length;
     const bossChanged =
-      mutation.data.weeklyBoss.rewardClaimed && !existing.data.weeklyBoss.rewardClaimed;
+      mutation.data.weeklyBoss.rewardClaimed && !ready.weeklyBoss.rewardClaimed;
 
     const saved = await persistEconomyClaim(database, user.id, {
       ...economyFromMutation(mutation.data, mutation),
+      ...settledProgressFields(mutation.data),
       challenges: challenges.length ? challenges : undefined,
       quests: quests.length ? quests : undefined,
       seasonClaimedLevels: seasonChanged
@@ -396,13 +419,15 @@ export async function claimBossRewardAction(): Promise<ClaimActionResult> {
       return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
     }
 
-    const mutation = applyClaimBossReward(existing.data);
+    const ready = prepareSaveForRewards(existing.data);
+    const mutation = applyClaimBossReward(ready);
     if (!mutation.ok) {
       return { status: "error", error: mutation.error };
     }
 
     const saved = await persistEconomyClaim(database, user.id, {
       ...economyFromMutation(mutation.data, mutation),
+      ...settledProgressFields(mutation.data),
       bossRewardClaimed: true,
       weeklyBossCompletions: mutation.data.rewardSystems.weeklyBossCompletions,
       lastCountedBossWeekKey: mutation.data.rewardSystems.lastCountedBossWeekKey,

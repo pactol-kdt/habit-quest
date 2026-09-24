@@ -16,23 +16,18 @@ import {
   deleteHabitRequest,
   equipShopItemRequest,
   purchaseShopItemRequest,
+  settleSessionRequest,
   unequipShopItemRequest,
   uncompleteHabitRequest,
   updateHabitRequest,
   updateSettingsRequest,
 } from "~/lib/v1/requests";
+import { setCloudSyncEnabled } from "~/lib/habitquest/cloud-sync";
 import {
-  bumpCloudSavePayload,
-  ensureCloudSavePushed,
-  flushCloudSaveNow,
-  scheduleCloudSave,
-  setCloudSyncEnabled,
-} from "~/lib/habitquest/cloud-sync";
-import {
-  DAILY_LOGIN_COINS,
-  MAX_STREAK_FREEZES,
   setLocalPersistenceEnabled,
 } from "~/lib/habitquest/constants";
+import { applyGamePatch, type GamePatch } from "~/lib/habitquest/game-patch";
+import { resolvePersistentGameState } from "~/lib/habitquest/game-resolution";
 import {
   applyCreateHabit,
   applyDeleteHabit,
@@ -63,20 +58,8 @@ import {
 } from "~/lib/habitquest/shop-mutations";
 import {
   createCelebration,
-  createDefaultRewardSystems,
   isStreakMilestone,
-  createQuestArcs,
-  createSeasonPass,
-  createWeeklyBoss,
-  maybeGrantStreakFreeze,
-  reconcileSeasonPass,
-  reconcileStreakShields,
-  reconcileWeeklyBoss,
-  reconcileTodayCombo,
-  recordWeeklyBossCompletion,
-  syncQuestArcs,
 } from "~/lib/habitquest/rewards";
-import { getEffectiveUserProgress, settleHabitDayProgress } from "~/lib/habitquest/day-settlement";
 import { createSeedData } from "~/lib/habitquest/seed";
 import {
   loadHabitQuestData,
@@ -86,19 +69,11 @@ import {
   setGuestPlayEnabled,
 } from "~/lib/habitquest/storage";
 import {
-  checkLevelUnlocks,
-  createExpEntry,
   createId,
-  getPendingAchievementRewards,
   getTodayDateKey,
-  hasClaimedDailyReward,
-  reconcileChallenges,
-  unlockAchievements,
 } from "~/lib/habitquest/utils";
 import type {
   CelebrationEvent,
-  Challenge,
-  ExpHistoryEntry,
   FloatingReward,
   HabitFormValues,
   HabitQuestData,
@@ -303,14 +278,17 @@ function createFloatingReward(
 
 function persistData(nextData: HabitQuestData) {
   saveHabitQuestData(nextData);
-  scheduleCloudSave(nextData);
   return nextData;
 }
 
-/** Local cache only — used with focused habit APIs so we don't dump the full save. */
+/** Local cache only — guest + signed-in optimistic cache. Never posts full saves. */
 function persistLocalOnly(nextData: HabitQuestData) {
   saveHabitQuestData(nextData);
   return nextData;
+}
+
+function applyServerPatch(current: HabitQuestData, patch: GamePatch): HabitQuestData {
+  return persistLocalOnly(applyGamePatch(current, patch));
 }
 
 /**
@@ -350,322 +328,73 @@ function projectData(state: HabitQuestStore): HabitQuestData {
   };
 }
 
-function syncWithShields(
-  data: HabitQuestData,
-  extra: Partial<HabitQuestData["userProgress"]> = {},
-) {
-  return getEffectiveUserProgress({
-    ...data,
-    userProgress: {
-      ...data.userProgress,
-      ...extra,
-    },
-  });
-}
-
-function appendCoins(
-  data: HabitQuestData,
-  amount: number,
-  label: string,
-  floatingRewards: FloatingReward[],
-) {
-  data.wallet = {
-    ...data.wallet,
-    totalCoins: data.wallet.totalCoins + amount,
-    lifetimeCoinsEarned: data.wallet.lifetimeCoinsEarned + amount,
-  };
-  floatingRewards.push(createFloatingReward("coins", amount, label));
-}
-
-function appendExp(
-  data: HabitQuestData,
-  amount: number,
-  source: ExpHistoryEntry["source"],
-  label: string,
-  floatingRewards: FloatingReward[],
-) {
-  const today = getTodayDateKey();
-  data.userProgress = syncWithShields(data, {
-    totalExp: data.userProgress.totalExp + amount,
-    expHistory: [createExpEntry(amount, today, source, label), ...data.userProgress.expHistory],
-  });
-  floatingRewards.push(createFloatingReward("exp", amount, label));
-}
-
-function applyChallengeReward(
-  data: HabitQuestData,
-  challenge: Challenge,
-  floatingRewards: FloatingReward[],
-  celebrations: CelebrationEvent[],
-  options: { autoClaimed?: boolean } = {},
-) {
-  if (challenge.reward.coins > 0) {
-    appendCoins(
-      data,
-      challenge.reward.coins,
-      options.autoClaimed ? `${challenge.title} (auto-claimed)` : challenge.title,
-      floatingRewards,
-    );
-  }
-
-  if (challenge.reward.exp > 0) {
-    appendExp(
-      data,
-      challenge.reward.exp,
-      "challenge",
-      options.autoClaimed ? `${challenge.title} (auto-claimed)` : challenge.title,
-      floatingRewards,
-    );
-  }
-
-  if (challenge.reward.titleItemId) {
-    const titleId = challenge.reward.titleItemId;
-    const alreadyOwned = data.shopItems.some((item) => item.id === titleId && item.owned);
-    data.shopItems = data.shopItems.map((item) =>
-      item.id === titleId
-        ? {
-            ...item,
-            owned: true,
-          }
-        : item,
-    );
-    if (!alreadyOwned) {
-      celebrations.push(
-        createCelebration(
-          "unlock",
-          options.autoClaimed ? "Challenge title auto-claimed" : "Exclusive title unlocked",
-          data.shopItems.find((item) => item.id === titleId)?.name ?? "",
-        ),
-      );
-    } else {
-      const repeatBonus = challenge.period === "monthly" ? 25 : 10;
-      appendCoins(
-        data,
-        repeatBonus,
-        options.autoClaimed
-          ? `${challenge.title} repeat bonus (auto-claimed)`
-          : `${challenge.title} repeat bonus`,
-        floatingRewards,
-      );
-    }
-  }
-}
-
-function ensureRewardFields(data: HabitQuestData): HabitQuestData {
-  const defaults = createDefaultRewardSystems();
-  const rewardSystems = {
-    ...defaults,
-    ...(data.rewardSystems ?? {}),
-    seasonPassCompletions: data.rewardSystems?.seasonPassCompletions ?? 0,
-    weeklyBossCompletions: data.rewardSystems?.weeklyBossCompletions ?? 0,
-    lastCountedBossWeekKey: data.rewardSystems?.lastCountedBossWeekKey ?? null,
-  };
-  return {
-    ...data,
-    rewardSystems,
-    questArcs: data.questArcs?.length ? data.questArcs : createQuestArcs(),
-    seasonPass: data.seasonPass ?? createSeasonPass(),
-    weeklyBoss: data.weeklyBoss ?? createWeeklyBoss(),
-    equippedItems: {
-      titleItemId: data.equippedItems?.titleItemId ?? null,
-      frameItemId: data.equippedItems?.frameItemId ?? null,
-      avatarItemId: data.equippedItems?.avatarItemId ?? null,
-      themeItemId: data.equippedItems?.themeItemId ?? null,
-    },
-  };
-}
-
-function normalizePersistentData(data: HabitQuestData) {
-  const withRewards = ensureRewardFields(data);
-  const rewardSystems = recordWeeklyBossCompletion(
-    reconcileTodayCombo(withRewards.rewardSystems, withRewards.completions),
-    withRewards.weeklyBoss.weekKey,
-    withRewards.weeklyBoss.defeated,
-  );
-  return {
-    ...withRewards,
-    rewardSystems,
-    seasonPass: reconcileSeasonPass(withRewards.seasonPass),
-    weeklyBoss: reconcileWeeklyBoss(withRewards.weeklyBoss),
-    userProgress: syncWithShields({ ...withRewards, rewardSystems }),
-  };
-}
-
 function resolveGameState(
   baseData: HabitQuestData,
   options: ResolutionOptions = {},
 ): ResolutionResult {
-  let data = normalizePersistentData(baseData);
-  const floatingRewards: FloatingReward[] = [];
-  const celebrations: CelebrationEvent[] = [];
-  let settlementRecap: SettlementRecap | null = null;
   const today = getTodayDateKey();
+  let skipDailyLoginPayout = false;
 
   if (options.processDailyLogin) {
     const sessionKey = `habitquest:daily-login-claimed:${today}`;
-    let claimedInSession = false;
     try {
-      claimedInSession =
+      skipDailyLoginPayout =
         typeof sessionStorage !== "undefined" &&
         sessionStorage.getItem(sessionKey) === "1";
     } catch {
-      claimedInSession = false;
-    }
-
-    const alreadyClaimed = hasClaimedDailyReward(data.dailyRewards, "login", today);
-
-    if (!alreadyClaimed && !claimedInSession) {
-      appendCoins(data, DAILY_LOGIN_COINS, "Daily login reward", floatingRewards);
-      data.dailyRewards = {
-        ...data.dailyRewards,
-        lastLoginDate: today,
-        claimedDailyLoginDate: today,
-      };
-      try {
-        sessionStorage.setItem(sessionKey, "1");
-      } catch {
-        // Ignore sessionStorage failures.
-      }
-    } else if (!alreadyClaimed && claimedInSession) {
-      // Already paid this browser session — mark claimed without paying again.
-      data.dailyRewards = {
-        ...data.dailyRewards,
-        lastLoginDate: today,
-        claimedDailyLoginDate: today,
-      };
-    } else {
-      if (data.dailyRewards.lastLoginDate !== today) {
-        data.dailyRewards = {
-          ...data.dailyRewards,
-          lastLoginDate: today,
-        };
-      }
-      try {
-        sessionStorage.setItem(sessionKey, "1");
-      } catch {
-        // Ignore sessionStorage failures.
-      }
+      skipDailyLoginPayout = false;
     }
   }
 
-  const settlement = settleHabitDayProgress(data, today);
-  data = settlement.data;
-  floatingRewards.push(...settlement.floatingRewards);
-  celebrations.push(...settlement.celebrations);
-  settlementRecap = settlement.recap;
-
-  const shieldResult = reconcileStreakShields(data.rewardSystems, data.completions, today);
-  data.rewardSystems = shieldResult.systems;
-  if (shieldResult.freezeUsed && shieldResult.protectedDate) {
-    celebrations.push(
-      createCelebration(
-        "unlock",
-        "Streak freeze used",
-        `Your streak was protected on ${shieldResult.protectedDate}.`,
-      ),
-    );
-  }
-
-  data.userProgress = syncWithShields(data);
-
-  const freezeGrant = maybeGrantStreakFreeze(
-    data.rewardSystems,
-    data.userProgress.currentStreak,
-  );
-  data.rewardSystems = freezeGrant.systems;
-  if (freezeGrant.granted) {
-    celebrations.push(
-      createCelebration(
-        "unlock",
-        "Streak freeze earned",
-        `Milestone streak ${data.userProgress.currentStreak} granted a freeze (${data.rewardSystems.streakFreezes}/${MAX_STREAK_FREEZES}).`,
-      ),
-    );
-  }
-
-  data.questArcs = syncQuestArcs(
-    data.questArcs,
-    data,
-    data.rewardSystems.progressSettledThroughDate,
-  );
-
-  const challengeReconciliation = reconcileChallenges(data.challenges, data);
-  data.challenges = challengeReconciliation.challenges;
-
-  challengeReconciliation.autoClaims.forEach((challenge) => {
-    applyChallengeReward(data, challenge, floatingRewards, celebrations, { autoClaimed: true });
+  const resolution = resolvePersistentGameState(baseData, {
+    processDailyLogin: options.processDailyLogin,
+    skipDailyLoginPayout,
+    today,
   });
 
-  data.challenges = reconcileChallenges(data.challenges, data).challenges;
-
-  let iterations = 0;
-  while (iterations < 8) {
-    iterations += 1;
-    data.achievements = unlockAchievements(data);
-    const pendingRewards = getPendingAchievementRewards(data.achievements);
-
-    if (!pendingRewards.length) {
-      break;
+  if (options.processDailyLogin) {
+    const sessionKey = `habitquest:daily-login-claimed:${today}`;
+    try {
+      sessionStorage.setItem(sessionKey, "1");
+    } catch {
+      // Ignore sessionStorage failures.
     }
-
-    const rewardTime = new Date().toISOString();
-    pendingRewards.forEach((achievement) => {
-      if (achievement.reward.coins > 0) {
-        appendCoins(data, achievement.reward.coins, achievement.title, floatingRewards);
-      }
-
-      if (achievement.reward.exp > 0) {
-        appendExp(
-          data,
-          achievement.reward.exp,
-          "achievement",
-          achievement.title,
-          floatingRewards,
-        );
-      }
-
-      celebrations.push(
-        createCelebration("achievement", "Achievement unlocked", achievement.title),
-      );
-
-      data.achievements = data.achievements.map((entry) =>
-        entry.id === achievement.id
-          ? {
-              ...entry,
-              rewardedAt: rewardTime,
-            }
-          : entry,
-      );
-    });
-
-    data.userProgress = syncWithShields(data);
-    data.challenges = reconcileChallenges(data.challenges, data).challenges;
-    data.questArcs = syncQuestArcs(
-      data.questArcs,
-      data,
-      data.rewardSystems.progressSettledThroughDate,
-    );
   }
-
-  const unlockCheck = checkLevelUnlocks(data.levelUnlocks, data.userProgress.level);
-  data.levelUnlocks = unlockCheck.levelUnlocks;
-  unlockCheck.newlyUnlocked.forEach((unlock) => {
-    celebrations.push(
-      createCelebration(
-        "unlock",
-        "Feature unlocked",
-        `${unlock.label} is now available at level ${unlock.requiredLevel}.`,
-      ),
-    );
-  });
 
   return {
-    data,
+    data: resolution.data,
     rewardToasts: [],
-    floatingRewards,
-    celebrations,
-    settlementRecap,
+    floatingRewards: resolution.floatingRewards,
+    celebrations: resolution.celebrations,
+    settlementRecap: resolution.settlementRecap,
   };
+}
+
+async function settleAuthenticatedSession() {
+  if (!useHabitQuestStore.getState().authUser) {
+    return;
+  }
+  try {
+    const result = await settleSessionRequest();
+    if (result.status !== "ok") {
+      return;
+    }
+    const { status: _status, settlementRecap, granted: _granted, ...patch } = result;
+    useHabitQuestStore.setState((current) => {
+      const merged = applyServerPatch(projectData(current), patch);
+      const dismissed = current.dismissedSettlementThroughDate;
+      return {
+        ...current,
+        ...merged,
+        settlementRecap: acceptSettlementRecap(
+          settlementRecap ?? current.settlementRecap,
+          dismissed,
+        ),
+      };
+    });
+  } catch {
+    // Boot still succeeds offline; settle retries on next refresh.
+  }
 }
 
 function mergeTransientState(
@@ -757,6 +486,32 @@ type QueuedHabitComplete = {
 const COMPLETE_BATCH_MS = 140;
 const completeFlushQueue = new Map<string, QueuedHabitComplete>();
 let completeFlushTimer: ReturnType<typeof setTimeout> | null = null;
+let completeFlushInFlight: Promise<void> | null = null;
+
+function trackHabitFlush(work: Promise<void>) {
+  const tracked = work.finally(() => {
+    if (completeFlushInFlight === tracked) {
+      completeFlushInFlight = null;
+    }
+  });
+  completeFlushInFlight = tracked;
+  return tracked;
+}
+
+/** Finish queued clears before a claim so the server can see those completions. */
+async function waitForHabitCompletes() {
+  if (completeFlushTimer) {
+    clearTimeout(completeFlushTimer);
+    completeFlushTimer = null;
+    await trackHabitFlush(flushHabitCompletes());
+  }
+  while (completeFlushInFlight) {
+    await completeFlushInFlight;
+  }
+  if (completeFlushQueue.size) {
+    await trackHabitFlush(flushHabitCompletes());
+  }
+}
 
 function isAlreadyClearedError(error: string) {
   return /already completed today/i.test(error);
@@ -795,28 +550,67 @@ function rollbackHabitCompleteFailure(
   }));
 }
 
+function habitCommandPatch(
+  result: Omit<GamePatch, "completions" | "rewardSystems"> & {
+    habitId?: string;
+    date: string;
+    completion?: HabitQuestData["completions"][number] | null;
+    completions?: Array<{ habitId: string; completion: HabitQuestData["completions"][number] }>;
+    rewardSystems:
+      | Pick<HabitQuestData["rewardSystems"], "todayCombo" | "comboDate">
+      | HabitQuestData["rewardSystems"];
+  },
+): GamePatch {
+  const {
+    habitId: _habitId,
+    date: _date,
+    completion,
+    completions,
+    rewardSystems,
+    ...rest
+  } = result;
+  const patch: GamePatch = { ...rest };
+  if (rewardSystems && "streakFreezes" in rewardSystems) {
+    patch.rewardSystems = rewardSystems;
+  }
+  if (completion) {
+    patch.completions = [completion];
+  } else if (completions?.length) {
+    patch.completions = completions.map((entry) => entry.completion);
+  } else if (result.completion === null && result.habitId) {
+    patch.removedCompletions = [{ habitId: result.habitId, date: result.date }];
+  }
+  return patch;
+}
+
 function applyHabitCompleteSuccess(
   habitId: string,
-  result: {
+  result: Omit<GamePatch, "completions" | "rewardSystems"> & {
     habitId: string;
     date: string;
     completion: HabitQuestData["completions"][number] | null;
-    rewardSystems: Pick<HabitQuestData["rewardSystems"], "todayCombo" | "comboDate">;
+    rewardSystems:
+      | Pick<HabitQuestData["rewardSystems"], "todayCombo" | "comboDate">
+      | HabitQuestData["rewardSystems"];
   },
 ) {
-  const merged = mergeHabitCompletionIntoState(projectData(useHabitQuestStore.getState()), result);
-  const resolution = resolveGameState(withLiveHabitMembership(merged));
-  const persisted = persistLocalOnly(resolution.data);
-  bumpCloudSavePayload(persisted);
-  scheduleCloudSave(persisted);
+  const before = projectData(useHabitQuestStore.getState());
+  const merged = mergeHabitCompletionIntoState(before, {
+    habitId: result.habitId,
+    date: result.date,
+    completion: result.completion,
+    rewardSystems: {
+      todayCombo: result.rewardSystems.todayCombo,
+      comboDate: result.rewardSystems.comboDate,
+    },
+  });
+  const patched = applyServerPatch(merged, habitCommandPatch(result));
+  const floats = currencyFloats(before, patched);
 
   useHabitQuestStore.setState((current) => ({
-    ...mergeTransientState(current, {
-      ...resolution,
-      data: persisted,
-      floatingRewards: [],
-      celebrations: [],
-    }),
+    ...current,
+    ...patched,
+    floatingRewards: [...current.floatingRewards, ...floats],
     ...withoutHabitPending(current, habitId),
   }));
 }
@@ -888,16 +682,20 @@ async function flushHabitCompletes() {
     }
 
     const completedIds = new Set(result.completions.map((entry) => entry.habitId));
-    const merged = mergeHabitCompletionsIntoState(projectData(useHabitQuestStore.getState()), {
+    const before = projectData(useHabitQuestStore.getState());
+    const merged = mergeHabitCompletionsIntoState(before, {
       date: result.date,
       completions: result.completions.map((entry) => ({
         habitId: entry.habitId,
         completion: entry.completion,
       })),
-      rewardSystems: result.rewardSystems,
+      rewardSystems: {
+        todayCombo: result.rewardSystems.todayCombo,
+        comboDate: result.rewardSystems.comboDate,
+      },
     });
-    const resolution = resolveGameState(withLiveHabitMembership(merged));
-    const persisted = persistLocalOnly(resolution.data);
+    const patched = applyServerPatch(merged, habitCommandPatch(result));
+    const floats = currencyFloats(before, patched);
 
     useHabitQuestStore.setState((current) => {
       let pendingHabitIds = current.pendingHabitIds;
@@ -914,12 +712,9 @@ async function flushHabitCompletes() {
         pendingHabitActions = cleared.pendingHabitActions;
       }
       return {
-        ...mergeTransientState(current, {
-          ...resolution,
-          data: persisted,
-          floatingRewards: [],
-          celebrations: [],
-        }),
+        ...current,
+        ...patched,
+        floatingRewards: [...current.floatingRewards, ...floats],
         pendingHabitIds,
         pendingHabitActions,
       };
@@ -949,7 +744,7 @@ function enqueueHabitComplete(habitId: string, seq: number, dateKey: string) {
   }
   completeFlushTimer = setTimeout(() => {
     completeFlushTimer = null;
-    void flushHabitCompletes();
+    void trackHabitFlush(flushHabitCompletes());
   }, COMPLETE_BATCH_MS);
 }
 
@@ -975,7 +770,6 @@ function rollbackClaimFailure(
   }
   const keys = new Set(Array.isArray(pendingKeys) ? pendingKeys : [pendingKeys]);
   const rolledBack = persistLocalOnly(snapshot);
-  bumpCloudSavePayload(rolledBack);
   useHabitQuestStore.setState((current) => ({
     ...current,
     ...rolledBack,
@@ -1016,20 +810,11 @@ async function runClaimAgainstCloud(
     }));
     return;
   }
-  // Prefer surgical claim first. Full-save push is only a bootstrap for empty accounts —
-  // pushing every claim can fail on Vercel when client local "yesterday" is still UTC "today".
-  let result = await claim();
-  if (
-    result.status === "error" &&
-    /no cloud save/i.test(result.error)
-  ) {
-    const ensured = await ensureCloudSavePushed(snapshot);
-    if (!ensured.ok) {
-      rollbackClaimFailure(snapshot, pendingKeys, seqKey, seq, ensured.error);
-      return;
-    }
-    result = await claim();
+  await waitForHabitCompletes();
+  if (!isCurrentShopMutation(seqKey, seq)) {
+    return;
   }
+  const result = await claim();
 
   if (!isCurrentShopMutation(seqKey, seq)) {
     return;
@@ -1147,32 +932,11 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
   applyAuthenticatedSave: (data, options = {}) => {
     setLocalPersistenceEnabled(false);
 
-    const claimedBefore = data.dailyRewards.claimedDailyLoginDate;
-    const comebackBefore = data.rewardSystems.lastComebackDate;
-    const settledBefore = data.rewardSystems.progressSettledThroughDate;
+    // Optimistic UI only — server settle is the durable grant path.
     const resolution = resolveGameState(data, {
       processDailyLogin: options.processDailyLogin ?? false,
     });
-    // Keep a durable browser cache so purchases survive refresh races.
     saveHabitQuestData(resolution.data);
-
-    const claimedAfter = resolution.data.dailyRewards.claimedDailyLoginDate;
-    const loginJustClaimed =
-      Boolean(claimedAfter) && claimedAfter !== claimedBefore;
-    const comebackJustClaimed =
-      Boolean(resolution.data.rewardSystems.lastComebackDate) &&
-      resolution.data.rewardSystems.lastComebackDate !== comebackBefore;
-    const settlementJustApplied =
-      Boolean(resolution.settlementRecap) ||
-      resolution.data.rewardSystems.progressSettledThroughDate !== settledBefore;
-
-    // Daily login / day-settlement (comeback) must hit the cloud immediately —
-    // a debounced push is what made refresh re-grant rewards every time.
-    if (loginJustClaimed || comebackJustClaimed || settlementJustApplied) {
-      void flushCloudSaveNow(resolution.data);
-    } else {
-      scheduleCloudSave(resolution.data);
-    }
 
     const dismissed = get().dismissedSettlementThroughDate;
 
@@ -1185,6 +949,10 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ...enqueueCelebrations({ celebration: null, celebrationQueue: [] }, resolution.celebrations),
       settlementRecap: acceptSettlementRecap(resolution.settlementRecap, dismissed),
     });
+
+    if (options.processDailyLogin) {
+      void settleAuthenticatedSession();
+    }
   },
   createHabit: (rawValues) => {
     const state = get();
@@ -1205,7 +973,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seq = nextHabitMutationSeq(habitId);
     const resolution = resolveGameState(mutation.data);
     const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
 
     set((current) => ({
       ...mergeTransientState(current, { ...resolution, data: persisted }),
@@ -1230,7 +997,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             ...projectData(get()),
             habits: get().habits.filter((entry) => entry.id !== habitId),
           });
-          bumpCloudSavePayload(restored);
           set((current) => ({
             ...current,
             ...restored,
@@ -1262,7 +1028,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           ...projectData(get()),
           habits: get().habits.filter((entry) => entry.id !== habitId),
         });
-        bumpCloudSavePayload(restored);
         set((current) => ({
           ...current,
           ...restored,
@@ -1294,7 +1059,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seq = nextHabitMutationSeq(habitId);
     const resolution = resolveGameState(mutation.data);
     const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
 
     set((current) => ({
       ...mergeTransientState(current, { ...resolution, data: persisted }),
@@ -1316,7 +1080,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         }
         if (result.status !== "ok") {
           const rolledBack = persistLocalOnly(snapshot);
-          bumpCloudSavePayload(rolledBack);
           set((current) => ({
             ...current,
             ...rolledBack,
@@ -1339,7 +1102,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
               ? current.habits.map((entry) => (entry.id === habitId ? result.habit! : entry))
               : current.habits,
           });
-          bumpCloudSavePayload(nextData);
           return {
             ...current,
             ...nextData,
@@ -1352,7 +1114,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           return;
         }
         const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
         set((current) => ({
           ...current,
           ...rolledBack,
@@ -1422,8 +1183,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           withLiveHabitMembership(mutation.data, { excludeHabitId: habitId }),
         );
         const persisted = persistLocalOnly(resolution.data);
-        bumpCloudSavePayload(persisted);
-        scheduleCloudSave(persisted);
         set((current) => ({
           ...mergeTransientState(current, { ...resolution, data: persisted }),
           ...withoutHabitPending(current, habitId),
@@ -1463,8 +1222,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seq = nextHabitMutationSeq(habitId);
     const optimisticResolution = resolveGameState(mutation.data);
     const optimisticPersisted = persistLocalOnly(optimisticResolution.data);
-    bumpCloudSavePayload(optimisticPersisted);
-    scheduleCloudSave(optimisticPersisted);
 
     set((current) => ({
       ...mergeTransientState(current, {
@@ -1507,8 +1264,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seq = nextHabitMutationSeq(habitId);
     const optimisticResolution = resolveGameState(mutation.data);
     const optimisticPersisted = persistLocalOnly(optimisticResolution.data);
-    bumpCloudSavePayload(optimisticPersisted);
-    scheduleCloudSave(optimisticPersisted);
 
     set((current) => ({
       ...mergeTransientState(current, {
@@ -1561,19 +1316,20 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           return;
         }
 
-        const merged = mergeHabitCompletionIntoState(projectData(get()), result);
-        const resolution = resolveGameState(withLiveHabitMembership(merged));
-        const persisted = persistLocalOnly(resolution.data);
-        bumpCloudSavePayload(persisted);
-        scheduleCloudSave(persisted);
+        const merged = mergeHabitCompletionIntoState(projectData(get()), {
+          habitId: result.habitId,
+          date: result.date,
+          completion: result.completion,
+          rewardSystems: {
+            todayCombo: result.rewardSystems.todayCombo,
+            comboDate: result.rewardSystems.comboDate,
+          },
+        });
+        const patched = applyServerPatch(merged, habitCommandPatch(result));
 
         set((current) => ({
-          ...mergeTransientState(current, {
-            ...resolution,
-            data: persisted,
-            floatingRewards: [],
-            celebrations: [],
-          }),
+          ...current,
+          ...patched,
           ...withoutHabitPending(current, habitId),
         }));
       })
@@ -1620,7 +1376,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seq = nextShopMutationSeq(seqKey);
     const resolution = resolveGameState(withLiveHabitMembership(mutation.data));
     const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
 
     set((current) => ({
       ...mergeTransientState(current, {
@@ -1650,7 +1405,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             challenges: result.challenges ?? current.challenges,
             shopItems: result.shopItems ?? current.shopItems,
           });
-          bumpCloudSavePayload(nextData);
           return {
             ...current,
             ...nextData,
@@ -1681,7 +1435,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seq = nextShopMutationSeq(seqKey);
     const resolution = resolveGameState(mutation.data);
     const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
 
     set((current) => ({
       ...mergeTransientState(current, {
@@ -1716,7 +1469,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             questArcs: result.questArcs ?? current.questArcs,
             shopItems: result.shopItems ?? current.shopItems,
           });
-          bumpCloudSavePayload(nextData);
           return {
             ...current,
             ...nextData,
@@ -1747,7 +1499,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seq = nextShopMutationSeq(seqKey);
     const resolution = resolveGameState(mutation.data);
     const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
 
     set((current) => ({
       ...mergeTransientState(current, {
@@ -1783,7 +1534,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             rewardSystems: result.rewardSystems ?? current.rewardSystems,
             shopItems: result.shopItems ?? current.shopItems,
           });
-          bumpCloudSavePayload(nextData);
           return {
             ...current,
             ...nextData,
@@ -1824,7 +1574,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seq = nextShopMutationSeq(seqKey);
     const resolution = resolveGameState(withLiveHabitMembership(mutation.data));
     const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
 
     const seasonCount = claimables.filter((item) => item.kind === "season").length;
 
@@ -1873,7 +1622,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             rewardSystems: result.rewardSystems ?? current.rewardSystems,
             shopItems: result.shopItems ?? current.shopItems,
           });
-          bumpCloudSavePayload(nextData);
           const clearKeys = new Set(["claim-all", ...pendingKeys]);
           return {
             ...current,
@@ -1900,7 +1648,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seq = nextShopMutationSeq(seqKey);
     const resolution = resolveGameState(mutation.data);
     const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
 
     set((current) => ({
       ...mergeTransientState(current, {
@@ -1931,7 +1678,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             weeklyBoss: result.weeklyBoss ?? current.weeklyBoss,
             rewardSystems: result.rewardSystems ?? current.rewardSystems,
           });
-          bumpCloudSavePayload(nextData);
           return {
             ...current,
             ...nextData,
@@ -1961,7 +1707,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const seq = nextShopMutationSeq(seqKey);
     const resolution = resolveGameState(withLiveHabitMembership(mutation.data));
     const persisted = persistLocalOnly(resolution.data);
-    bumpCloudSavePayload(persisted);
     set((current) => ({
       ...mergeTransientState(current, {
         ...resolution,
@@ -1987,7 +1732,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           }),
         );
         const nextData = persistLocalOnly(confirmed.data);
-        bumpCloudSavePayload(nextData);
         set((current) => ({
           ...mergeTransientState(current, { ...confirmed, data: nextData }),
           pendingClaimIds: current.pendingClaimIds.filter((id) => id !== pendingKey),
@@ -2069,7 +1813,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           }),
         );
         const persisted = persistLocalOnly(resolution.data);
-        bumpCloudSavePayload(persisted);
 
         set((current) => ({
           ...mergeTransientState(current, {
@@ -2153,7 +1896,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             equippedItems: result.equippedItems,
           }),
         );
-        bumpCloudSavePayload(persisted);
 
         set((current) => ({
           ...current,
@@ -2235,7 +1977,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
             equippedItems: result.equippedItems,
           }),
         );
-        bumpCloudSavePayload(persisted);
 
         set((current) => ({
           ...current,
@@ -2263,7 +2004,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const snapshot = projectData(state);
     const mutation = applyUpdateSettings(snapshot, patch);
     const persisted = persistLocalOnly(withLiveHabitMembership(mutation.data));
-    bumpCloudSavePayload(persisted);
 
     set((current) => ({
       ...current,
@@ -2277,7 +2017,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     void updateSettingsRequest(patch).then((result) => {
       if (result.status !== "ok") {
         const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
         set((current) => ({
           ...current,
           ...rolledBack,
@@ -2296,7 +2035,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           ...projectData(current),
           settings: result.settings,
         });
-        bumpCloudSavePayload(nextData);
         return { ...current, ...nextData };
       });
     });
@@ -2319,8 +2057,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         lifetimeCoinsSpent: spent,
       },
     });
-    bumpCloudSavePayload(nextData);
-    scheduleCloudSave(nextData);
     set((current) => ({
       ...current,
       ...nextData,
@@ -2331,7 +2067,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     const snapshot = projectData(state);
     const mutation = applyCompleteOnboarding(snapshot, displayName);
     const persisted = persistLocalOnly(withLiveHabitMembership(mutation.data));
-    bumpCloudSavePayload(persisted);
 
     set((current) => ({
       ...current,
@@ -2352,7 +2087,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
     void completeOnboardingRequest(displayName).then((result) => {
       if (result.status !== "ok") {
         const rolledBack = persistLocalOnly(snapshot);
-        bumpCloudSavePayload(rolledBack);
         set((current) => ({
           ...current,
           ...rolledBack,
@@ -2371,7 +2105,6 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           ...projectData(current),
           settings: result.settings,
         });
-        bumpCloudSavePayload(nextData);
         return { ...current, ...nextData };
       });
     });
