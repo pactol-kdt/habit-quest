@@ -18,7 +18,7 @@ type FriendsLoadResult =
 
 const FRIENDS_FRESH_MS = 30_000;
 const FRIENDS_KEEP_MS = 10 * 60 * 1000;
-const STORAGE_KEY = "habitquest.friends.v1";
+const STORAGE_KEY = "habitquest.friends.v2";
 
 let cachedCount = 0;
 let cachedUserId: string | null = null;
@@ -123,16 +123,20 @@ export function rememberFriendsSnapshot(
   emit(snapshot.requests.filter((request) => request.direction === "incoming").length);
 }
 
-export function loadFriendsSnapshot(userId: string) {
+export function loadFriendsSnapshot(userId: string, options?: { revalidate?: boolean }) {
   const peeked = peekFriendsSnapshot(userId);
-  if (peeked && isFriendsSnapshotFresh(peeked.at)) {
+  if (!options?.revalidate && peeked && isFriendsSnapshotFresh(peeked.at)) {
     return Promise.resolve(peeked.result);
   }
   if (inflight) {
     return inflight;
   }
+  const startedAt = Date.now();
   inflight = getFriendsRequest()
     .then((result) => {
+      if (cachedUserId === userId && cachedAt > startedAt && cachedResult?.ok) {
+        return cachedResult;
+      }
       cachedUserId = userId;
       cachedAt = Date.now();
       if (!result.ok) {

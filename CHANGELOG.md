@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.15.3 - Friend List and Nudges
+
+### Changed
+- Remove asks before a friend leaves your list.
+- An incoming request keeps the name and Accept, Decline, and Block on one line. A long name trims.
+- Accept and nudge notices show in Activity. The Got it cards are gone.
+
+### Fixed
+- A sent nudge stays on that friend after a refresh. Notifying one friend leaves the other bells usable, and the friend stays on the list.
+- After someone accepts your request, Friends loads the current list. The sent request is replaced by the new friend.
+
 ## 0.15.2 - Activity Clock and Badge
 
 ### Changed

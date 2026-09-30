@@ -32,7 +32,6 @@ import {
   unblockFriendRequest,
 } from "~/lib/v1/requests";
 import {
-  isFriendsSnapshotFresh,
   loadFriendsSnapshot,
   peekFriendsSnapshot,
   publishIncomingFriendRequestCount,
@@ -77,14 +76,16 @@ export function FriendsPanel() {
   const [blocked, setBlocked] = useState<BlockedPerson[]>([]);
   const [activity, setActivity] = useState<FriendActivityItem[]>([]);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [nudgingUserId, setNudgingUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pushOffFriend, setPushOffFriend] = useState<FriendCard | null>(null);
   const [blockTarget, setBlockTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<{ userId: string; name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
 
-  function apply(result: {
+  function paint(result: {
     friends: FriendCard[];
     requests: FriendRequestCard[];
     blocked?: BlockedPerson[];
@@ -98,6 +99,15 @@ export function FriendsPanel() {
     publishIncomingFriendRequestCount(
       result.requests.filter((request) => request.direction === "incoming").length,
     );
+  }
+
+  function apply(result: {
+    friends: FriendCard[];
+    requests: FriendRequestCard[];
+    blocked?: BlockedPerson[];
+    activity?: FriendActivityItem[];
+  }) {
+    paint(result);
     if (authUser?.id) {
       rememberFriendsSnapshot(authUser.id, result);
     }
@@ -110,15 +120,12 @@ export function FriendsPanel() {
     }
     const cached = peekFriendsSnapshot(userId);
     if (cached?.result.ok) {
-      apply(cached.result);
+      paint(cached.result);
       setLoading(false);
-      if (isFriendsSnapshotFresh(cached.at)) {
-        return;
-      }
     } else {
       setLoading(true);
     }
-    void loadFriendsSnapshot(userId).then((result) => {
+    void loadFriendsSnapshot(userId, { revalidate: true }).then((result) => {
       setLoading(false);
       if (!result.ok) {
         if (!cached) {
@@ -131,9 +138,17 @@ export function FriendsPanel() {
   }
 
   useEffect(() => {
-    if (authUser?.id) {
-      load();
+    if (!authUser?.id) {
+      return;
     }
+    load();
+    function onVisible() {
+      if (document.visibilityState === "visible") {
+        load();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
     // Reload when the signed-in account changes, not on every store update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.id]);
@@ -287,23 +302,35 @@ export function FriendsPanel() {
   }
 
   function onNudge(friend: FriendCard) {
-    startTransition(async () => {
-      const result = await nudgeFriendRequest(friend.userId);
-      if (!result.ok) {
+    setNudgingUserId(friend.userId);
+    void nudgeFriendRequest(friend.userId).then((result) => {
+      setNudgingUserId((current) => (current === friend.userId ? null : current));
+      if (!result.ok && result.error !== "You already nudged them today.") {
         setError(result.error);
         return;
       }
       setError(null);
-      setNotice(
-        result.delivery === "in-app"
-          ? "They haven't turned on phone alerts. They'll see the nudge in the app."
-          : "Nudge sent.",
-      );
-      setFriends((current) =>
-        current.map((entry) =>
-          entry.userId === friend.userId ? { ...entry, nudge: "sent" } : entry,
-        ),
-      );
+      if (result.ok) {
+        setNotice(
+          result.delivery === "in-app"
+            ? "They haven't turned on phone alerts. They'll see the nudge in the app."
+            : "Nudge sent.",
+        );
+      }
+      setFriends((current) => {
+        const nextFriends = current.map((entry) =>
+          entry.userId === friend.userId ? { ...entry, nudge: "sent" as const } : entry,
+        );
+        if (authUser?.id && nextFriends.length > 0) {
+          rememberFriendsSnapshot(authUser.id, {
+            friends: nextFriends,
+            requests,
+            blocked,
+            activity,
+          });
+        }
+        return nextFriends;
+      });
     });
   }
 
@@ -438,17 +465,15 @@ export function FriendsPanel() {
             {incoming.map((request) => (
               <div
                 key={request.requestId}
-                className="grid gap-3 rounded-3xl border border-white/10 bg-white/4 px-4 py-3"
+                className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/4 px-4 py-3"
               >
-                <div className="flex min-w-0 items-center gap-3">
-                  <AvatarWithFrame
-                    avatar={resolveCosmetic(request.avatarItemId)}
-                    frame={resolveCosmetic(request.frameItemId)}
-                    className="h-11 w-11 shrink-0 border border-white/10"
-                  />
-                  <p className="min-w-0 flex-1 truncate font-semibold text-white">{request.displayName}</p>
-                </div>
-                <div className="flex flex-wrap justify-end gap-2">
+                <AvatarWithFrame
+                  avatar={resolveCosmetic(request.avatarItemId)}
+                  frame={resolveCosmetic(request.frameItemId)}
+                  className="h-11 w-11 shrink-0 border border-white/10"
+                />
+                <p className="min-w-0 flex-1 truncate font-semibold text-white">{request.displayName}</p>
+                <div className="flex shrink-0 items-center gap-2">
                   <button
                     type="button"
                     disabled={pending}
@@ -547,7 +572,7 @@ export function FriendsPanel() {
                     {friend.nudge === "available" || friend.nudge === "no-push" ? (
                       <button
                         type="button"
-                        disabled={pending}
+                        disabled={nudgingUserId === friend.userId}
                         aria-label={`Notify ${friend.displayName}`}
                         title="Notify"
                         onClick={() => setPushOffFriend(friend)}
@@ -581,7 +606,7 @@ export function FriendsPanel() {
                       disabled={pending}
                       aria-label={`Remove ${friend.displayName}`}
                       title="Remove"
-                      onClick={() => onRemove(friend.userId)}
+                      onClick={() => setRemoveTarget({ userId: friend.userId, name: friend.displayName })}
                       className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-[var(--color-text-muted)] disabled:opacity-50"
                     >
                       <RemoveIcon />
@@ -660,6 +685,36 @@ export function FriendsPanel() {
         <button
           type="button"
           onClick={() => setPushOffFriend(null)}
+          className="min-h-12 rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] hover:text-white"
+        >
+          Cancel
+        </button>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={removeTarget !== null}
+        title={removeTarget ? `Remove ${removeTarget.name}?` : "Remove?"}
+        description="They leave your friends list. You can add them again later."
+        onClose={() => setRemoveTarget(null)}
+      >
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => {
+            if (!removeTarget) {
+              return;
+            }
+            const target = removeTarget;
+            setRemoveTarget(null);
+            onRemove(target.userId);
+          }}
+          className="min-h-12 rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50"
+        >
+          Remove
+        </button>
+        <button
+          type="button"
+          onClick={() => setRemoveTarget(null)}
           className="min-h-12 rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] hover:text-white"
         >
           Cancel
