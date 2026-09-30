@@ -321,6 +321,14 @@ export async function cheerFriendRequest(userId: string) {
   return { ok: true as const, cheer: result.data.cheer, delivery: result.data.delivery };
 }
 
+export async function markActivitySeenRequest() {
+  const result = await v1Request("/friends/activity/seen", { method: "POST" });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const };
+}
+
 export async function markCheerNoticeSeenRequest(fromUserId: string) {
   const result = await v1Request("/friends/cheers/seen", { json: { fromUserId } });
   if (!result.ok) {

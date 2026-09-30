@@ -4,6 +4,7 @@ import { generateUid } from "./generate-uid.ts";
 import {
   buildAcceptCopy,
   buildActivityNudgeCopy,
+  formatActivityAge,
   buildCheerCopy,
   buildFinishCopy,
   buildFriendRequestCopy,
@@ -76,7 +77,16 @@ describe("friend pairs and nudges", () => {
 
   it("keeps today's nudge in the present and older nudges in the past", () => {
     assert.equal(buildActivityNudgeCopy("Sam", true).title, "Sam asked you to finish today");
-    assert.equal(buildActivityNudgeCopy("Sam", false).body, "That day has passed.");
+    assert.equal(buildActivityNudgeCopy("Sam", true).body, "Today's habits are still open.");
+    assert.equal(buildActivityNudgeCopy("Sam", false).body, "");
+  });
+
+  it("says how long ago an activity happened", () => {
+    const now = Date.parse("2026-09-30T12:00:00.000Z");
+    assert.equal(formatActivityAge("2026-09-30T12:00:00.000Z", now), "Just now");
+    assert.equal(formatActivityAge("2026-09-30T11:00:00.000Z", now), "1hr ago");
+    assert.equal(formatActivityAge("2026-09-29T12:00:00.000Z", now), "1d ago");
+    assert.equal(formatActivityAge("2026-09-28T12:00:00.000Z", now), "2d ago");
   });
 
   it("names the friend who accepted", () => {

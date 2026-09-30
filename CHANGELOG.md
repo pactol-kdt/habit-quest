@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.15.2 - Activity Clock and Badge
+
+### Changed
+- Friends activity opens from a clock icon beside Today. Each event shows how long ago it happened, such as 1hr ago or 2d ago. A badge counts events you have not opened yet.
+
 ## 0.15.1 - Inventory Narrow Screen Fix
 
 ### Fixed

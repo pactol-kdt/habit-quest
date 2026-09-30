@@ -213,6 +213,7 @@ async function loadActivity(
       .select({
         fromUserId: friendAcceptNotices.fromUserId,
         createdAt: friendAcceptNotices.createdAt,
+        seenAt: friendAcceptNotices.seenAt,
       })
       .from(friendAcceptNotices)
       .where(
@@ -229,6 +230,7 @@ async function loadActivity(
         fromUserId: friendNudges.fromUserId,
         localDate: friendNudges.localDate,
         createdAt: friendNudges.createdAt,
+        seenAt: friendNudges.seenAt,
       })
       .from(friendNudges)
       .where(
@@ -245,6 +247,7 @@ async function loadActivity(
         fromUserId: friendFinishNotices.fromUserId,
         localDate: friendFinishNotices.localDate,
         createdAt: friendFinishNotices.createdAt,
+        seenAt: friendFinishNotices.seenAt,
       })
       .from(friendFinishNotices)
       .where(
@@ -262,6 +265,7 @@ async function loadActivity(
         streak: friendStreakNotices.streak,
         localDate: friendStreakNotices.localDate,
         createdAt: friendStreakNotices.createdAt,
+        seenAt: friendStreakNotices.seenAt,
       })
       .from(friendStreakNotices)
       .where(
@@ -278,6 +282,7 @@ async function loadActivity(
         fromUserId: friendCheers.fromUserId,
         localDate: friendCheers.localDate,
         createdAt: friendCheers.createdAt,
+        seenAt: friendCheers.seenAt,
       })
       .from(friendCheers)
       .where(
@@ -300,6 +305,7 @@ async function loadActivity(
         title: copy.title,
         body: copy.body,
         createdAt: row.createdAt,
+        unseen: !row.seenAt,
       };
     }),
     ...nudges.map((row) => {
@@ -312,6 +318,7 @@ async function loadActivity(
         title: copy.title,
         body: copy.body,
         createdAt: row.createdAt,
+        unseen: !row.seenAt,
       };
     }),
     ...finishes.map((row) => {
@@ -321,6 +328,7 @@ async function loadActivity(
         title: copy.title,
         body: copy.body,
         createdAt: row.createdAt,
+        unseen: !row.seenAt,
       };
     }),
     ...streaks.map((row) => {
@@ -330,6 +338,7 @@ async function loadActivity(
         title: copy.title,
         body: copy.body,
         createdAt: row.createdAt,
+        unseen: !row.seenAt,
       };
     }),
     ...cheers.map((row) => {
@@ -339,6 +348,7 @@ async function loadActivity(
         title: copy.title,
         body: copy.body,
         createdAt: row.createdAt,
+        unseen: !row.seenAt,
       };
     }),
   ];
@@ -1658,6 +1668,40 @@ export async function markCheerNoticeSeenAction(fromUserId: string) {
         isNull(friendCheers.seenAt),
       ),
     );
+
+  return { ok: true as const };
+}
+
+export async function markActivitySeenAction() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { ok: false as const, error: "Sign in required." };
+  }
+
+  const database = await ensureDatabase();
+  const seenAt = new Date().toISOString();
+  await Promise.all([
+    database
+      .update(friendNudges)
+      .set({ seenAt })
+      .where(and(eq(friendNudges.toUserId, user.id), isNull(friendNudges.seenAt))),
+    database
+      .update(friendFinishNotices)
+      .set({ seenAt })
+      .where(and(eq(friendFinishNotices.toUserId, user.id), isNull(friendFinishNotices.seenAt))),
+    database
+      .update(friendAcceptNotices)
+      .set({ seenAt })
+      .where(and(eq(friendAcceptNotices.toUserId, user.id), isNull(friendAcceptNotices.seenAt))),
+    database
+      .update(friendStreakNotices)
+      .set({ seenAt })
+      .where(and(eq(friendStreakNotices.toUserId, user.id), isNull(friendStreakNotices.seenAt))),
+    database
+      .update(friendCheers)
+      .set({ seenAt })
+      .where(and(eq(friendCheers.toUserId, user.id), isNull(friendCheers.seenAt))),
+  ]);
 
   return { ok: true as const };
 }

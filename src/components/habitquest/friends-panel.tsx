@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { AvatarWithFrame } from "~/components/habitquest/cosmetic-art";
 import { ConfirmDialog } from "~/components/habitquest/confirm-dialog";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { StreakFlame } from "~/components/habitquest/streak-flame";
 import { getBuiltinCatalog } from "~/lib/habitquest/catalog";
 import { getStreakFireTier } from "~/lib/habitquest/streak-fire-tier";
+import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import { cn } from "~/lib/ui/cn";
+import { formatActivityAge } from "~/lib/v1/friend-rules";
 import type {
   BlockedPerson,
   FriendActivityItem,
@@ -22,6 +25,7 @@ import {
   cheerFriendRequest,
   declineFriendRequest,
   lookupFriendRequest,
+  markActivitySeenRequest,
   nudgeFriendRequest,
   removeFriendRequest,
   sendFriendRequest,
@@ -72,6 +76,7 @@ export function FriendsPanel() {
   const [requests, setRequests] = useState<FriendRequestCard[]>([]);
   const [blocked, setBlocked] = useState<BlockedPerson[]>([]);
   const [activity, setActivity] = useState<FriendActivityItem[]>([]);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pushOffFriend, setPushOffFriend] = useState<FriendCard | null>(null);
@@ -261,6 +266,24 @@ export function FriendsPanel() {
         });
       }
     });
+  }
+
+  function openActivity() {
+    setActivityOpen(true);
+    if (!activity.some((item) => item.unseen !== false)) {
+      return;
+    }
+    const nextActivity = activity.map((item) => ({ ...item, unseen: false }));
+    setActivity(nextActivity);
+    if (authUser?.id) {
+      rememberFriendsSnapshot(authUser.id, {
+        friends,
+        requests,
+        blocked,
+        activity: nextActivity,
+      });
+    }
+    void markActivitySeenRequest();
   }
 
   function onNudge(friend: FriendCard) {
@@ -463,36 +486,17 @@ export function FriendsPanel() {
         </GlassCard>
       ) : null}
 
-      {activity.length > 0 ? (
-        <GlassCard className="overflow-hidden rounded-[1.75rem]">
-          <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">Activity</p>
-          <div className="mt-4 space-y-3">
-            {activity.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/4 px-4 py-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-white">{item.title}</p>
-                  <p className="mt-1 truncate text-sm text-[var(--color-text-muted)]">{item.body}</p>
-                </div>
-                {item.cheerUserId ? (
-                  <CheerButton
-                    sent={item.cheerSent === true}
-                    pending={pending}
-                    label="Cheer"
-                    onClick={() => onCheer(item.cheerUserId!)}
-                  />
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </GlassCard>
-      ) : null}
-
       <GlassCard className="overflow-hidden rounded-[1.75rem]">
-        <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">Friends</p>
-        <h2 className="section-title mt-2 text-2xl text-white">Today</h2>
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">Friends</p>
+            <h2 className="section-title mt-2 truncate text-2xl text-white">Today</h2>
+          </div>
+          <ActivityButton
+            count={activity.filter((item) => item.unseen !== false).length}
+            onClick={openActivity}
+          />
+        </div>
         {loading && friends.length === 0 ? (
           <div className="mt-4 h-16 animate-pulse rounded-3xl border border-white/10 bg-white/5" />
         ) : friends.length === 0 ? (
@@ -691,7 +695,148 @@ export function FriendsPanel() {
           Cancel
         </button>
       </ConfirmDialog>
+      <ActivityDialog
+        open={activityOpen}
+        items={activity}
+        pending={pending}
+        onClose={() => setActivityOpen(false)}
+        onCheer={onCheer}
+      />
     </div>
+  );
+}
+
+function ActivityButton({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Activity"
+      aria-label={count > 0 ? `Activity, ${count} new` : "Activity"}
+      className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 text-white"
+    >
+      <ActivityIcon />
+      {count > 0 ? (
+        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-300 px-1 text-[10px] font-semibold text-slate-950">
+          {count > 9 ? "9+" : count}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+function ActivityDialog({
+  open,
+  items,
+  pending,
+  onClose,
+  onCheer,
+}: {
+  open: boolean;
+  items: FriendActivityItem[];
+  pending: boolean;
+  onClose: () => void;
+  onCheer: (userId: string) => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted || !open) {
+    return null;
+  }
+  return createPortal(
+    <ActivityDialogPanel items={items} pending={pending} onClose={onClose} onCheer={onCheer} />,
+    document.body,
+  );
+}
+
+function ActivityDialogPanel({
+  items,
+  pending,
+  onClose,
+  onCheer,
+}: {
+  items: FriendActivityItem[];
+  pending: boolean;
+  onClose: () => void;
+  onCheer: (userId: string) => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(panelRef, onClose);
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur-md sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="activity-dialog-title"
+        tabIndex={-1}
+        className="glass-panel flex max-h-[85vh] w-full max-w-md flex-col rounded-t-[1.5rem] border border-white/10 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] outline-none sm:rounded-[1.75rem] sm:p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center gap-3">
+          <h2 id="activity-dialog-title" className="section-title min-w-0 flex-1 truncate text-2xl text-white">
+            Activity
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            title="Close"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 text-[var(--color-text-muted)]"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+        <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto">
+          {items.length === 0 ? (
+            <p className="rounded-3xl border border-white/10 bg-white/4 px-4 py-6 text-sm text-[var(--color-text-muted)]">
+              No activity yet.
+            </p>
+          ) : (
+            items.map((item) => {
+              const age = formatActivityAge(item.createdAt);
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/4 px-4 py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-white">{item.title}</p>
+                    {item.body ? (
+                      <p className="mt-1 text-sm text-[var(--color-text-muted)]">{item.body}</p>
+                    ) : null}
+                    {age ? <p className="mt-1 text-sm text-[var(--color-text-muted)]">{age}</p> : null}
+                  </div>
+                  {item.cheerUserId ? (
+                    <CheerButton
+                      sent={item.cheerSent === true}
+                      pending={pending}
+                      label="Cheer"
+                      onClick={() => onCheer(item.cheerUserId!)}
+                    />
+                  ) : null}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActivityIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 8v5l3 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

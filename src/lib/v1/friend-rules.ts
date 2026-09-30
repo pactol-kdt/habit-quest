@@ -47,10 +47,30 @@ export type FriendActivityItem = {
   title: string;
   body: string;
   createdAt: string;
+  unseen: boolean;
   /** Set when this row is today's finish and you can answer it. */
   cheerUserId?: string;
   cheerSent?: boolean;
 };
+
+export function formatActivityAge(createdAt: string, now = Date.now()) {
+  const then = Date.parse(createdAt);
+  if (!Number.isFinite(then)) {
+    return "";
+  }
+  const minutes = Math.max(0, Math.floor((now - then) / 60_000));
+  if (minutes < 1) {
+    return "Just now";
+  }
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}hr ago`;
+  }
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 export type FriendLookupRelation = "none" | "friends" | "outgoing" | "incoming" | "blocked";
 
@@ -150,7 +170,7 @@ export function buildActivityNudgeCopy(senderName: string, stillToday: boolean) 
   }
   return {
     title: `${name} asked you to finish a day`,
-    body: "That day has passed.",
+    body: "",
   };
 }
 
