@@ -2,8 +2,15 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { generateUid } from "./generate-uid.ts";
 import {
+  buildAcceptCopy,
+  buildActivityNudgeCopy,
+  buildCheerCopy,
+  buildFinishCopy,
+  buildFriendRequestCopy,
   buildNudgeCopy,
+  buildStreakCopy,
   formatUid,
+  isFriendStreakMilestone,
   normalizeUid,
   nudgeAvailability,
   orderUserPair,
@@ -41,9 +48,56 @@ describe("friend pairs and nudges", () => {
 
   it("names the sender and the habits still open", () => {
     assert.deepEqual(buildNudgeCopy("Alex", 2), {
-      title: "Alex nudged you",
+      title: "Alex asked you to finish today",
       body: "2 habits still open today.",
     });
     assert.equal(buildNudgeCopy("Alex", 1).body, "1 habit still open today.");
+  });
+
+  it("names the sender on a friend request", () => {
+    assert.deepEqual(buildFriendRequestCopy("Alex"), {
+      title: "Alex sent a friend request",
+      body: "Open Friends to accept or decline.",
+    });
+    assert.equal(buildFriendRequestCopy("  ").title, "A friend sent a friend request");
+  });
+
+  it("names a streak milestone and ignores the days in between", () => {
+    assert.equal(isFriendStreakMilestone(7), true);
+    assert.equal(isFriendStreakMilestone(14), true);
+    assert.equal(isFriendStreakMilestone(30), true);
+    assert.equal(isFriendStreakMilestone(3), false);
+    assert.equal(isFriendStreakMilestone(8), false);
+    assert.deepEqual(buildStreakCopy("Alex", 7), {
+      title: "Alex reached a 7-day streak",
+      body: "7 days in a row.",
+    });
+  });
+
+  it("keeps today's nudge in the present and older nudges in the past", () => {
+    assert.equal(buildActivityNudgeCopy("Sam", true).title, "Sam asked you to finish today");
+    assert.equal(buildActivityNudgeCopy("Sam", false).body, "That day has passed.");
+  });
+
+  it("names the friend who accepted", () => {
+    assert.deepEqual(buildAcceptCopy("Alex"), {
+      title: "Alex accepted your friend request",
+      body: "You're friends now.",
+    });
+  });
+
+  it("names the friend who finished today", () => {
+    assert.deepEqual(buildFinishCopy("Alex"), {
+      title: "Alex completed a habit today",
+      body: "One habit is done.",
+    });
+  });
+
+  it("cheers a friend without naming the habit", () => {
+    assert.deepEqual(buildCheerCopy("Sam"), {
+      title: "Sam cheered you on",
+      body: "Nice work today.",
+    });
+    assert.equal(buildCheerCopy("  ").title, "A friend cheered you on");
   });
 });

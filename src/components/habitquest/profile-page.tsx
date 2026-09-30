@@ -145,9 +145,11 @@ export function ProfilePage() {
                       setUidCopied(false);
                     }
                   }}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
+                  title={uidCopied ? "Copied" : "Copy"}
+                  aria-label={uidCopied ? "Copied" : "Copy UID"}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
                 >
-                  {uidCopied ? "Copied" : "Copy"}
+                  {uidCopied ? <CheckIcon /> : <CopyIcon />}
                 </button>
               </div>
             ) : null}
@@ -226,7 +228,7 @@ export function ProfilePage() {
   );
 }
 
-function HonorMedal({
+export function HonorMedal({
   tone,
   count,
   label,
@@ -411,6 +413,23 @@ function ChangePasswordPanel({ onClose }: { onClose: () => void }) {
         </div>
       </motion.form>
     </motion.div>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="8" y="8" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M5 15V5h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

@@ -138,20 +138,24 @@ export function LeaderboardPage() {
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
               {hero.eyebrow}
             </p>
-            <h1 className="section-title mt-2 text-2xl text-white sm:text-4xl md:text-5xl">
-              {hero.title}
-            </h1>
+            <div className="mt-2 flex items-center gap-3">
+              <h1 className="section-title min-w-0 flex-1 truncate text-2xl text-white sm:text-4xl md:text-5xl">
+                {hero.title}
+              </h1>
+              <button
+                type="button"
+                onClick={load}
+                disabled={pending}
+                title={pending ? "Refreshing…" : "Refresh"}
+                aria-label={pending ? "Refreshing" : "Refresh"}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white disabled:opacity-50"
+              >
+                <RefreshIcon />
+              </button>
+            </div>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
               {hero.support}
             </p>
-            <button
-              type="button"
-              onClick={load}
-              disabled={pending}
-              className="mt-5 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white disabled:opacity-50"
-            >
-              {pending ? "Refreshing…" : "Refresh"}
-            </button>
           </div>
 
           <div className="min-w-0 overflow-hidden rounded-[1.75rem] border border-cyan-300/20 bg-gradient-to-br from-cyan-400/10 via-sky-300/5 to-transparent p-5">
@@ -258,5 +262,19 @@ export function LeaderboardPage() {
         ) : null}
       </GlassCard>
     </div>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M20 12a8 8 0 1 1-2.2-5.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path d="M20 4v5h-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

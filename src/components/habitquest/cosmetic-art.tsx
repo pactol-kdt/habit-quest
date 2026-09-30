@@ -69,7 +69,7 @@ export function CosmeticPreview({
           background: `linear-gradient(135deg, ${bg}, ${accent}55 55%, ${gold}44)`,
         }}
       >
-        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/90">
+        <span className="max-w-full truncate px-1 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-white/90">
           {item.preview}
         </span>
       </div>

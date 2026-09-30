@@ -21,6 +21,7 @@ import {
   applyCompleteHabitForToday,
   applyUncompleteHabitForToday,
 } from "~/lib/habitquest/habit-mutations";
+import { notifyFriendsOfStreakMilestone, notifyNudgersIfDayCleared } from "~/lib/v1/friends";
 import { coerceFormValues, isValidDateKey } from "~/lib/v1/parse";
 import type { Habit, HabitCompletion, RewardSystems, UserProgress } from "~/types/habitquest";
 
@@ -224,6 +225,19 @@ export async function completeHabits(
     const resolution = resolvePersistentGameState(working, { today: dateKey });
     const patch = buildGamePatch(before, resolution.data);
     const saved = await persistGamePatch(database, user.id, patch);
+    void notifyNudgersIfDayCleared(database, user.id, dateKey).catch(() => {
+      // Clearing the habit already succeeded. A finish notice must not fail the clear.
+    });
+    if (resolution.data.userProgress.currentStreak > before.userProgress.currentStreak) {
+      void notifyFriendsOfStreakMilestone(
+        database,
+        user.id,
+        resolution.data.userProgress.currentStreak,
+        dateKey,
+      ).catch(() => {
+        // Clearing the habit already succeeded. A streak notice must not fail the clear.
+      });
+    }
 
     return {
       status: "ok",

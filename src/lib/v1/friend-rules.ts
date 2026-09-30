@@ -16,6 +16,60 @@ export type FriendCard = {
   titleItemId: string | null;
   today: { done: number; due: number };
   nudge: NudgeState;
+  /** Hidden until they finish a habit today. Sent means you already cheered them. */
+  cheer: "hidden" | "available" | "sent";
+};
+
+export type FriendProfileView = {
+  userId: string;
+  displayName: string;
+  uid: string;
+  level: number;
+  totalExp: number;
+  currentStreak: number;
+  bestStreak: number;
+  avatarItemId: string | null;
+  frameItemId: string | null;
+  titleItemId: string | null;
+  seasonPassCompletions: number;
+  /** Completion dates only. Habit names are not included. */
+  activityDates: string[];
+};
+
+export const FRIEND_STREAK_MILESTONES = [7, 14, 30] as const;
+
+export function isFriendStreakMilestone(streak: number) {
+  return (FRIEND_STREAK_MILESTONES as readonly number[]).includes(streak);
+}
+
+export type FriendActivityItem = {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  /** Set when this row is today's finish and you can answer it. */
+  cheerUserId?: string;
+  cheerSent?: boolean;
+};
+
+export type FriendLookupRelation = "none" | "friends" | "outgoing" | "incoming" | "blocked";
+
+export type FriendLookupPreview = {
+  userId: string;
+  displayName: string;
+  uid: string;
+  level: number;
+  avatarItemId: string | null;
+  frameItemId: string | null;
+  titleItemId: string | null;
+  relation: FriendLookupRelation;
+};
+
+export type BlockedPerson = {
+  userId: string;
+  displayName: string;
+  avatarItemId: string | null;
+  frameItemId: string | null;
 };
 
 export type FriendRequestCard = {
@@ -62,13 +116,67 @@ export function nudgeAvailability(input: {
   return "available";
 }
 
+export function buildCheerCopy(senderName: string) {
+  const name = senderName.trim() || "A friend";
+  return {
+    title: `${name} cheered you on`,
+    body: "Nice work today.",
+  };
+}
+
+export function buildFinishCopy(senderName: string) {
+  const name = senderName.trim() || "A friend";
+  return {
+    title: `${name} completed a habit today`,
+    body: "One habit is done.",
+  };
+}
+
+export function buildStreakCopy(senderName: string, streak: number) {
+  const name = senderName.trim() || "A friend";
+  return {
+    title: `${name} reached a ${streak}-day streak`,
+    body: `${streak} days in a row.`,
+  };
+}
+
+export function buildActivityNudgeCopy(senderName: string, stillToday: boolean) {
+  const name = senderName.trim() || "A friend";
+  if (stillToday) {
+    return {
+      title: `${name} asked you to finish today`,
+      body: "Today's habits are still open.",
+    };
+  }
+  return {
+    title: `${name} asked you to finish a day`,
+    body: "That day has passed.",
+  };
+}
+
+export function buildAcceptCopy(senderName: string) {
+  const name = senderName.trim() || "A friend";
+  return {
+    title: `${name} accepted your friend request`,
+    body: "You're friends now.",
+  };
+}
+
+export function buildFriendRequestCopy(senderName: string) {
+  const name = senderName.trim() || "A friend";
+  return {
+    title: `${name} sent a friend request`,
+    body: "Open Friends to accept or decline.",
+  };
+}
+
 export function buildNudgeCopy(senderName: string, remaining: number) {
   const name = senderName.trim() || "A friend";
   const open = Math.max(0, remaining);
   const body =
     open === 1 ? "1 habit still open today." : `${open} habits still open today.`;
   return {
-    title: `${name} nudged you`,
+    title: `${name} asked you to finish today`,
     body,
   };
 }

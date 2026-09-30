@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { AvatarWithFrame } from "~/components/habitquest/cosmetic-art";
 import { ConfirmDialog } from "~/components/habitquest/confirm-dialog";
@@ -8,17 +9,30 @@ import { StreakFlame } from "~/components/habitquest/streak-flame";
 import { getBuiltinCatalog } from "~/lib/habitquest/catalog";
 import { getStreakFireTier } from "~/lib/habitquest/streak-fire-tier";
 import { cn } from "~/lib/ui/cn";
-import type { FriendCard, FriendRequestCard } from "~/lib/v1/friend-rules";
+import type {
+  BlockedPerson,
+  FriendActivityItem,
+  FriendCard,
+  FriendLookupPreview,
+  FriendRequestCard,
+} from "~/lib/v1/friend-rules";
 import {
   acceptFriendRequest,
+  blockFriendRequest,
+  cheerFriendRequest,
   declineFriendRequest,
+  lookupFriendRequest,
   nudgeFriendRequest,
   removeFriendRequest,
   sendFriendRequest,
+  unblockFriendRequest,
 } from "~/lib/v1/requests";
 import {
+  isFriendsSnapshotFresh,
   loadFriendsSnapshot,
+  peekFriendsSnapshot,
   publishIncomingFriendRequestCount,
+  rememberFriendsSnapshot,
 } from "~/hooks/use-incoming-friend-requests";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 import type { ShopItem } from "~/types/habitquest";
@@ -53,21 +67,35 @@ function nudgeLabel(nudge: FriendCard["nudge"]) {
 export function FriendsPanel() {
   const authUser = useHabitQuestStore((state) => state.authUser);
   const [draft, setDraft] = useState("");
+  const [previews, setPreviews] = useState<FriendLookupPreview[]>([]);
   const [friends, setFriends] = useState<FriendCard[]>([]);
   const [requests, setRequests] = useState<FriendRequestCard[]>([]);
+  const [blocked, setBlocked] = useState<BlockedPerson[]>([]);
+  const [activity, setActivity] = useState<FriendActivityItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pushOffFriend, setPushOffFriend] = useState<FriendCard | null>(null);
+  const [blockTarget, setBlockTarget] = useState<{ userId: string; name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
 
-  function apply(result: { friends: FriendCard[]; requests: FriendRequestCard[] }) {
+  function apply(result: {
+    friends: FriendCard[];
+    requests: FriendRequestCard[];
+    blocked?: BlockedPerson[];
+    activity?: FriendActivityItem[];
+  }) {
     setFriends(result.friends);
     setRequests(result.requests);
+    setBlocked(result.blocked ?? []);
+    setActivity(result.activity ?? []);
     setError(null);
     publishIncomingFriendRequestCount(
       result.requests.filter((request) => request.direction === "incoming").length,
     );
+    if (authUser?.id) {
+      rememberFriendsSnapshot(authUser.id, result);
+    }
   }
 
   function load() {
@@ -75,11 +103,22 @@ export function FriendsPanel() {
     if (!userId) {
       return;
     }
-    setLoading(true);
+    const cached = peekFriendsSnapshot(userId);
+    if (cached?.result.ok) {
+      apply(cached.result);
+      setLoading(false);
+      if (isFriendsSnapshotFresh(cached.at)) {
+        return;
+      }
+    } else {
+      setLoading(true);
+    }
     void loadFriendsSnapshot(userId).then((result) => {
       setLoading(false);
       if (!result.ok) {
-        setError(result.error);
+        if (!cached) {
+          setError(result.error);
+        }
         return;
       }
       apply(result);
@@ -94,19 +133,43 @@ export function FriendsPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.id]);
 
-  function onAdd(event: FormEvent) {
+  function onSearch(event: FormEvent) {
     event.preventDefault();
     const next = draft.trim();
     if (!next) {
       return;
     }
     startTransition(async () => {
-      const result = await sendFriendRequest(next);
+      const result = await lookupFriendRequest(next);
+      if (!result.ok) {
+        setPreviews([]);
+        setNotice(null);
+        setError(result.error);
+        return;
+      }
+      setError(null);
+      setNotice(null);
+      setPreviews(result.previews);
+    });
+  }
+
+  function onAddPreview(person: FriendLookupPreview) {
+    if (person.relation !== "none") {
+      return;
+    }
+    startTransition(async () => {
+      const result = await sendFriendRequest(person.uid);
       if (!result.ok) {
         setError(result.error);
         return;
       }
       setDraft("");
+      setPreviews([]);
+      setNotice(
+        result.delivery === "in-app"
+          ? "They haven't turned on phone alerts. They'll see the request in the app."
+          : "Friend request sent.",
+      );
       apply(result);
     });
   }
@@ -133,6 +196,28 @@ export function FriendsPanel() {
     });
   }
 
+  function onBlock(userId: string) {
+    startTransition(async () => {
+      const result = await blockFriendRequest(userId);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      apply(result);
+    });
+  }
+
+  function onUnblock(userId: string) {
+    startTransition(async () => {
+      const result = await unblockFriendRequest(userId);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      apply(result);
+    });
+  }
+
   function onRemove(userId: string) {
     startTransition(async () => {
       const result = await removeFriendRequest(userId);
@@ -141,6 +226,40 @@ export function FriendsPanel() {
         return;
       }
       apply(result);
+    });
+  }
+
+  function onCheer(userId: string) {
+    startTransition(async () => {
+      const result = await cheerFriendRequest(userId);
+      if (!result.ok && result.error !== "You already cheered them today.") {
+        setError(result.error);
+        return;
+      }
+      setError(null);
+      if (result.ok) {
+        setNotice(
+          result.delivery === "in-app"
+            ? "They haven't turned on phone alerts. They'll see the cheer in the app."
+            : "Cheer sent.",
+        );
+      }
+      const nextFriends = friends.map((entry) =>
+        entry.userId === userId ? { ...entry, cheer: "sent" as const } : entry,
+      );
+      const nextActivity = activity.map((item) =>
+        item.cheerUserId === userId ? { ...item, cheerSent: true } : item,
+      );
+      setFriends(nextFriends);
+      setActivity(nextActivity);
+      if (authUser?.id) {
+        rememberFriendsSnapshot(authUser.id, {
+          friends: nextFriends,
+          requests,
+          blocked,
+          activity: nextActivity,
+        });
+      }
     });
   }
 
@@ -182,22 +301,107 @@ export function FriendsPanel() {
     <div className="grid gap-4">
       <GlassCard className="overflow-hidden rounded-[1.75rem]">
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">Add a friend</p>
-        <form onSubmit={onAdd} className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <form onSubmit={onSearch} className="mt-4 flex items-center gap-2">
           <input
             value={draft}
-            onChange={(event) => setDraft(event.target.value.toUpperCase())}
-            placeholder="Friend UID"
-            maxLength={12}
-            className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono tracking-[0.12em] outline-none transition focus:border-cyan-300/50"
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setPreviews([]);
+            }}
+            placeholder="Username or UID"
+            maxLength={32}
+            className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition focus:border-cyan-300/50"
           />
           <button
             type="submit"
             disabled={pending || !draft.trim()}
-            className="min-h-11 w-full rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50 sm:w-auto"
+            title="Search"
+            aria-label="Search"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full hq-btn-accent text-slate-950 disabled:opacity-50"
           >
-            Add
+            <SearchIcon />
           </button>
         </form>
+        {previews.length > 0 ? (
+          <div className="mt-4 space-y-3">
+            {previews.map((person) => (
+              <div
+                key={person.userId}
+                className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/4 px-4 py-3"
+              >
+                <AvatarWithFrame
+                  avatar={resolveCosmetic(person.avatarItemId)}
+                  frame={resolveCosmetic(person.frameItemId)}
+                  className="h-11 w-11 shrink-0 border border-white/10"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-white">{person.displayName}</p>
+                  <p className="truncate text-sm text-[var(--color-text-muted)]">
+                    {resolveCosmetic(person.titleItemId)?.name ?? "Unranked"}
+                    {previews.length > 1 ? ` · ${person.uid}` : ""}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {person.relation === "blocked" ? (
+                    <span
+                      title="You can't add this adventurer."
+                      aria-label="You can't add this adventurer."
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-[var(--color-text-muted)]"
+                    >
+                      <BlockIcon />
+                    </span>
+                  ) : (
+                    <Link
+                      href={`/friends/${person.userId}`}
+                      prefetch={false}
+                      title="View profile"
+                      aria-label={`View ${person.displayName}'s profile`}
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-white"
+                    >
+                      <ProfileIcon />
+                    </Link>
+                  )}
+                  {person.relation === "none" ? (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      title="Add"
+                      aria-label={`Add ${person.displayName}`}
+                      onClick={() => onAddPreview(person)}
+                      className="flex h-11 w-11 items-center justify-center rounded-full hq-btn-accent text-slate-950 disabled:opacity-50"
+                    >
+                      <AddIcon />
+                    </button>
+                  ) : person.relation === "friends" ? (
+                    <span
+                      title="Already friends"
+                      aria-label="Already friends"
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-cyan-100"
+                    >
+                      <FriendsIcon />
+                    </span>
+                  ) : person.relation === "outgoing" ? (
+                    <span
+                      title="Friend request sent."
+                      aria-label="Friend request sent."
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-cyan-100"
+                    >
+                      <SentIcon />
+                    </span>
+                  ) : person.relation === "incoming" ? (
+                    <span
+                      title="They already sent you a request."
+                      aria-label="They already sent you a request."
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-cyan-100"
+                    >
+                      <IncomingIcon />
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {error ? <p className="mt-3 text-sm text-rose-200">{error}</p> : null}
         {notice ? <p className="mt-3 text-sm text-cyan-100">{notice}</p> : null}
       </GlassCard>
@@ -221,24 +425,65 @@ export function FriendsPanel() {
                   />
                   <p className="min-w-0 flex-1 truncate font-semibold text-white">{request.displayName}</p>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-wrap justify-end gap-2">
                   <button
                     type="button"
                     disabled={pending}
+                    title="Accept"
+                    aria-label={`Accept ${request.displayName}`}
                     onClick={() => onAccept(request.requestId)}
-                    className="min-h-11 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50"
+                    className="flex h-11 w-11 items-center justify-center rounded-full hq-btn-accent text-slate-950 disabled:opacity-50"
                   >
-                    Accept
+                    <CheckIcon />
                   </button>
                   <button
                     type="button"
                     disabled={pending}
+                    title="Decline"
+                    aria-label={`Decline ${request.displayName}`}
                     onClick={() => onDecline(request.requestId)}
-                    className="min-h-11 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--color-text-muted)] disabled:opacity-50"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-[var(--color-text-muted)] disabled:opacity-50"
                   >
-                    Decline
+                    <CloseIcon />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    title="Block"
+                    aria-label={`Block ${request.displayName}`}
+                    onClick={() => setBlockTarget({ userId: request.userId, name: request.displayName })}
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-[var(--color-text-muted)] disabled:opacity-50"
+                  >
+                    <BlockIcon />
                   </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      ) : null}
+
+      {activity.length > 0 ? (
+        <GlassCard className="overflow-hidden rounded-[1.75rem]">
+          <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">Activity</p>
+          <div className="mt-4 space-y-3">
+            {activity.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/4 px-4 py-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-white">{item.title}</p>
+                  <p className="mt-1 truncate text-sm text-[var(--color-text-muted)]">{item.body}</p>
+                </div>
+                {item.cheerUserId ? (
+                  <CheerButton
+                    sent={item.cheerSent === true}
+                    pending={pending}
+                    label="Cheer"
+                    onClick={() => onCheer(item.cheerUserId!)}
+                  />
+                ) : null}
               </div>
             ))}
           </div>
@@ -261,9 +506,15 @@ export function FriendsPanel() {
               return (
                 <div
                   key={friend.userId}
-                  className="grid gap-3 rounded-3xl border border-white/10 bg-white/4 px-4 py-3"
+                  className="relative grid gap-3 rounded-3xl border border-white/10 bg-white/4 px-4 py-3 transition hover:border-white/20 hover:bg-white/6"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
+                  <Link
+                    href={`/friends/${friend.userId}`}
+                    prefetch={false}
+                    aria-label={`View ${friend.displayName}'s profile`}
+                    className="absolute inset-0 z-0 rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
+                  />
+                  <div className="pointer-events-none relative z-10 flex min-w-0 items-center gap-3">
                     <AvatarWithFrame
                       avatar={resolveCosmetic(friend.avatarItemId)}
                       frame={resolveCosmetic(friend.frameItemId)}
@@ -280,7 +531,15 @@ export function FriendsPanel() {
                       <span className="text-sm font-semibold text-white">{friend.currentStreak}d</span>
                     </div>
                   </div>
-                  <div className="flex justify-end gap-2">
+                  <div className="relative z-10 flex justify-end gap-2">
+                    {(friend.cheer ?? (friend.today.done >= 1 ? "available" : "hidden")) !== "hidden" ? (
+                      <CheerButton
+                        sent={(friend.cheer ?? "available") === "sent"}
+                        pending={pending}
+                        label={`Cheer ${friend.displayName}`}
+                        onClick={() => onCheer(friend.userId)}
+                      />
+                    ) : null}
                     {friend.nudge === "available" || friend.nudge === "no-push" ? (
                       <button
                         type="button"
@@ -303,6 +562,16 @@ export function FriendsPanel() {
                         <BellIcon />
                       </span>
                     )}
+                    <button
+                      type="button"
+                      disabled={pending}
+                      aria-label={`Block ${friend.displayName}`}
+                      title="Block"
+                      onClick={() => setBlockTarget({ userId: friend.userId, name: friend.displayName })}
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-[var(--color-text-muted)] disabled:opacity-50"
+                    >
+                      <BlockIcon />
+                    </button>
                     <button
                       type="button"
                       disabled={pending}
@@ -330,10 +599,32 @@ export function FriendsPanel() {
                 <button
                   type="button"
                   disabled={pending}
+                  title="Cancel"
+                  aria-label={`Cancel request to ${request.displayName}`}
                   onClick={() => onDecline(request.requestId)}
-                  className="text-[var(--color-text-muted)] disabled:opacity-50"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 text-[var(--color-text-muted)] disabled:opacity-50"
                 >
-                  Cancel
+                  <CloseIcon />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {blocked.length > 0 ? (
+          <div className="mt-6 space-y-2 border-t border-white/10 pt-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-[var(--color-text-muted)]">Blocked</p>
+            {blocked.map((person) => (
+              <div key={person.userId} className="flex items-center gap-3 text-sm">
+                <p className="min-w-0 flex-1 truncate text-white">{person.displayName}</p>
+                <button
+                  type="button"
+                  disabled={pending}
+                  title="Unblock"
+                  aria-label={`Unblock ${person.displayName}`}
+                  onClick={() => onUnblock(person.userId)}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 text-white disabled:opacity-50"
+                >
+                  <UnblockIcon />
                 </button>
               </div>
             ))}
@@ -370,7 +661,179 @@ export function FriendsPanel() {
           Cancel
         </button>
       </ConfirmDialog>
+
+      <ConfirmDialog
+        open={blockTarget !== null}
+        title={blockTarget ? `Block ${blockTarget.name}?` : "Block?"}
+        description="They leave your list. They can't send a request or a nudge."
+        onClose={() => setBlockTarget(null)}
+      >
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => {
+            if (!blockTarget) {
+              return;
+            }
+            const target = blockTarget;
+            setBlockTarget(null);
+            onBlock(target.userId);
+          }}
+          className="min-h-12 rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50"
+        >
+          Block
+        </button>
+        <button
+          type="button"
+          onClick={() => setBlockTarget(null)}
+          className="min-h-12 rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] hover:text-white"
+        >
+          Cancel
+        </button>
+      </ConfirmDialog>
     </div>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m16 16 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="m7 7 10 10M17 7 7 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SentIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="m5 12 14-7-4 14-3-5-7-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IncomingIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M4 7h16v10H4V7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function UnblockIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M8 11V8a4 4 0 0 1 7.5-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="6" y="11" width="12" height="8" rx="2" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function AddIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 6v12M6 12h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M6 18c.7-2.6 2.6-4 6-4s5.3 1.4 6 4"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function FriendsIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M3.5 18c.6-2.4 2.4-3.5 5.5-3.5s4.9 1.1 5.5 3.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="m16 11 1.5 1.5L21 9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CheerButton({
+  sent,
+  pending,
+  label,
+  onClick,
+}: {
+  sent: boolean;
+  pending: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  if (sent) {
+    return (
+      <span
+        title="Cheered"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 text-cyan-100"
+      >
+        <CheerIcon filled />
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      aria-label={label}
+      title="Cheer"
+      onClick={onClick}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full hq-btn-accent text-slate-950 disabled:opacity-50"
+    >
+      <CheerIcon />
+    </button>
+  );
+}
+
+function CheerIcon({ filled = false }: { filled?: boolean }) {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} aria-hidden>
+      <path
+        d="m12 3 2.2 6.6H21l-5.4 4 2.1 6.6L12 16.8 6.3 20.2 8.4 13.6 3 9.6h6.8L12 3Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -384,6 +847,15 @@ function BellIcon() {
         strokeLinejoin="round"
       />
       <path d="M10 19a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BlockIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M7 17 17 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

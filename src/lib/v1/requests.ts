@@ -3,7 +3,14 @@ import type { UserRole } from "~/lib/auth/session-types";
 import type { ClaimActionResult, SettingsActionResult } from "~/lib/v1/claims";
 import type { HabitActionResult, HabitBatchActionResult, HabitCrudActionResult } from "~/lib/v1/habits";
 import type { AuthCommandResult } from "~/lib/v1/identity";
-import type { FriendCard, FriendRequestCard } from "~/lib/v1/friend-rules";
+import type {
+  BlockedPerson,
+  FriendActivityItem,
+  FriendCard,
+  FriendLookupPreview,
+  FriendProfileView,
+  FriendRequestCard,
+} from "~/lib/v1/friend-rules";
 import type { LevelLeaderboardEntry } from "~/lib/v1/leaderboard";
 import type { PushSubscribeResult, PushTestResult } from "~/lib/v1/push";
 import type { ShopEquipResult, ShopPurchaseResult } from "~/lib/v1/shop";
@@ -209,11 +216,46 @@ export async function getLeaderboardRequest() {
   };
 }
 
+export async function getFriendProfileRequest(userId: string) {
+  const result = await v1Request<{ profile: FriendProfileView }>(
+    `/friends/${encodeURIComponent(userId)}/profile`,
+  );
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, profile: result.data.profile };
+}
+
+export async function getIncomingFriendRequestCountRequest() {
+  const result = await v1Request<{ count: number }>("/friends/requests/count");
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, count: result.data.count };
+}
+
+export async function getFriendInboxRequest() {
+  const result = await v1Request<{
+    nudge: { fromUserId: string; localDate: string; title: string; body: string } | null;
+    request: { fromUserId: string; title: string; body: string } | null;
+    accept: { fromUserId: string; title: string; body: string } | null;
+    finish: { fromUserId: string; title: string; body: string } | null;
+    streak: { fromUserId: string; streak: number; title: string; body: string } | null;
+    cheer: { fromUserId: string; title: string; body: string } | null;
+  }>("/friends/inbox");
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, ...result.data };
+}
+
 export async function getFriendsRequest() {
   const result = await v1Request<{
     uid: string;
     friends: FriendCard[];
     requests: FriendRequestCard[];
+    blocked: BlockedPerson[];
+    activity: FriendActivityItem[];
   }>("/friends");
   if (!result.ok) {
     return { ok: false as const, error: result.error };
@@ -221,8 +263,29 @@ export async function getFriendsRequest() {
   return { ok: true as const, ...result.data };
 }
 
+export async function lookupFriendRequest(query: string) {
+  const result = await v1Request<{ previews: FriendLookupPreview[] }>("/friends/lookup", {
+    json: { query },
+  });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, previews: result.data.previews };
+}
+
 export async function sendFriendRequest(uid: string) {
-  return getFriendsRequestResult("/friends/requests", { uid });
+  const result = await v1Request<{
+    uid: string;
+    friends: FriendCard[];
+    requests: FriendRequestCard[];
+    blocked: BlockedPerson[];
+    activity: FriendActivityItem[];
+    delivery: "push" | "in-app";
+  }>("/friends/requests", { json: { uid } });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, ...result.data };
 }
 
 export async function acceptFriendRequest(requestId: string) {
@@ -237,6 +300,33 @@ export async function declineFriendRequest(requestId: string) {
 
 export async function removeFriendRequest(userId: string) {
   return getFriendsRequestResult(`/friends/${encodeURIComponent(userId)}`, { method: "DELETE" });
+}
+
+export async function blockFriendRequest(userId: string) {
+  return getFriendsRequestResult(`/friends/${encodeURIComponent(userId)}/block`, { method: "POST" });
+}
+
+export async function unblockFriendRequest(userId: string) {
+  return getFriendsRequestResult(`/friends/${encodeURIComponent(userId)}/unblock`, { method: "POST" });
+}
+
+export async function cheerFriendRequest(userId: string) {
+  const result = await v1Request<{ cheer: "sent"; delivery: "push" | "in-app" }>(
+    `/friends/${encodeURIComponent(userId)}/cheer`,
+    { method: "POST" },
+  );
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, cheer: result.data.cheer, delivery: result.data.delivery };
+}
+
+export async function markCheerNoticeSeenRequest(fromUserId: string) {
+  const result = await v1Request("/friends/cheers/seen", { json: { fromUserId } });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const };
 }
 
 export async function nudgeFriendRequest(userId: string) {
@@ -260,6 +350,78 @@ export async function getIncomingNudgesRequest() {
   return { ok: true as const, nudges: result.data.nudges };
 }
 
+export async function getIncomingFriendRequestAlertsRequest() {
+  const result = await v1Request<{
+    requests: Array<{ fromUserId: string; title: string; body: string }>;
+  }>("/friends/requests/alerts");
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, requests: result.data.requests };
+}
+
+export async function getIncomingStreakNoticesRequest() {
+  const result = await v1Request<{
+    streaks: Array<{ fromUserId: string; streak: number; title: string; body: string }>;
+  }>("/friends/streaks");
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, streaks: result.data.streaks };
+}
+
+export async function markStreakNoticeSeenRequest(fromUserId: string, streak: number) {
+  const result = await v1Request("/friends/streaks/seen", { json: { fromUserId, streak } });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const };
+}
+
+export async function getIncomingAcceptNoticesRequest() {
+  const result = await v1Request<{
+    accepts: Array<{ fromUserId: string; title: string; body: string }>;
+  }>("/friends/accepts");
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, accepts: result.data.accepts };
+}
+
+export async function markAcceptNoticeSeenRequest(fromUserId: string) {
+  const result = await v1Request("/friends/accepts/seen", { json: { fromUserId } });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const };
+}
+
+export async function getIncomingFinishNoticesRequest() {
+  const result = await v1Request<{
+    finishes: Array<{ fromUserId: string; title: string; body: string }>;
+  }>("/friends/finishes");
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const, finishes: result.data.finishes };
+}
+
+export async function markFinishNoticeSeenRequest(fromUserId: string) {
+  const result = await v1Request("/friends/finishes/seen", { json: { fromUserId } });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const };
+}
+
+export async function markFriendRequestAlertSeenRequest(fromUserId: string) {
+  const result = await v1Request("/friends/requests/alerts/seen", { json: { fromUserId } });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  return { ok: true as const };
+}
+
 export async function markNudgeSeenRequest(fromUserId: string) {
   const result = await v1Request("/friends/nudges/seen", { json: { fromUserId } });
   if (!result.ok) {
@@ -276,6 +438,8 @@ async function getFriendsRequestResult(
     uid: string;
     friends: FriendCard[];
     requests: FriendRequestCard[];
+    blocked: BlockedPerson[];
+    activity: FriendActivityItem[];
   }>(path, {
     method: init.method,
     json: init.uid !== undefined ? { uid: init.uid } : init.method === "DELETE" ? undefined : {},

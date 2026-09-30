@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## 0.15.1 - Inventory Narrow Screen Fix
+
+### Fixed
+- Inventory stays inside a narrow screen. The cosmetic tabs scroll inside the card, and the obtain line wraps.
+
+## 0.15.0 - Friend Activity and Cheers
+
+### Added
+- Friend request, accept, finish, streak, and cheer notices. Got it clears the banner. Phone push still fires when reminders are on; otherwise the notice stays in the app.
+- Blocking someone stops their requests and nudges. Unblock removes the block. It does not add them back as a friend.
+- A friend profile shows name, title, streak, and level. Email and habit names stay hidden.
+- Friends activity keeps the last 12 events from the past two weeks for current friends: accepts, nudges, finishes, cheers, and streak milestones.
+- Streak notices at 7, 14, and 30 days. Reaching that mark again after a break notifies friends again.
+- Search by username or UID, then a preview with avatar, name, and title. From there you can open the profile or send a request.
+- A cheer answers a friend's habit finish. One tap, once per friend on their local day. The notice says they cheered you on. Habit names stay hidden.
+- The habit info button opens every field for that habit. Edit and Delete sit at the bottom. Delete still asks you to confirm.
+
+### Changed
+- Friends actions are icons: search, add, accept, decline, cancel, block, unblock, notify, and cheer. Confirmations and Got it stay words.
+- Done, Copy, Refresh, Edit, and Delete are icons. Claim, Purchase, Equip, Undo, and sign-in stay words.
+- On a phone, a habit's Done check and info button sit on the title row. Long titles trim.
+- Leaderboard Refresh sits on the title row.
+- Friends shows the last list immediately, then refreshes. The nav badge counts incoming requests on its own.
+
 ## 0.14.0 - Friends and Rewards
 
 ### Added

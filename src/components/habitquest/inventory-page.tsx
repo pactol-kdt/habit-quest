@@ -18,19 +18,19 @@ export function InventoryPage() {
 
   if (!hydrated) {
     return (
-      <div className="grid min-w-0 gap-4 pt-4 md:gap-6 md:pt-6">
-        <div className="glass-panel h-48 animate-pulse rounded-[2rem]" />
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 pt-4 md:gap-6 md:pt-6">
+        <div className="glass-panel h-48 min-w-0 animate-pulse rounded-[2rem]" />
       </div>
     );
   }
 
   return (
-    <div className="grid min-w-0 gap-4 pt-4 md:gap-6 md:pt-6">
-      <GlassCard className="overflow-hidden rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 pt-4 md:gap-6 md:pt-6">
+      <GlassCard className="min-w-0 overflow-hidden rounded-[1.75rem] p-4 md:rounded-[2rem] md:p-8">
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">
           {hero.eyebrow}
         </p>
-        <h1 className="section-title mt-2 text-2xl text-white sm:text-4xl md:text-5xl">
+        <h1 className="section-title mt-2 break-words text-2xl text-white sm:text-4xl md:text-5xl">
           {hero.title}
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base">

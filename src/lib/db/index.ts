@@ -37,7 +37,7 @@ function needsSsl(connectionString: string) {
   }
 }
 
-const SCHEMA_REVISION = 4;
+const SCHEMA_REVISION = 11;
 
 type GlobalDb = {
   habitquestPgPool?: Pool;
@@ -366,6 +366,38 @@ const DDL = [
     created_at VARCHAR(40) NOT NULL,
     PRIMARY KEY (from_user_id, to_user_id, local_date)
   )`,
+  `CREATE TABLE IF NOT EXISTS friend_finish_notices (
+    from_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    local_date VARCHAR(10) NOT NULL,
+    created_at VARCHAR(40) NOT NULL,
+    seen_at VARCHAR(40),
+    PRIMARY KEY (from_user_id, to_user_id, local_date)
+  )`,
+  `CREATE TABLE IF NOT EXISTS friend_accept_notices (
+    from_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at VARCHAR(40) NOT NULL,
+    seen_at VARCHAR(40),
+    PRIMARY KEY (from_user_id, to_user_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS friend_cheers (
+    from_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    local_date VARCHAR(10) NOT NULL,
+    created_at VARCHAR(40) NOT NULL,
+    seen_at VARCHAR(40),
+    PRIMARY KEY (from_user_id, to_user_id, local_date)
+  )`,
+  `CREATE TABLE IF NOT EXISTS friend_streak_notices (
+    from_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    streak INTEGER NOT NULL,
+    local_date VARCHAR(10) NOT NULL,
+    created_at VARCHAR(40) NOT NULL,
+    seen_at VARCHAR(40),
+    PRIMARY KEY (from_user_id, to_user_id, streak, local_date)
+  )`,
 ];
 
 async function columnExists(
@@ -422,6 +454,10 @@ async function runMigrations(database: ReturnType<typeof createDrizzle>) {
 
     if (!(await columnExists(client, "friend_nudges", "seen_at"))) {
       await client.query(`ALTER TABLE friend_nudges ADD COLUMN seen_at VARCHAR(40)`);
+    }
+
+    if (!(await columnExists(client, "friendships", "alert_seen_at"))) {
+      await client.query(`ALTER TABLE friendships ADD COLUMN alert_seen_at VARCHAR(40)`);
     }
 
     await client.query(`ALTER TABLE users ALTER COLUMN uid SET NOT NULL`);

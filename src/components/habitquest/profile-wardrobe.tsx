@@ -40,11 +40,11 @@ export function ProfileWardrobe({
   const pending = selected ? pendingShopItemIds.includes(selected.id) : false;
 
   return (
-    <GlassCard className="rounded-[1.75rem] p-4 md:p-6">
+    <GlassCard className="min-w-0 rounded-[1.75rem] p-4 md:p-6">
       <div
         role="tablist"
         aria-label="Cosmetic types"
-        className="scrollbar-none -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1"
+        className="scrollbar-none flex min-w-0 max-w-full snap-x gap-2 overflow-x-auto pb-1"
       >
         {SECTIONS.map((entry) => {
           const active = entry.category === section.category;
@@ -71,12 +71,12 @@ export function ProfileWardrobe({
         })}
       </div>
 
-      <div className="mt-5 min-h-16">
+      <div className="mt-5 min-h-16 min-w-0">
         {selected ? (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <p className="truncate text-lg font-semibold text-white">{selected.name}</p>
-              <p className="mt-0.5 text-sm text-[var(--color-text-muted)]">
+              <p className="mt-0.5 break-words text-sm text-[var(--color-text-muted)]">
                 {cosmeticObtainLabel(selected)}
               </p>
             </div>
@@ -114,7 +114,7 @@ export function ProfileWardrobe({
               aria-pressed={isSelected}
               onClick={() => setSelectedId(item.id)}
               className={cn(
-                "h-16 w-16 overflow-hidden rounded-2xl border border-white/10 transition",
+                "size-16 shrink-0 overflow-hidden rounded-2xl border border-white/10 transition",
                 !item.owned && "opacity-45 grayscale",
                 isEquipped && "ring-2 ring-cyan-300",
                 isSelected && "border-white",

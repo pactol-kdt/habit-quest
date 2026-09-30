@@ -1,10 +1,13 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ConfirmDialog } from "~/components/habitquest/confirm-dialog";
-import { CLEARED_TODAY_LABEL } from "~/lib/habitquest/constants";
-import { formatNumber } from "~/lib/habitquest/utils";
+import { ExpIcon } from "~/components/habitquest/icons/exp-icon";
+import { useDialogA11y } from "~/hooks/use-dialog-a11y";
+import { CLEARED_TODAY_LABEL, DIFFICULTY_LABELS } from "~/lib/habitquest/constants";
+import { describeRecurrence, formatNumber, getDifficultyExp } from "~/lib/habitquest/utils";
 import {
   describeHabitCue,
   describeStackFormula,
@@ -148,38 +151,42 @@ export function HabitList({
                 />
               ) : null}
 
-              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className={cn("min-w-0 flex-1", isNext && "pl-2")}>
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <h3 className="break-words text-lg font-semibold text-white sm:text-xl">
+              <div className={cn("flex min-w-0 items-center gap-3", isNext && "pl-2")}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <h3 className="min-w-0 truncate text-base font-semibold text-white sm:text-xl">
                       {habit.title}
                     </h3>
                     {isNext ? (
-                      <span className="rounded-full bg-cyan-300/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.16em] text-cyan-100">
+                      <span className="shrink-0 rounded-full bg-cyan-300/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.16em] text-cyan-100">
                         Next
                       </span>
                     ) : null}
-                    {showDueBadge ? (
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[11px] uppercase tracking-[0.16em]",
-                          dueToday
-                            ? "bg-cyan-300/10 text-cyan-200"
-                            : "bg-white/7 text-[var(--color-text-muted)]",
-                        )}
-                      >
-                        {dueToday ? "Due today" : "Not due"}
-                      </span>
-                    ) : null}
-                    {pendingSync ? (
-                      <span className="text-xs text-[var(--color-text-muted)]">{pendingLabel}</span>
-                    ) : null}
                   </div>
+                  {showDueBadge || pendingSync ? (
+                    <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+                      {showDueBadge ? (
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[11px] uppercase tracking-[0.16em]",
+                            dueToday
+                              ? "bg-cyan-300/10 text-cyan-200"
+                              : "bg-white/7 text-[var(--color-text-muted)]",
+                          )}
+                        >
+                          {dueToday ? "Due today" : "Not due"}
+                        </span>
+                      ) : null}
+                      {pendingSync ? (
+                        <span className="text-xs text-[var(--color-text-muted)]">{pendingLabel}</span>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {subtitle ? (
                     <p className="mt-1 truncate text-sm text-[var(--color-text-muted)]">{subtitle}</p>
                   ) : null}
                   {!completed && habit.tinyVersion.trim() ? (
-                    <p className="mt-1 break-words text-sm leading-6 text-[var(--color-text-muted)]">
+                    <p className="mt-1 truncate text-sm text-[var(--color-text-muted)]">
                       Bare minimum: {habit.tinyVersion.trim()}
                     </p>
                   ) : null}
@@ -192,7 +199,7 @@ export function HabitList({
                       onClick={() => requestUncomplete(habit)}
                       disabled={pendingSync}
                       className={cn(
-                        "min-h-12 flex-1 rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2.5 text-sm text-amber-100 transition sm:min-h-11 sm:flex-none",
+                        "min-h-11 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm text-amber-100 transition",
                         pendingSync ? "cursor-not-allowed opacity-60" : "hover:bg-amber-300/16",
                       )}
                     >
@@ -203,20 +210,32 @@ export function HabitList({
                       type="button"
                       onClick={() => onComplete(habit.id)}
                       disabled={pendingSync || completed || notDue}
+                      title={
+                        pendingSync
+                          ? pendingLabel
+                          : completed
+                            ? CLEARED_TODAY_LABEL
+                            : notDue
+                              ? "Not due"
+                              : "Done"
+                      }
+                      aria-label={
+                        pendingSync
+                          ? pendingLabel
+                          : completed
+                            ? `${habit.title} cleared`
+                            : notDue
+                              ? `${habit.title} is not due`
+                              : `Mark ${habit.title} done`
+                      }
                       className={cn(
-                        "min-h-12 flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition sm:min-h-11 sm:flex-none sm:px-5",
+                        "flex h-11 w-11 items-center justify-center rounded-full",
                         pendingSync || completed || notDue
                           ? "cursor-not-allowed border border-white/10 bg-white/5 text-[var(--color-text-muted)]"
-                          : "hq-btn-accent text-slate-950 active:scale-[0.98] hover:scale-[1.02]",
+                          : "hq-btn-accent text-slate-950 active:scale-[0.98]",
                       )}
                     >
-                      {pendingSync
-                        ? pendingLabel
-                        : completed
-                          ? CLEARED_TODAY_LABEL
-                          : notDue
-                            ? "Not due"
-                            : "Done"}
+                      <CheckIcon />
                     </button>
                   )}
                   <button
@@ -224,10 +243,11 @@ export function HabitList({
                     onClick={() => setMenuHabit(habit)}
                     disabled={pendingSync}
                     aria-haspopup="dialog"
-                    aria-label={`More actions for ${habit.title}`}
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:w-11"
+                    title="Details"
+                    aria-label={`View details for ${habit.title}`}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <MoreGlyph />
+                    <InfoIcon />
                   </button>
                 </div>
               </div>
@@ -236,42 +256,22 @@ export function HabitList({
         })}
       </div>
 
-      <ConfirmDialog
-        open={Boolean(menuHabit) && !deleteHabit}
-        title={menuHabit?.title ?? "Habit"}
+      <HabitDetailDialog
+        habit={menuHabit}
+        habits={catalog}
         onClose={() => setMenuHabit(null)}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            if (!menuHabit) {
-              return;
-            }
-            onEdit(menuHabit);
-            setMenuHabit(null);
-          }}
-          className="min-h-12 rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950"
-        >
-          Edit
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setDeleteHabit(menuHabit);
-            setMenuHabit(null);
-          }}
-          className="min-h-12 rounded-full border border-rose-300/25 px-5 py-3 text-sm text-rose-200 hover:bg-rose-300/10"
-        >
-          Delete
-        </button>
-        <button
-          type="button"
-          onClick={() => setMenuHabit(null)}
-          className="min-h-12 rounded-full border border-white/10 px-5 py-3 text-sm text-[var(--color-text-muted)] hover:text-white"
-        >
-          Cancel
-        </button>
-      </ConfirmDialog>
+        onEdit={() => {
+          if (!menuHabit) {
+            return;
+          }
+          onEdit(menuHabit);
+          setMenuHabit(null);
+        }}
+        onDelete={() => {
+          setDeleteHabit(menuHabit);
+          setMenuHabit(null);
+        }}
+      />
 
       <ConfirmDialog
         open={Boolean(deleteHabit)}
@@ -336,12 +336,175 @@ export function HabitList({
   );
 }
 
-function MoreGlyph() {
+function detailValue(value: string) {
+  const trimmed = value.trim();
+  return trimmed || "Not set";
+}
+
+function HabitDetailDialog({
+  habit,
+  habits,
+  onClose,
+  onEdit,
+  onDelete,
+}: {
+  habit: Habit | null;
+  habits: Habit[];
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(panelRef, onClose);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
+  const anchor = habit?.stackAfterHabitId
+    ? habits.find((entry) => entry.id === habit.stackAfterHabitId)?.title
+    : habit?.stackAfter;
+
+  return createPortal(
+    <AnimatePresence>
+      {habit ? (
+        <motion.div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur-md sm:items-center sm:p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+        >
+          <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="habit-detail-title"
+            tabIndex={-1}
+            className="glass-panel flex max-h-[85vh] w-full max-w-md flex-col rounded-t-[1.5rem] border border-white/10 outline-none sm:rounded-[1.75rem]"
+            initial={{ y: 24, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 16, opacity: 0 }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 px-5 pt-5">
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-text-muted)]">Habit</p>
+                <h2 id="habit-detail-title" className="section-title mt-2 truncate text-2xl text-white">
+                  {habit.title}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                title="Close"
+                aria-label="Close"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 text-[var(--color-text-muted)]"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+            <div className="mt-5 grid min-h-0 flex-1 gap-4 overflow-y-auto px-5 pb-4">
+              <DetailRow label="After I" value={detailValue(anchor ?? "")} />
+              <DetailRow label="I will" value={habit.title} />
+              <DetailRow label="Time" value={detailValue(habit.cueTime ?? "")} />
+              <DetailRow label="Where" value={detailValue(habit.cueContext)} />
+              <DetailRow label="I'm someone who" value={detailValue(habit.identityWhy)} />
+              <DetailRow label="I want to feel" value={detailValue(habit.desiredFeeling)} />
+              <DetailRow label="Bare minimum" value={detailValue(habit.tinyVersion)} />
+              <DetailRow label="Notes" value={detailValue(habit.description)} />
+              <DetailRow
+                label="Difficulty"
+                value={`${DIFFICULTY_LABELS[habit.difficulty]} · ${getDifficultyExp(habit.difficulty)} EXP`}
+              />
+              <DetailRow label="How often" value={describeRecurrence(habit)} />
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-white/10 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <button
+                type="button"
+                onClick={onEdit}
+                title="Edit"
+                aria-label={`Edit ${habit.title}`}
+                className="flex h-11 w-11 items-center justify-center rounded-full hq-btn-accent text-slate-950"
+              >
+                <EditIcon />
+              </button>
+              <button
+                type="button"
+                onClick={onDelete}
+                title="Delete"
+                aria-label={`Delete ${habit.title}`}
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-rose-300/25 text-rose-200"
+              >
+                <DeleteIcon />
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>,
+    document.body,
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  const missing = value === "Not set";
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <circle cx="5" cy="12" r="1.8" />
-      <circle cx="12" cy="12" r="1.8" />
-      <circle cx="19" cy="12" r="1.8" />
+    <div className="min-w-0">
+      <p className="text-xs uppercase tracking-[0.16em] text-[var(--color-text-muted)]">{label}</p>
+      <p className={cn("mt-1 break-words text-sm leading-6", missing ? "text-[var(--color-text-muted)]" : "text-white")}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 11v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M12 8h.01" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
     </svg>
   );
 }
+
+function CloseIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="m7 7 10 10M17 7 7 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M4 20h4l10-10-4-4L4 16v4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m12 6 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function DeleteIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M5 7h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M9 7V5h6v2M8 7l1 12h6l1-12" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
