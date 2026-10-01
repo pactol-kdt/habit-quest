@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AvatarWithFrame } from "~/components/habitquest/cosmetic-art";
 import { ContributionGraph } from "~/components/habitquest/contribution-graph";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { PetCard } from "~/components/habitquest/pet-card";
 import { StreakFlame } from "~/components/habitquest/streak-flame";
 import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
@@ -212,6 +213,8 @@ export function ProfilePage() {
           )}
         </div>
       </GlassCard>
+
+      <PetCard completions={completions.length} />
 
       <GlassCard className="min-w-0 overflow-hidden">
         <ContributionGraph completions={completions} />

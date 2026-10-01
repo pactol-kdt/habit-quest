@@ -74,6 +74,33 @@ export function getMotivationalGreeting(progress: UserProgress): MotivationalCop
   };
 }
 
+/** Cheer lines the pet may say. The page picks one at random. */
+export function buildPetSpeechLines(input: { name: string; done: number; due: number }) {
+  const name = input.name.trim();
+  if (input.due <= 0) {
+    return [
+      "Nothing's due. I'm glad you're here.",
+      "Rest. I'll stay right here.",
+      ...(name ? [`Rest up, ${name}. I'll be here.`] : []),
+    ];
+  }
+  if (input.done >= input.due) {
+    return [
+      "You finished. I'm proud of you.",
+      "That's the list. Well done.",
+      "You closed it. I'm cheering.",
+      ...(name ? [`I'm proud of you, ${name}.`] : []),
+    ];
+  }
+  return [
+    "You've got this.",
+    "I'm with you. Clear one.",
+    "You showed up. That's the win.",
+    "One habit is enough. I believe in you.",
+    ...(name ? [`${name}, you've got this.`] : []),
+  ];
+}
+
 /** Concise page heroes — catchy, not lore-dump. */
 export const PAGE_HEROES = {
   habits: {

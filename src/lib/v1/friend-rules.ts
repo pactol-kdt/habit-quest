@@ -32,6 +32,8 @@ export type FriendProfileView = {
   frameItemId: string | null;
   titleItemId: string | null;
   seasonPassCompletions: number;
+  /** Lifetime habit finishes. Habit names are not included. */
+  completionCount: number;
   /** Completion dates only. Habit names are not included. */
   activityDates: string[];
 };
@@ -149,6 +151,14 @@ export function buildFinishCopy(senderName: string) {
   return {
     title: `${name} completed a habit today`,
     body: "One habit is done.",
+  };
+}
+
+export function buildPetCopy(senderName: string, stageLabel: string, article: "a" | "an") {
+  const name = senderName.trim() || "A friend";
+  return {
+    title: `${name}'s Kip became ${article} ${stageLabel}`,
+    body: "A new form.",
   };
 }
 

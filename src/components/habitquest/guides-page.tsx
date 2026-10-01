@@ -33,6 +33,10 @@ const GUIDE_SECTIONS = [
     body: "Time and place are optional cues — when and where you usually do the habit. They sort today's list. If reminders are on, phone push fires during that cue's hour while the habit is still due (around the hour, not the exact minute). Habits without a time get a 6:00 AM digest. Times follow your timezone.",
   },
   {
+    title: "Pet",
+    body: "On Today the pet, Kip, stands in the portrait spot and says one cheering line in a chat bubble. The line is chosen at random and changes when you refresh or finish a habit. Kip starts as an egg and hatches on your first finish, then changes form at 10, 30, 100, and 300 finishes. Easy and hard habits count the same. Undo today takes that finish off the count. A missed day leaves Kip where it is. The name stays Kip. Friends see the form, and Activity tells them when it changes.",
+  },
+  {
     title: "Streaks & freezes",
     body: `Complete at least one habit each day to keep your streak. Freezes auto-spend when you miss exactly one day and return the next morning — that protected day still counts, so 10 days + one freeze + 10 days is a 21-day streak. Earn freezes at ${FREEZE_MILESTONES_LABEL}-day milestones, or buy one for ${STREAK_FREEZE_COST} coins (max ${MAX_STREAK_FREEZES} held).`,
   },

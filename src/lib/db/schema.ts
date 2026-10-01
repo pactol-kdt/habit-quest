@@ -465,6 +465,22 @@ export const friendCheers = pgTable(
   (table) => [primaryKey({ columns: [table.fromUserId, table.toUserId, table.localDate] })],
 );
 
+export const friendPetNotices = pgTable(
+  "friend_pet_notices",
+  {
+    fromUserId: varchar("from_user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    toUserId: varchar("to_user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    stage: varchar("stage", { length: 16 }).notNull(),
+    createdAt: varchar("created_at", { length: 40 }).notNull(),
+    seenAt: varchar("seen_at", { length: 40 }),
+  },
+  (table) => [primaryKey({ columns: [table.fromUserId, table.toUserId, table.stage] })],
+);
+
 export const friendStreakNotices = pgTable(
   "friend_streak_notices",
   {

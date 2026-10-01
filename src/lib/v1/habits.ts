@@ -21,7 +21,8 @@ import {
   applyCompleteHabitForToday,
   applyUncompleteHabitForToday,
 } from "~/lib/habitquest/habit-mutations";
-import { notifyFriendsOfStreakMilestone, notifyNudgersIfDayCleared } from "~/lib/v1/friends";
+import { petStageAdvanced } from "~/lib/habitquest/pet";
+import { notifyFriendsOfPetStage, notifyFriendsOfStreakMilestone, notifyNudgersIfDayCleared } from "~/lib/v1/friends";
 import { coerceFormValues, isValidDateKey } from "~/lib/v1/parse";
 import type { Habit, HabitCompletion, RewardSystems, UserProgress } from "~/types/habitquest";
 
@@ -228,6 +229,12 @@ export async function completeHabits(
     void notifyNudgersIfDayCleared(database, user.id, dateKey).catch(() => {
       // Clearing the habit already succeeded. A finish notice must not fail the clear.
     });
+    const petStage = petStageAdvanced(before.completions.length, resolution.data.completions.length);
+    if (petStage) {
+      void notifyFriendsOfPetStage(database, user.id, petStage.id).catch(() => {
+        // Clearing the habit already succeeded. A pet notice must not fail the clear.
+      });
+    }
     if (resolution.data.userProgress.currentStreak > before.userProgress.currentStreak) {
       void notifyFriendsOfStreakMilestone(
         database,

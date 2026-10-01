@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AvatarWithFrame } from "~/components/habitquest/cosmetic-art";
 import { ContributionGraph } from "~/components/habitquest/contribution-graph";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { PetCard } from "~/components/habitquest/pet-card";
 import { HonorMedal } from "~/components/habitquest/profile-page";
 import { StreakFlame } from "~/components/habitquest/streak-flame";
 import { getStreakFireTier } from "~/lib/habitquest/streak-fire-tier";
@@ -133,6 +134,8 @@ export function FriendProfilePage({ userId }: { userId: string }) {
           </div>
         </div>
       </GlassCard>
+
+      <PetCard completions={profile.completionCount} />
 
       <GlassCard className="min-w-0 overflow-hidden">
         <ContributionGraph completions={completions} />

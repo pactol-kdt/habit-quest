@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
-import { AvatarWithFrame } from "~/components/habitquest/cosmetic-art";
 import { ExpProgress } from "~/components/habitquest/exp-progress";
 import { GlassCard } from "~/components/habitquest/glass-card";
 import { HabitFormModal } from "~/components/habitquest/habit-form-modal";
@@ -11,18 +10,19 @@ import { HabitList } from "~/components/habitquest/habit-list";
 import { ClaimableRewardsStrip } from "~/components/habitquest/claimable-rewards-strip";
 import { StreakDevSlider } from "~/components/habitquest/streak-dev-slider";
 import { StreakFlame } from "~/components/habitquest/streak-flame";
+import { buildPetSpeechLines } from "~/lib/habitquest/copy";
 import { sortHabitsByLoop } from "~/lib/habitquest/habit-loop";
 import { previewUndoWalletImpact } from "~/lib/habitquest/habit-mutations";
 import { getStreakFireTier } from "~/lib/habitquest/streak-fire-tier";
 import {
   getDailyRewardSummary,
   getLevelState,
-  getMotivationalGreeting,
-  getProfileDisplay,
   getTodayDateKey,
   hasCompletionForDate,
   isFeatureUnlocked,
 } from "~/lib/habitquest/utils";
+import { PetPortrait, type PetMood } from "~/components/habitquest/pet-card";
+import { getPetProgress } from "~/lib/habitquest/pet";
 import { PulseOnChange } from "~/components/habitquest/pulse-on-change";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
@@ -32,6 +32,7 @@ export function HabitQuestApp() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [devStreakPreview, setDevStreakPreview] = useState<number | null>(null);
+  const [spoken, setSpoken] = useState({ key: "", line: "" });
 
   const store = useHabitQuestStore((state) => state);
   const { userProgress } = useEffectiveProgress();
@@ -41,10 +42,8 @@ export function HabitQuestApp() {
     hydrated,
     habits,
     completions,
-    shopItems,
     challenges,
     levelUnlocks,
-    equippedItems,
     dailyRewards,
     settings,
     createHabit,
@@ -144,8 +143,6 @@ export function HabitQuestApp() {
   }
 
   const displayName = settings.displayName.trim();
-  const profile = getProfileDisplay(shopItems, equippedItems);
-  const greeting = getMotivationalGreeting(userProgress);
   const streakTier = getStreakFireTier(streakForDisplay);
   const today = getTodayDateKey();
   const todayCombo =
@@ -153,10 +150,19 @@ export function HabitQuestApp() {
       ? rewardSystems.todayCombo
       : 0;
   const dueCount = todayReward.dueHabits.length;
-  const dueLabel =
-    dueCount === 0
-      ? "Nothing due"
-      : `${todayReward.completedCount}/${dueCount} due`;
+  const petMood: PetMood =
+    dueCount <= 0 ? "rest" : todayReward.completedCount >= dueCount ? "proud" : "cheer";
+  const speechLines = buildPetSpeechLines({
+    name: displayName,
+    done: todayReward.completedCount,
+    due: dueCount,
+  });
+  const speechKey = `${today}:${todayReward.completedCount}:${dueCount}:${speechLines.join("|")}`;
+  let petLine = spoken.line;
+  if (spoken.key !== speechKey) {
+    petLine = speechLines[Math.floor(Math.random() * speechLines.length)] ?? speechLines[0] ?? "";
+    setSpoken({ key: speechKey, line: petLine });
+  }
 
   const weeklyChallenge = challenges.find((challenge) => challenge.period === "weekly") ?? null;
   const weeklyUnlocked = isFeatureUnlocked(levelUnlocks, "weekly-challenges");
@@ -190,28 +196,24 @@ export function HabitQuestApp() {
         transition={{ duration: 0.35 }}
       >
         <section className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <Link href="/profile" className="shrink-0 self-start sm:self-center">
-            <AvatarWithFrame
-              avatar={profile.avatar}
-              frame={profile.frame}
-              className="h-16 w-16 border border-white/10 shadow-[0_0_28px_rgba(77,216,255,0.14)] sm:h-20 sm:w-20"
+          <div className="flex items-end gap-1 self-start sm:self-center">
+            <PetPortrait
+              stage={getPetProgress(completions.length).stage.id}
+              completions={completions.length}
+              mood={petMood}
+              className="h-20 w-28 shrink-0 sm:h-24 sm:w-36"
             />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <h1 className="section-title truncate text-2xl text-white sm:text-3xl">
-              {greeting.headline}
-              {displayName ? (
-                <span className="font-sans text-lg font-normal tracking-normal text-white/70 sm:text-xl">
-                  {`, ${displayName}`}
-                </span>
-              ) : null}
-            </h1>
-            <p className="mt-1 truncate text-sm text-[var(--color-text-muted)]">
-              {profile.title?.name ? `${profile.title.name} · ` : ""}
-              {dueLabel}
+            <p className="relative mb-6 max-w-[16rem] rounded-[1.15rem] bg-white px-3 py-2 text-sm font-semibold leading-5 text-slate-950 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
+              <span
+                aria-hidden
+                className="absolute -left-1 bottom-2.5 h-3 w-3 rotate-45 rounded-[2px] bg-white"
+              />
+              {petLine}
             </p>
-            <p className="mt-1 text-sm text-[var(--color-text-muted)]">{greeting.support}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="sr-only">Today</h1>
+            <div className="flex flex-wrap items-center gap-3">
               <span
                 className="inline-flex items-center gap-1.5 text-sm text-orange-50"
                 title={`${streakForDisplay}-day streak`}

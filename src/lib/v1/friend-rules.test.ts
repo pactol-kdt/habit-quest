@@ -7,6 +7,7 @@ import {
   formatActivityAge,
   buildCheerCopy,
   buildFinishCopy,
+  buildPetCopy,
   buildFriendRequestCopy,
   buildNudgeCopy,
   buildStreakCopy,
@@ -101,6 +102,14 @@ describe("friend pairs and nudges", () => {
       title: "Alex completed a habit today",
       body: "One habit is done.",
     });
+  });
+
+  it("names a pet's new form without naming a habit", () => {
+    assert.deepEqual(buildPetCopy("Maya", "Keeper", "a"), {
+      title: "Maya's Kip became a Keeper",
+      body: "A new form.",
+    });
+    assert.equal(buildPetCopy("  ", "Hatchling", "a").title, "A friend's Kip became a Hatchling");
   });
 
   it("cheers a friend without naming the habit", () => {

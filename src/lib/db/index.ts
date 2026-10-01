@@ -37,7 +37,7 @@ function needsSsl(connectionString: string) {
   }
 }
 
-const SCHEMA_REVISION = 11;
+const SCHEMA_REVISION = 12;
 
 type GlobalDb = {
   habitquestPgPool?: Pool;
@@ -388,6 +388,14 @@ const DDL = [
     created_at VARCHAR(40) NOT NULL,
     seen_at VARCHAR(40),
     PRIMARY KEY (from_user_id, to_user_id, local_date)
+  )`,
+  `CREATE TABLE IF NOT EXISTS friend_pet_notices (
+    from_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stage VARCHAR(16) NOT NULL,
+    created_at VARCHAR(40) NOT NULL,
+    seen_at VARCHAR(40),
+    PRIMARY KEY (from_user_id, to_user_id, stage)
   )`,
   `CREATE TABLE IF NOT EXISTS friend_streak_notices (
     from_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.16.0 - Kip the Habit Pet
+
+### Added
+- A pet on Today and Profile. It starts as an egg and changes form at 1, 10, 30, 100, and 300 habit finishes. You can name it. Undo today takes that finish off the count. A missed day leaves it where it is.
+
+### Changed
+- On Today the pet, Kip, stands in the portrait spot and says one random cheer in a chat bubble. The face matches that cheer, and the pet bobs, blinks, and wags. The name stays Kip for everyone. The pet is its own drawing, with no frame around it.
+- Friends see the pet on a profile. Activity says when it reaches a new form. Habit names stay hidden.
+
 ## 0.15.3 - Friend List and Nudges
 
 ### Changed

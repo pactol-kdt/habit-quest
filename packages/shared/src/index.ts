@@ -15,6 +15,7 @@ export * from "./reward-claim-mutations";
 export * from "./claimables";
 export * from "./catalog";
 export * from "./seed";
+export * from "./pet";
 export * from "./streak-fire-tier";
 export * from "./reminder-copy";
 export * from "./reminder-time";

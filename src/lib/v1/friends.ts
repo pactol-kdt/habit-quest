@@ -10,6 +10,7 @@ import {
   friendCheers,
   friendFinishNotices,
   friendNudges,
+  friendPetNotices,
   friendStreakNotices,
   friendships,
   habitCompletions,
@@ -20,6 +21,7 @@ import {
   userSettings,
   users,
 } from "~/lib/db/schema";
+import { getPetStageById } from "~/lib/habitquest/pet";
 import { getDueHabitsForDate } from "~/lib/habitquest/utils";
 import { getDateKeyInTimeZone } from "~/lib/push/timezone";
 import { sendPushToUser } from "~/lib/push/reminders-dispatch";
@@ -31,6 +33,7 @@ import {
   buildFinishCopy,
   buildFriendRequestCopy,
   buildNudgeCopy,
+  buildPetCopy,
   buildStreakCopy,
   formatUid,
   isFriendStreakMilestone,
@@ -203,7 +206,7 @@ async function loadActivity(
   const cutoff = new Date(Date.now() - ACTIVITY_WINDOW_MS).toISOString();
   const fromFriends = inArray(friendAcceptNotices.fromUserId, friendIds);
 
-  const [settings, accepts, nudges, finishes, streaks, cheers] = await Promise.all([
+  const [settings, accepts, nudges, finishes, streaks, cheers, pets] = await Promise.all([
     database
       .select({ reminderTimezone: userSettings.reminderTimezone })
       .from(userSettings)
@@ -294,6 +297,23 @@ async function loadActivity(
       )
       .orderBy(desc(friendCheers.createdAt))
       .limit(ACTIVITY_LIMIT),
+    database
+      .select({
+        fromUserId: friendPetNotices.fromUserId,
+        stage: friendPetNotices.stage,
+        createdAt: friendPetNotices.createdAt,
+        seenAt: friendPetNotices.seenAt,
+      })
+      .from(friendPetNotices)
+      .where(
+        and(
+          eq(friendPetNotices.toUserId, userId),
+          inArray(friendPetNotices.fromUserId, friendIds),
+          gte(friendPetNotices.createdAt, cutoff),
+        ),
+      )
+      .orderBy(desc(friendPetNotices.createdAt))
+      .limit(ACTIVITY_LIMIT),
   ]);
   const todayKey = getDateKeyInTimeZone(settings[0]?.reminderTimezone || "UTC");
 
@@ -350,6 +370,26 @@ async function loadActivity(
         createdAt: row.createdAt,
         unseen: !row.seenAt,
       };
+    }),
+    ...pets.flatMap((row) => {
+      const stage = getPetStageById(row.stage);
+      if (!stage || stage.id === "egg") {
+        return [];
+      }
+      const copy = buildPetCopy(
+        profiles.get(row.fromUserId)?.displayName ?? "",
+        stage.label,
+        stage.article,
+      );
+      return [
+        {
+          id: `pet:${row.fromUserId}:${row.stage}`,
+          title: copy.title,
+          body: copy.body,
+          createdAt: row.createdAt,
+          unseen: !row.seenAt,
+        },
+      ];
     }),
   ];
 
@@ -842,6 +882,65 @@ export async function notifyFriendsOfStreakMilestone(
   }
 }
 
+export async function notifyFriendsOfPetStage(database: Database, userId: string, stageId: string) {
+  const stage = getPetStageById(stageId);
+  if (!stage || stage.id === "egg") {
+    return;
+  }
+
+  const rows = await database
+    .select()
+    .from(friendships)
+    .where(
+      and(
+        or(eq(friendships.userLowId, userId), eq(friendships.userHighId, userId)),
+        eq(friendships.status, "accepted"),
+      ),
+    );
+  if (!rows.length) {
+    return;
+  }
+
+  const [account] = await database
+    .select({
+      accountName: users.displayName,
+      settingsName: userSettings.displayName,
+    })
+    .from(users)
+    .leftJoin(userSettings, eq(users.id, userSettings.userId))
+    .where(eq(users.id, userId))
+    .limit(1);
+  const copy = buildPetCopy(
+    resolveDisplayName(account?.accountName, account?.settingsName),
+    stage.label,
+    stage.article,
+  );
+  const now = new Date().toISOString();
+
+  for (const row of rows) {
+    const friendId = otherUserId(row, userId);
+    const inserted = await database
+      .insert(friendPetNotices)
+      .values({
+        fromUserId: userId,
+        toUserId: friendId,
+        stage: stage.id,
+        createdAt: now,
+      })
+      .onConflictDoNothing()
+      .returning({ toUserId: friendPetNotices.toUserId });
+    if (!inserted.length) {
+      continue;
+    }
+    await deliverFriendAlert(database, friendId, {
+      title: copy.title,
+      body: copy.body,
+      tag: `habitquest-pet-${userId}-${stage.id}`,
+      url: "/friends",
+    });
+  }
+}
+
 export async function notifyNudgersIfDayCleared(database: Database, userId: string, dateKey: string) {
   const today = await loadToday(database, [userId]);
   const progress = today.get(userId);
@@ -1001,6 +1100,14 @@ export async function removeFriendAction(friendUserId: string) {
       ),
     );
   await database
+    .delete(friendPetNotices)
+    .where(
+      or(
+        and(eq(friendPetNotices.fromUserId, user.id), eq(friendPetNotices.toUserId, friendUserId)),
+        and(eq(friendPetNotices.fromUserId, friendUserId), eq(friendPetNotices.toUserId, user.id)),
+      ),
+    );
+  await database
     .delete(friendCheers)
     .where(
       or(
@@ -1074,6 +1181,14 @@ export async function blockFriendAction(otherUserId: string) {
       or(
         and(eq(friendStreakNotices.fromUserId, user.id), eq(friendStreakNotices.toUserId, otherUserId)),
         and(eq(friendStreakNotices.fromUserId, otherUserId), eq(friendStreakNotices.toUserId, user.id)),
+      ),
+    );
+  await database
+    .delete(friendPetNotices)
+    .where(
+      or(
+        and(eq(friendPetNotices.fromUserId, user.id), eq(friendPetNotices.toUserId, otherUserId)),
+        and(eq(friendPetNotices.fromUserId, otherUserId), eq(friendPetNotices.toUserId, user.id)),
       ),
     );
   await database
@@ -1698,6 +1813,10 @@ export async function markActivitySeenAction() {
       .set({ seenAt })
       .where(and(eq(friendStreakNotices.toUserId, user.id), isNull(friendStreakNotices.seenAt))),
     database
+      .update(friendPetNotices)
+      .set({ seenAt })
+      .where(and(eq(friendPetNotices.toUserId, user.id), isNull(friendPetNotices.seenAt))),
+    database
       .update(friendCheers)
       .set({ seenAt })
       .where(and(eq(friendCheers.toUserId, user.id), isNull(friendCheers.seenAt))),
@@ -1769,6 +1888,7 @@ export async function getFriendProfileAction(friendUserId: string) {
     frameItemId: row.frameItemId,
     titleItemId: row.titleItemId,
     seasonPassCompletions: row.seasonPassCompletions ?? 0,
+    completionCount: activityRows.length,
     activityDates: activityRows.map((entry) => entry.date),
   };
 
