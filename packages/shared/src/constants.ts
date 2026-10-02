@@ -32,6 +32,9 @@ export const DIFFICULTY_EXP: Record<HabitDifficulty, number> = {
   hard: 50,
 };
 
+/** Share of difficulty EXP granted when the tiny version is finished. */
+export const MINIMUM_COMPLETION_EXP_RATIO = 0.5;
+
 export const DIFFICULTY_LABELS: Record<HabitDifficulty, string> = {
   easy: "Easy",
   medium: "Medium",

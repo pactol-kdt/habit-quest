@@ -6,6 +6,7 @@ import {
   STORAGE_KEY,
 } from "~/lib/habitquest/constants";
 import { normalizeHabitRecord } from "~/lib/habitquest/habit-loop";
+import { normalizeCompletionRecord } from "@habitquest/shared";
 import {
   ensureStarterCosmetics,
   isStarterCosmetic,
@@ -227,7 +228,9 @@ export function normalizeHabitQuestData(
     habits: (parsed.habits ?? fallback.habits).map((habit) =>
       normalizeHabitRecord(habit as Parameters<typeof normalizeHabitRecord>[0]),
     ),
-    completions: parsed.completions ?? fallback.completions,
+    completions: (parsed.completions ?? fallback.completions).map((completion) =>
+      normalizeCompletionRecord(completion),
+    ),
     achievements: mergeAchievements(parsed.achievements, fallback.achievements),
     challenges: mergeChallenges(parsed.challenges, fallback.challenges),
     shopItems: mergeShopItems(parsed.shopItems, fallback.shopItems),

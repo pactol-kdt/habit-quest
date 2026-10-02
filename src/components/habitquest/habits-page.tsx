@@ -33,6 +33,7 @@ export function HabitsPage() {
     deleteHabit,
     completeHabitForToday,
     uncompleteHabitForToday,
+    recordCompletionReflection,
     pendingHabitIds,
     pendingHabitActions,
     projectSave,
@@ -170,6 +171,10 @@ export function HabitsPage() {
               : undefined
           }
           onComplete={completeHabitForToday}
+          onCompleteMinimum={(habitId) => completeHabitForToday(habitId, { minimum: true })}
+          onReflect={recordCompletionReflection}
+          completions={completions}
+          dateKey={today}
           onUncomplete={uncompleteHabitForToday}
           evaluateUndo={evaluateUndo}
           onEdit={(habit) => {

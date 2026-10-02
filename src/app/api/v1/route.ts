@@ -15,6 +15,7 @@ const RESOURCES = {
   updateHabit: "PATCH /api/v1/habits/:habitId",
   deleteHabit: "DELETE /api/v1/habits/:habitId",
   completeHabit: "POST /api/v1/habits/:habitId/complete",
+  reflectHabit: "POST /api/v1/habits/:habitId/reflection",
   uncompleteHabit: "POST /api/v1/habits/uncomplete",
   purchase: "POST /api/v1/shop/purchases",
   equip: "POST /api/v1/shop/equip",

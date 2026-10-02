@@ -4,16 +4,22 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { TUTORIAL_LESSONS } from "~/lib/habitquest/copy";
+import { getStarterHabitBlueprints, type StarterHabitKey } from "@habitquest/shared";
 import { cn } from "~/lib/ui/cn";
 
 type TutorialMode = "onboarding" | "replay";
+
+interface TutorialFinishChoice {
+  starterKeys: StarterHabitKey[];
+  createOwn: boolean;
+}
 
 interface TutorialModalProps {
   open: boolean;
   mode: TutorialMode;
   hasHabits: boolean;
   initialName?: string;
-  onFinish: (displayName: string, createHabit: boolean) => void;
+  onFinish: (displayName: string, choice: TutorialFinishChoice) => void | Promise<void>;
 }
 
 export function TutorialModal({
@@ -50,16 +56,20 @@ function TutorialPages({
   onFinish,
 }: Omit<TutorialModalProps, "open">) {
   const includeName = mode === "onboarding";
-  const totalSteps = TUTORIAL_LESSONS.length + (includeName ? 1 : 0);
+  const includeChooser = mode === "onboarding";
+  const totalSteps = TUTORIAL_LESSONS.length + (includeName ? 1 : 0) + (includeChooser ? 1 : 0);
   const [step, setStep] = useState(0);
   const [displayName, setDisplayName] = useState(initialName);
+  const [selected, setSelected] = useState<StarterHabitKey[]>([]);
+  const [pending, setPending] = useState(false);
 
   const isNameStep = includeName && step === 0;
+  const isChooserStep = includeChooser && step === totalSteps - 1;
   const lessonIndex = includeName ? step - 1 : step;
-  const lesson = isNameStep ? null : TUTORIAL_LESSONS[lessonIndex];
+  const lesson = isNameStep || isChooserStep ? null : TUTORIAL_LESSONS[lessonIndex];
   const isLast = step === totalSteps - 1;
   const resolvedName = displayName.trim() || "Adventurer";
-  const showCreateHabit = mode === "onboarding" || !hasHabits;
+  const showCreateHabit = mode === "replay" && !hasHabits;
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -72,14 +82,35 @@ function TutorialPages({
   const nameMissing = isNameStep && displayName.trim().length === 0;
 
   function goNext() {
-    if (nameMissing) {
+    if (nameMissing || pending) {
+      return;
+    }
+    if (isLast && !isChooserStep) {
+      void finish({ starterKeys: [], createOwn: showCreateHabit });
       return;
     }
     if (isLast) {
-      onFinish(resolvedName, showCreateHabit);
       return;
     }
     setStep((current) => Math.min(current + 1, totalSteps - 1));
+  }
+
+  async function finish(choice: TutorialFinishChoice) {
+    if (pending) {
+      return;
+    }
+    setPending(true);
+    try {
+      await onFinish(resolvedName, choice);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function toggleStarter(key: StarterHabitKey) {
+    setSelected((current) =>
+      current.includes(key) ? current.filter((entry) => entry !== key) : [...current, key],
+    );
   }
 
   function goBack() {
@@ -95,7 +126,7 @@ function TutorialPages({
     >
       <header className="px-5 pt-[max(1rem,env(safe-area-inset-top))]">
         <p className="text-xs uppercase tracking-[0.28em] text-cyan-200">
-          {isNameStep ? "Welcome" : "How to play"}
+          {isNameStep ? "Welcome" : isChooserStep ? "Start small" : "How to play"}
         </p>
       </header>
 
@@ -111,6 +142,8 @@ function TutorialPages({
           >
             {isNameStep ? (
               <NameStep displayName={displayName} onChange={setDisplayName} />
+            ) : isChooserStep ? (
+              <StarterStep selected={selected} onToggle={toggleStarter} />
             ) : lesson ? (
               <LessonStep lesson={lesson} />
             ) : null}
@@ -132,19 +165,40 @@ function TutorialPages({
             ))}
           </div>
           <div className="grid gap-2">
-            {isLast && showCreateHabit ? (
+            {isChooserStep ? (
               <>
                 <button
                   type="button"
-                  onClick={() => onFinish(resolvedName, true)}
-                  className="min-h-12 w-full rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950"
+                  disabled={pending}
+                  onClick={() => void finish({ starterKeys: selected, createOwn: false })}
+                  className="min-h-12 w-full rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950 disabled:opacity-40"
+                >
+                  Continue
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => void finish({ starterKeys: selected, createOwn: true })}
+                  className="min-h-11 w-full rounded-full border border-white/15 px-5 py-3 text-sm text-white transition hover:border-white/30 disabled:opacity-40"
+                >
+                  Start with my own habit
+                </button>
+              </>
+            ) : isLast && showCreateHabit ? (
+              <>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => void finish({ starterKeys: [], createOwn: true })}
+                  className="min-h-12 w-full rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950 disabled:opacity-40"
                 >
                   Stack first habit
                 </button>
                 <button
                   type="button"
-                  onClick={() => onFinish(resolvedName, false)}
-                  className="min-h-11 w-full rounded-full px-5 py-3 text-sm text-[var(--color-text-muted)] transition hover:text-white"
+                  disabled={pending}
+                  onClick={() => void finish({ starterKeys: [], createOwn: false })}
+                  className="min-h-11 w-full rounded-full px-5 py-3 text-sm text-[var(--color-text-muted)] transition hover:text-white disabled:opacity-40"
                 >
                   I&apos;ll add a habit later
                 </button>
@@ -153,7 +207,7 @@ function TutorialPages({
               <button
                 type="button"
                 onClick={goNext}
-                disabled={nameMissing}
+                disabled={nameMissing || pending}
                 className="min-h-12 w-full rounded-full hq-btn-accent px-5 py-3 text-sm font-semibold text-slate-950 disabled:opacity-40"
               >
                 {isLast ? "Got it" : isNameStep ? "Show me how" : "Next"}
@@ -172,6 +226,50 @@ function TutorialPages({
         </div>
       </footer>
     </motion.div>
+  );
+}
+
+function StarterStep({
+  selected,
+  onToggle,
+}: {
+  selected: StarterHabitKey[];
+  onToggle: (key: StarterHabitKey) => void;
+}) {
+  return (
+    <div>
+      <h2 className="font-display text-4xl leading-tight text-white">
+        Choose what you want to start with.
+      </h2>
+      <p className="mt-4 text-base leading-7 text-[var(--color-text-muted)]">
+        Start small. You can add more whenever you want. You only need one habit to begin.
+      </p>
+      <div className="mt-6 grid gap-2" role="group" aria-label="Example habits">
+        {getStarterHabitBlueprints().map((blueprint) => {
+          const checked = selected.includes(blueprint.key);
+          return (
+            <label
+              key={blueprint.key}
+              className={cn(
+                "flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-left transition",
+                checked ? "border-cyan-300/50 bg-cyan-300/10" : "border-white/10 bg-white/5",
+              )}
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-cyan-300"
+                checked={checked}
+                onChange={() => onToggle(blueprint.key)}
+              />
+              <span>
+                <span className="block text-sm font-medium text-white">{blueprint.label}</span>
+                <span className="block text-sm text-[var(--color-text-muted)]">{blueprint.fields.tinyVersion}</span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

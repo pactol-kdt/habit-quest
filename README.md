@@ -149,6 +149,10 @@ src/
 - Weekly habits are weekday-based (chosen weekday), not “every 7 days from creation”
 - `streak-days` challenges measure consecutive completion days inside the challenge window
 
+## What's new
+
+User-facing release notes live in `src/lib/habitquest/changelog.ts`. Put a new entry at the top. Write what people can do now, and only include changes that have already shipped. A date is optional.
+
 ## Future hardening
 
 - Split `habitquest_saves` JSON into the normalized SQL tables in `src/lib/habitquest/schema.ts`

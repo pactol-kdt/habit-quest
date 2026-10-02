@@ -13,9 +13,10 @@ import {
   describeStackFormula,
   isNextInStack,
 } from "~/lib/habitquest/habit-loop";
+import { shouldOfferReflection } from "@habitquest/shared";
 import { cn } from "~/lib/ui/cn";
 import type { HabitPendingAction } from "~/store/habitquest-store";
-import type { Habit } from "~/types/habitquest";
+import type { CompletionReflection, CompletionReflectionRecord, Habit, HabitCompletion } from "~/types/habitquest";
 
 interface HabitListProps {
   habits: Habit[];
@@ -29,6 +30,10 @@ interface HabitListProps {
   showDueBadge?: boolean;
   dueHabitIds?: Set<string>;
   onComplete: (habitId: string) => void;
+  onCompleteMinimum?: (habitId: string) => void;
+  onReflect?: (habitId: string, reflection: CompletionReflectionRecord) => void;
+  completions?: HabitCompletion[];
+  dateKey?: string;
   onUncomplete?: (habitId: string) => void;
   /** Return a warning when undo would reclaim spent coins into a negative wallet. */
   evaluateUndo?: (habitId: string) => {
@@ -68,6 +73,10 @@ export function HabitList({
   showDueBadge = false,
   dueHabitIds,
   onComplete,
+  onCompleteMinimum,
+  onReflect,
+  completions = [],
+  dateKey = "",
   onUncomplete,
   evaluateUndo,
   onEdit,
@@ -81,6 +90,23 @@ export function HabitList({
     clawback: number;
     coinsAfter: number;
   } | null>(null);
+
+  const reflectionHabitId = (() => {
+    if (!onReflect || !dateKey) {
+      return null;
+    }
+    const latest = completions
+      .filter((entry) => entry.date === dateKey)
+      .sort((left, right) => right.completedAt.localeCompare(left.completedAt))[0];
+    if (!latest || latest.reflection) {
+      return null;
+    }
+    const habit = catalog.find((entry) => entry.id === latest.habitId);
+    if (!habit || !shouldOfferReflection(completions, habit, latest)) {
+      return null;
+    }
+    return habit.id;
+  })();
 
   function requestUncomplete(habit: Habit) {
     if (!onUncomplete) {
@@ -127,6 +153,10 @@ export function HabitList({
           const isNext = isNextInStack(habit, catalog, completedHabitIds);
           const notDue = showDueBadge && !dueToday;
           const subtitle = stackLine || cueLine;
+          const todayCompletion = completions.find(
+            (entry) => entry.habitId === habit.id && entry.date === dateKey,
+          );
+          const tiny = habit.tinyVersion.trim();
 
           return (
             <motion.article
@@ -185,10 +215,8 @@ export function HabitList({
                   {subtitle ? (
                     <p className="mt-1 truncate text-sm text-[var(--color-text-muted)]">{subtitle}</p>
                   ) : null}
-                  {!completed && habit.tinyVersion.trim() ? (
-                    <p className="mt-1 truncate text-sm text-[var(--color-text-muted)]">
-                      Bare minimum: {habit.tinyVersion.trim()}
-                    </p>
+                  {completed && todayCompletion?.minimum ? (
+                    <p className="mt-1 text-sm text-[var(--color-text-muted)]">Counted as the minimum.</p>
                   ) : null}
                 </div>
 
@@ -251,6 +279,28 @@ export function HabitList({
                   </button>
                 </div>
               </div>
+              {!completed && tiny && onCompleteMinimum ? (
+                <button
+                  type="button"
+                  onClick={() => onCompleteMinimum(habit.id)}
+                  disabled={pendingSync || notDue}
+                  className={cn(
+                    "mt-3 min-h-11 w-full rounded-full border border-white/10 px-4 py-2 text-left text-sm text-[var(--color-text-muted)] transition",
+                    pendingSync || notDue
+                      ? "cursor-not-allowed opacity-60"
+                      : "hover:border-white/20 hover:text-white",
+                  )}
+                >
+                  Do minimum: {tiny}
+                </button>
+              ) : null}
+              {completed && reflectionHabitId === habit.id && onReflect ? (
+                <ReflectionPrompt
+                  habit={habit}
+                  onAnswer={(value) => onReflect(habit.id, value)}
+                  onDismiss={() => onReflect(habit.id, "dismissed")}
+                />
+              ) : null}
             </motion.article>
           );
         })}
@@ -416,7 +466,7 @@ function HabitDetailDialog({
               <DetailRow label="Where" value={detailValue(habit.cueContext)} />
               <DetailRow label="I'm someone who" value={detailValue(habit.identityWhy)} />
               <DetailRow label="I want to feel" value={detailValue(habit.desiredFeeling)} />
-              <DetailRow label="Bare minimum" value={detailValue(habit.tinyVersion)} />
+              <DetailRow label="On a hard day" value={detailValue(habit.tinyVersion)} />
               <DetailRow label="Notes" value={detailValue(habit.description)} />
               <DetailRow
                 label="Difficulty"
@@ -449,6 +499,58 @@ function HabitDetailDialog({
       ) : null}
     </AnimatePresence>,
     document.body,
+  );
+}
+
+function ReflectionPrompt({
+  habit,
+  onAnswer,
+  onDismiss,
+}: {
+  habit: Habit;
+  onAnswer: (value: CompletionReflection) => void;
+  onDismiss: () => void;
+}) {
+  const feeling = habit.desiredFeeling.trim();
+  const options: Array<{ value: CompletionReflection; label: string }> = feeling
+    ? [
+        { value: "better", label: "Yes" },
+        { value: "fine", label: "A little" },
+        { value: "hard", label: "No" },
+      ]
+    : [
+        { value: "better", label: "Better than expected" },
+        { value: "fine", label: "Fine" },
+        { value: "hard", label: "Hard" },
+      ];
+
+  return (
+    <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm text-white">
+          {feeling ? `You wanted to feel ${feeling}. Did you?` : "How did that feel?"}
+        </p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="shrink-0 text-sm text-[var(--color-text-muted)] hover:text-white"
+        >
+          Not now
+        </button>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="How it felt">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onAnswer(option.value)}
+            className="min-h-11 rounded-full border border-white/10 px-3 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/20 hover:text-white"
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

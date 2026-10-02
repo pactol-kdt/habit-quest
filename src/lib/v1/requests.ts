@@ -20,7 +20,7 @@ import type {
   PullSaveResult,
   PushSaveResult,
 } from "~/lib/v1/sync";
-import type { HabitFormValues, HabitQuestData, ShopCategory, UserSettings } from "~/types/habitquest";
+import type { HabitFormValues, HabitQuestData, ShopCategory, UserSettings, CompletionReflectionRecord, HabitCompletion, StarterHabitKey } from "~/types/habitquest";
 import { asCommand, v1Request } from "~/lib/v1/client";
 
 export async function signInRequest(email: string, password: string): Promise<AuthCommandResult> {
@@ -93,10 +93,14 @@ export async function changePasswordRequest(
   return { ok: true, user: result.data.user };
 }
 
-export async function completeHabitRequest(habitId: string, dateKey: string): Promise<HabitActionResult> {
+export async function completeHabitRequest(
+  habitId: string,
+  dateKey: string,
+  minimum = false,
+): Promise<HabitActionResult> {
   return asCommand<HabitActionResult>(
     await v1Request(`/habits/${encodeURIComponent(habitId)}/complete`, {
-      json: { dateKey },
+      json: { dateKey, ...(minimum ? { minimum: true } : {}) },
     }),
   );
 }
@@ -104,10 +108,15 @@ export async function completeHabitRequest(habitId: string, dateKey: string): Pr
 export async function completeHabitsRequest(
   habitIds: string[],
   dateKey: string,
+  minimumHabitIds: string[] = [],
 ): Promise<HabitBatchActionResult> {
   return asCommand<HabitBatchActionResult>(
     await v1Request("/habits/complete-batch", {
-      json: { habitIds, dateKey },
+      json: {
+        habitIds,
+        dateKey,
+        ...(minimumHabitIds.length ? { minimumHabitIds } : {}),
+      },
     }),
   );
 }
@@ -116,6 +125,22 @@ export async function uncompleteHabitRequest(habitId: string, dateKey: string): 
   return asCommand<HabitActionResult>(
     await v1Request("/habits/uncomplete", {
       json: { habitId, dateKey },
+    }),
+  );
+}
+
+export async function recordReflectionRequest(
+  habitId: string,
+  dateKey: string,
+  reflection: CompletionReflectionRecord,
+): Promise<
+  | { status: "ok"; habitId: string; date: string; completion: HabitCompletion }
+  | { status: "unauthenticated" }
+  | { status: "error"; error: string }
+> {
+  return asCommand(
+    await v1Request(`/habits/${encodeURIComponent(habitId)}/reflection`, {
+      json: { dateKey, reflection },
     }),
   );
 }
@@ -167,8 +192,15 @@ export async function updateSettingsRequest(
   return asCommand<SettingsActionResult>(await v1Request("/settings", { method: "PATCH", json: patch }));
 }
 
-export async function completeOnboardingRequest(displayName: string): Promise<SettingsActionResult> {
-  return asCommand<SettingsActionResult>(await v1Request("/onboarding", { json: { displayName } }));
+export async function completeOnboardingRequest(
+  displayName: string,
+  starterKeys?: StarterHabitKey[],
+): Promise<SettingsActionResult> {
+  return asCommand<SettingsActionResult>(
+    await v1Request("/onboarding", {
+      json: starterKeys ? { displayName, starterKeys } : { displayName },
+    }),
+  );
 }
 
 export async function claimChallengeRewardRequest(challengeId: string): Promise<ClaimActionResult> {

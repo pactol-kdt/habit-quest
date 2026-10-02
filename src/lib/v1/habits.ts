@@ -9,6 +9,7 @@ import {
   persistHabitCreate,
   persistHabitDelete,
   persistHabitUpdate,
+  persistCompletionReflection,
 } from "~/lib/db/habitquest-repository";
 import { buildGamePatch, type GamePatch } from "~/lib/habitquest/game-patch";
 import { resolvePersistentGameState } from "~/lib/habitquest/game-resolution";
@@ -24,7 +25,8 @@ import {
 import { petStageAdvanced } from "~/lib/habitquest/pet";
 import { notifyFriendsOfPetStage, notifyFriendsOfStreakMilestone, notifyNudgersIfDayCleared } from "~/lib/v1/friends";
 import { coerceFormValues, isValidDateKey } from "~/lib/v1/parse";
-import type { Habit, HabitCompletion, RewardSystems, UserProgress } from "~/types/habitquest";
+import { isCompletionReflectionRecord } from "@habitquest/shared";
+import type { CompletionReflectionRecord, Habit, HabitCompletion, RewardSystems, UserProgress } from "~/types/habitquest";
 
 export type HabitActionResult =
   | ({
@@ -109,6 +111,7 @@ export async function listHabits(): Promise<ListHabitsResult> {
 export async function completeHabit(
   habitId: string,
   dateKey: string,
+  minimum = false,
 ): Promise<HabitActionResult> {
   if (!habitId || typeof habitId !== "string") {
     return { status: "error", error: "habitId is required." };
@@ -117,7 +120,7 @@ export async function completeHabit(
     return { status: "error", error: "dateKey must be YYYY-MM-DD." };
   }
 
-  const batch = await completeHabits([habitId], dateKey);
+  const batch = await completeHabits([habitId], dateKey, minimum ? [habitId] : []);
   if (batch.status !== "ok") {
     return batch;
   }
@@ -144,8 +147,10 @@ export async function completeHabit(
 export async function completeHabits(
   habitIdsInput: string[],
   dateKey: string,
+  minimumHabitIds: string[] = [],
 ): Promise<HabitBatchActionResult> {
   const habitIds = [...new Set(habitIdsInput.filter((id) => typeof id === "string" && id))];
+  const minimumIds = new Set(minimumHabitIds);
   if (!habitIds.length) {
     return { status: "error", error: "habitIds are required." };
   }
@@ -174,7 +179,9 @@ export async function completeHabits(
     const errors: string[] = [];
 
     for (const habitId of habitIds) {
-      const mutation = applyCompleteHabitForToday(working, habitId, dateKey);
+      const mutation = applyCompleteHabitForToday(working, habitId, dateKey, {
+        minimum: minimumIds.has(habitId),
+      });
       if (!mutation.ok || !mutation.completion) {
         const alreadyCleared = working.completions.find(
           (entry) => entry.habitId === habitId && entry.date === dateKey,
@@ -338,6 +345,56 @@ export async function uncompleteHabit(
     return {
       status: "error",
       error: error instanceof Error ? error.message : "Failed to undo habit clear.",
+    };
+  }
+}
+
+export async function recordHabitReflection(
+  habitId: string,
+  dateKey: string,
+  reflection: unknown,
+): Promise<
+  | { status: "ok"; habitId: string; date: string; completion: HabitCompletion }
+  | { status: "unauthenticated" }
+  | { status: "error"; error: string }
+> {
+  if (!habitId || typeof habitId !== "string") {
+    return { status: "error", error: "habitId is required." };
+  }
+  if (!isValidDateKey(dateKey)) {
+    return { status: "error", error: "dateKey must be YYYY-MM-DD." };
+  }
+  if (!isCompletionReflectionRecord(reflection)) {
+    return { status: "error", error: "reflection is invalid." };
+  }
+
+  const user = await getCurrentUser();
+  if (!user) {
+    return { status: "unauthenticated" };
+  }
+
+  try {
+    const database = await ensureDatabase();
+    const saved = await persistCompletionReflection(
+      database,
+      user.id,
+      habitId,
+      dateKey,
+      reflection as CompletionReflectionRecord,
+    );
+    if (!saved) {
+      return { status: "error", error: "No finish found for that day." };
+    }
+    return {
+      status: "ok",
+      habitId,
+      date: dateKey,
+      completion: saved,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      error: error instanceof Error ? error.message : "Failed to save reflection.",
     };
   }
 }

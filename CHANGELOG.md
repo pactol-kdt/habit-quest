@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.17.0 - Tiny Clears and First Habits
+
+### Added
+- Habits with a tiny version can finish as a minimum on Today. That day still counts, with less level progress and no bonus roll.
+- After some finishes, a private prompt can ask how it felt. Answers stay on that completion. Not now is remembered after a refresh. Friends never see it.
+- Week shows a short review of recent habits with a few next steps, such as adding a tiny version or changing a cue.
+- First setup asks which example habits to start with: Stretch, Deep work, Strength, Journal, none, or your own. They become ordinary habits afterward.
+
+### Changed
+- Today keeps habits first. The week pace line stays quiet until this week's schedule can reach 15 clears, or until progress has already started.
+- Habit creation leads with title, schedule, and difficulty. Cue, stack, tiny version, and feeling sit under Make this easier to do.
+- A Hard habit's minimum finish still keeps the day. Quests that ask for Hard clears need a full finish.
+
 ## 0.16.0 - Kip the Habit Pet
 
 ### Added

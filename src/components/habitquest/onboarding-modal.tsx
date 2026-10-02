@@ -5,6 +5,7 @@ import { HabitFormModal } from "~/components/habitquest/habit-form-modal";
 import { TutorialModal } from "~/components/habitquest/tutorial-modal";
 import { TUTORIAL_REPLAY_EVENT } from "~/lib/habitquest/tutorial";
 import { useHabitQuestStore } from "~/store/habitquest-store";
+import type { StarterHabitKey } from "~/types/habitquest";
 
 export function OnboardingModal() {
   const hydrated = useHabitQuestStore((state) => state.hydrated);
@@ -28,16 +29,18 @@ export function OnboardingModal() {
     return () => window.removeEventListener(TUTORIAL_REPLAY_EVENT, handleReplay);
   }, []);
 
-  function finishName(name: string) {
+  async function handleFinish(
+    name: string,
+    choice: { starterKeys: StarterHabitKey[]; createOwn: boolean },
+  ) {
     if (!onboardingCompleted) {
-      completeOnboarding(name);
+      const ready = await completeOnboarding(name, choice.starterKeys);
+      if (!ready) {
+        return;
+      }
     }
-  }
-
-  function handleFinish(name: string, createFirstHabit: boolean) {
-    finishName(name);
     setReplayOpen(false);
-    if (createFirstHabit) {
+    if (choice.createOwn) {
       setHabitModalOpen(true);
     }
   }

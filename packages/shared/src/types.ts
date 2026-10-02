@@ -15,6 +15,10 @@ export type UnlockFeature =
   | "season-pass";
 
 export type QuestObjectiveType = "habit-completions" | "hard-completions" | "streak-days";
+/** Private feeling after a finish, or a dismissal of that prompt. Never shared with friends. */
+export type CompletionReflection = "better" | "fine" | "hard";
+/** Stored on the completion. `dismissed` means the prompt was handled and should not return. */
+export type CompletionReflectionRecord = CompletionReflection | "dismissed";
 export type CelebrationKind =
   | "streak-milestone"
   | "quest-chapter"
@@ -58,6 +62,10 @@ export interface HabitCompletion {
   streakBonusExp: number;
   completedAt: string;
   crit?: boolean;
+  /** Tiny-version finish. Still counts as done for the day, with less level progress. */
+  minimum?: boolean;
+  /** Private post-completion feeling, or `dismissed` when the prompt was skipped. */
+  reflection?: CompletionReflectionRecord;
 }
 
 export interface ExpHistoryEntry {

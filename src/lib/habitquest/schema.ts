@@ -48,6 +48,9 @@ create table if not exists habit_completions (
   exp_earned integer not null,
   streak_bonus_exp integer not null default 0,
   completed_at timestamptz not null,
+  crit boolean not null default false,
+  minimum boolean not null default false,
+  reflection text,
   unique (user_id, habit_id, date)
 );
 

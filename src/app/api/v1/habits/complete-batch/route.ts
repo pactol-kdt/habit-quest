@@ -20,6 +20,9 @@ export async function POST(request: Request) {
   const result = await completeHabits(
     habitIds.filter((id): id is string => typeof id === "string"),
     dateKey,
+    Array.isArray(body.data.minimumHabitIds)
+      ? body.data.minimumHabitIds.filter((id): id is string => typeof id === "string")
+      : [],
   );
 
   if (result.status !== "ok") {

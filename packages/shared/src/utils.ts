@@ -3,6 +3,7 @@ import {
   DAILY_COMPLETION_COINS,
   DAILY_LOGIN_COINS,
   DIFFICULTY_EXP,
+  MINIMUM_COMPLETION_EXP_RATIO,
   MIN_HABITS_FOR_DAILY_REWARD,
   RECURRENCE_LABELS,
   STREAK_BONUSES,
@@ -74,6 +75,23 @@ export function getEndOfCurrentWeekKey(referenceDate = new Date()) {
   return getTodayDateKey(date);
 }
 
+/** How many habit clears the current schedule can produce between Monday and Sunday. */
+export function getWeeklyCompletionCapacity(
+  habits: Habit[],
+  referenceDate = new Date(),
+) {
+  const start = getStartOfCurrentWeekKey(referenceDate);
+  const end = getEndOfCurrentWeekKey(referenceDate);
+  let count = 0;
+  for (let offset = 0; offset <= getDaysBetween(start, end); offset += 1) {
+    const date = fromDateString(start);
+    date.setDate(date.getDate() + offset);
+    const key = getTodayDateKey(date);
+    count += habits.filter((habit) => isHabitDueOnDate(habit, key)).length;
+  }
+  return count;
+}
+
 export function getStartOfCurrentMonthKey(referenceDate = new Date()) {
   return getTodayDateKey(new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1));
 }
@@ -99,6 +117,10 @@ export function formatNumber(value: number) {
 
 export function getDifficultyExp(difficulty: HabitDifficulty) {
   return DIFFICULTY_EXP[difficulty];
+}
+
+export function getMinimumCompletionExp(difficulty: HabitDifficulty) {
+  return Math.max(1, Math.round(DIFFICULTY_EXP[difficulty] * MINIMUM_COMPLETION_EXP_RATIO));
 }
 
 export function getLevelState(totalExp: number) {

@@ -18,6 +18,7 @@ import {
   settleSessionRequest,
   unequipShopItemRequest,
   uncompleteHabitRequest,
+  recordReflectionRequest,
   updateHabitRequest,
   updateSettingsRequest,
 } from "~/lib/v1/requests";
@@ -59,6 +60,7 @@ import {
   isStreakMilestone,
 } from "~/lib/habitquest/rewards";
 import { createSeedData } from "~/lib/habitquest/seed";
+import { selectStarterHabits } from "@habitquest/shared";
 import {
   loadHabitQuestData,
   saveHabitQuestData,
@@ -72,12 +74,14 @@ import {
 } from "~/lib/habitquest/utils";
 import type {
   CelebrationEvent,
+  CompletionReflectionRecord,
   FloatingReward,
   HabitFormValues,
   HabitQuestData,
   RewardToast,
   SettlementRecap,
   ShopCategory,
+  StarterHabitKey,
   UserSettings,
 } from "~/types/habitquest";
 
@@ -119,8 +123,9 @@ type HabitQuestStore = HabitQuestData & {
   createHabit: (values: HabitFormValues) => void;
   updateHabit: (habitId: string, values: HabitFormValues) => void;
   deleteHabit: (habitId: string) => void;
-  completeHabitForToday: (habitId: string) => void;
+  completeHabitForToday: (habitId: string, options?: { minimum?: boolean }) => void;
   uncompleteHabitForToday: (habitId: string) => void;
+  recordCompletionReflection: (habitId: string, reflection: CompletionReflectionRecord) => void;
   claimChallengeReward: (challengeId: string) => void;
   claimQuestArcReward: (arcId: string) => void;
   claimSeasonPassLevel: (level: number) => void;
@@ -132,7 +137,7 @@ type HabitQuestStore = HabitQuestData & {
   updateSettings: (patch: Partial<UserSettings>) => void;
   /** Development only — set spendable coins (adjusts lifetime spent to match). */
   devSetSpendableCoins: (totalCoins: number) => void;
-  completeOnboarding: (displayName: string) => void;
+  completeOnboarding: (displayName: string, starterKeys?: StarterHabitKey[]) => Promise<boolean>;
   dismissToast: (toastId: string) => void;
   dismissFloatingReward: (rewardId: string) => void;
   dismissCelebration: () => void;
@@ -206,6 +211,20 @@ function compactCelebrations(
   events: Array<CelebrationEvent | null | undefined>,
 ): CelebrationEvent[] {
   return events.filter((event): event is CelebrationEvent => Boolean(event));
+}
+
+function summarizeCelebrations(
+  events: Array<CelebrationEvent | null | undefined>,
+): CelebrationEvent[] {
+  const filtered = compactCelebrations(events);
+  if (filtered.length <= 1) {
+    return filtered;
+  }
+  const [first, ...rest] = filtered;
+  const description = [first.description, ...rest.map((event) => event.title)]
+    .filter(Boolean)
+    .join(" · ");
+  return [{ ...first, description }];
 }
 
 function enqueueCelebrations(
@@ -477,6 +496,7 @@ type QueuedHabitComplete = {
   habitId: string;
   seq: number;
   dateKey: string;
+  minimum: boolean;
 };
 
 const COMPLETE_BATCH_MS = 140;
@@ -626,7 +646,7 @@ async function flushHabitCompletes() {
   if (batch.length === 1) {
     const entry = batch[0]!;
     try {
-      const result = await completeHabitRequest(entry.habitId, entry.dateKey);
+      const result = await completeHabitRequest(entry.habitId, entry.dateKey, entry.minimum);
       if (!isCurrentHabitMutation(entry.habitId, entry.seq)) {
         return;
       }
@@ -655,10 +675,11 @@ async function flushHabitCompletes() {
   }
 
   const habitIds = batch.map((entry) => entry.habitId);
+  const minimumHabitIds = batch.filter((entry) => entry.minimum).map((entry) => entry.habitId);
   const seqById = new Map(batch.map((entry) => [entry.habitId, entry.seq] as const));
 
   try {
-    const result = await completeHabitsRequest(habitIds, dateKey);
+    const result = await completeHabitsRequest(habitIds, dateKey, minimumHabitIds);
     const stillCurrent = habitIds.filter((habitId) =>
       isCurrentHabitMutation(habitId, seqById.get(habitId) ?? -1),
     );
@@ -733,8 +754,13 @@ async function flushHabitCompletes() {
   }
 }
 
-function enqueueHabitComplete(habitId: string, seq: number, dateKey: string) {
-  completeFlushQueue.set(habitId, { habitId, seq, dateKey });
+function enqueueHabitComplete(
+  habitId: string,
+  seq: number,
+  dateKey: string,
+  minimum = false,
+) {
+  completeFlushQueue.set(habitId, { habitId, seq, dateKey, minimum });
   if (completeFlushTimer) {
     clearTimeout(completeFlushTimer);
   }
@@ -1201,7 +1227,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         }));
       });
   },
-  completeHabitForToday: (habitId) => {
+  completeHabitForToday: (habitId, options) => {
     const state = get();
     if (state.pendingHabitIds.includes(habitId)) {
       return;
@@ -1209,7 +1235,8 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
 
     const today = getTodayDateKey();
     const snapshot = projectData(state);
-    const mutation = applyCompleteHabitForToday(snapshot, habitId, today);
+    const minimum = Boolean(options?.minimum);
+    const mutation = applyCompleteHabitForToday(snapshot, habitId, today, { minimum });
     if (!mutation.ok) {
       return;
     }
@@ -1223,7 +1250,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
         ...optimisticResolution,
         data: optimisticPersisted,
         floatingRewards: currencyFloats(snapshot, optimisticPersisted),
-        celebrations: compactCelebrations([
+        celebrations: summarizeCelebrations([
           ...liveBeats(snapshot, optimisticPersisted),
           ...optimisticResolution.celebrations,
         ]),
@@ -1239,7 +1266,7 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       return;
     }
 
-    enqueueHabitComplete(habitId, seq, today);
+    enqueueHabitComplete(habitId, seq, today, minimum);
   },
   uncompleteHabitForToday: (habitId) => {
     const state = get();
@@ -1354,6 +1381,67 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
           ),
         }));
       });
+  },
+  recordCompletionReflection: (habitId, reflection) => {
+    const today = getTodayDateKey();
+    const snapshot = projectData(get());
+    const existing = snapshot.completions.find(
+      (entry) => entry.habitId === habitId && entry.date === today,
+    );
+    if (!existing || existing.reflection) {
+      return;
+    }
+
+    const persisted = persistLocalOnly({
+      ...snapshot,
+      completions: snapshot.completions.map((entry) =>
+        entry.id === existing.id ? { ...entry, reflection } : entry,
+      ),
+    });
+    set((current) => ({
+      ...current,
+      completions: persisted.completions,
+    }));
+
+    if (!get().authUser) {
+      return;
+    }
+
+    const completionId = existing.id;
+    void (async () => {
+      await waitForHabitCompletes();
+      const result = await recordReflectionRequest(habitId, today, reflection);
+      if (result.status === "ok") {
+        useHabitQuestStore.setState((current) => ({
+          ...current,
+          completions: current.completions.map((entry) =>
+            entry.habitId === habitId && entry.date === today ? result.completion : entry,
+          ),
+        }));
+        persistLocalOnly(projectData(useHabitQuestStore.getState()));
+        return;
+      }
+
+      useHabitQuestStore.setState((current) => {
+        const reverted = current.completions.map((entry) =>
+          entry.id === completionId && entry.reflection === reflection
+            ? { ...entry, reflection: undefined }
+            : entry,
+        );
+        const next = { ...current, completions: reverted };
+        persistLocalOnly(projectData(next));
+        return {
+          ...next,
+          ...pushWarningState(
+            current,
+            "Reflection not saved",
+            result.status === "unauthenticated"
+              ? "Sign in again to keep that note."
+              : result.error,
+          ),
+        };
+      });
+    })();
   },
   claimChallengeReward: (challengeId) => {
     const state = get();
@@ -2001,29 +2089,33 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
       ...nextData,
     }));
   },
-  completeOnboarding: (displayName) => {
+  completeOnboarding: (displayName, starterKeys) => {
     const state = get();
     const snapshot = projectData(state);
-    const mutation = applyCompleteOnboarding(snapshot, displayName);
-    const persisted = persistLocalOnly(withLiveHabitMembership(mutation.data));
+    const chosen = starterKeys ? selectStarterHabits(snapshot, starterKeys) : snapshot;
+    const mutation = applyCompleteOnboarding(chosen, displayName);
 
-    set((current) => ({
-      ...current,
-      ...persisted,
-      ...enqueueCelebrations(current, [
-        createCelebration(
-          "unlock",
-          "Welcome, traveler",
-          `The path opens for ${mutation.settings.displayName}.`,
-        ),
-      ]),
-    }));
+    const applyWelcome = (data: HabitQuestData) => {
+      const persisted = persistLocalOnly(withLiveHabitMembership(data));
+      set((current) => ({
+        ...current,
+        ...persisted,
+        ...enqueueCelebrations(current, [
+          createCelebration(
+            "unlock",
+            "Welcome, traveler",
+            `The path opens for ${mutation.settings.displayName}.`,
+          ),
+        ]),
+      }));
+    };
 
-    if (!get().authUser) {
-      return;
+    if (!state.authUser) {
+      applyWelcome(mutation.data);
+      return Promise.resolve(true);
     }
 
-    void completeOnboardingRequest(displayName).then((result) => {
+    return completeOnboardingRequest(displayName, starterKeys).then((result) => {
       if (result.status !== "ok") {
         const rolledBack = persistLocalOnly(snapshot);
         set((current) => ({
@@ -2037,15 +2129,14 @@ export const useHabitQuestStore = create<HabitQuestStore>((set, get) => ({
               : result.error,
           ),
         }));
-        return;
+        return false;
       }
-      set((current) => {
-        const nextData = persistLocalOnly({
-          ...projectData(current),
-          settings: result.settings,
-        });
-        return { ...current, ...nextData };
+      applyWelcome({
+        ...mutation.data,
+        habits: result.habits ?? mutation.data.habits,
+        settings: result.settings,
       });
+      return true;
     });
   },
   dismissToast: (toastId) => {

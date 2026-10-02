@@ -93,6 +93,8 @@ export const habitCompletions = pgTable(
     streakBonusExp: integer("streak_bonus_exp").notNull().default(0),
     completedAt: varchar("completed_at", { length: 40 }).notNull(),
     crit: boolean("crit").notNull().default(false),
+    minimum: boolean("minimum").notNull().default(false),
+    reflection: varchar("reflection", { length: 16 }),
   },
   (table) => [
     uniqueIndex("uniq_completions_user_habit_date").on(

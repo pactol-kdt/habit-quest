@@ -7,6 +7,7 @@ import {
   loadNormalizedSave,
   persistEconomyClaim,
   persistUserSettings,
+  replaceOnboardingHabits,
 } from "~/lib/db/habitquest-repository";
 import {
   applyBuyStreakFreeze,
@@ -19,9 +20,11 @@ import {
   type ClaimableKind,
 } from "~/lib/habitquest/reward-claim-mutations";
 import { listClaimableRewards } from "~/lib/habitquest/claimables";
+import { selectStarterHabits, type StarterHabitKey } from "@habitquest/shared";
 import { prepareSaveForRewards } from "~/lib/habitquest/day-settlement";
 import type {
   CoinWallet,
+  Habit,
   HabitQuestData,
   QuestArc,
   SeasonPassState,
@@ -30,7 +33,7 @@ import type {
 } from "~/types/habitquest";
 
 export type SettingsActionResult =
-  | { status: "ok"; settings: UserSettings; updatedAt: string }
+  | { status: "ok"; settings: UserSettings; habits?: Habit[]; updatedAt: string }
   | { status: "unauthenticated" }
   | { status: "error"; error: string };
 
@@ -111,6 +114,7 @@ export async function updateSettingsAction(
 
 export async function completeOnboardingAction(
   displayName: string,
+  starterKeys?: StarterHabitKey[],
 ): Promise<SettingsActionResult> {
   try {
     const user = await getCurrentUser();
@@ -125,11 +129,22 @@ export async function completeOnboardingAction(
       return { status: "error", error: "No cloud save found. Syncing your progress and try claiming again." };
     }
 
-    const mutation = applyCompleteOnboarding(existing.data, displayName);
+    const canChooseStarters =
+      starterKeys !== undefined &&
+      !existing.data.settings.onboardingCompleted &&
+      existing.data.completions.length === 0;
+    const chosen = canChooseStarters
+      ? selectStarterHabits(existing.data, starterKeys)
+      : existing.data;
+    const mutation = applyCompleteOnboarding(chosen, displayName);
+    if (canChooseStarters) {
+      await replaceOnboardingHabits(database, user.id, mutation.data.habits);
+    }
     const saved = await persistUserSettings(database, user.id, mutation.settings);
     return {
       status: "ok",
       settings: saved.settings,
+      habits: canChooseStarters ? mutation.data.habits : undefined,
       updatedAt: saved.updatedAt,
     };
   } catch (error) {

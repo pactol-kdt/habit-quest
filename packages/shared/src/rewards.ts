@@ -389,7 +389,7 @@ export function syncQuestArcs(
 
   const hardCompletions = completions.filter((completion) => {
     const habit = data.habits.find((entry) => entry.id === completion.habitId);
-    return habit?.difficulty === "hard";
+    return habit?.difficulty === "hard" && !completion.minimum;
   }).length;
 
   const streakReference = throughDate ?? getTodayDateKey();

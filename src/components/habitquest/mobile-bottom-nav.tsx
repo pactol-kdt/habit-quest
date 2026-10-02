@@ -7,6 +7,7 @@ import { useDialogA11y } from "~/hooks/use-dialog-a11y";
 import { cn } from "~/lib/ui/cn";
 import { useClaimableRewards } from "~/hooks/use-claimable-rewards";
 import { useIncomingFriendRequestCount } from "~/hooks/use-incoming-friend-requests";
+import { useChangelogUnseen } from "~/hooks/use-changelog-seen";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 const tabs = [
@@ -23,6 +24,7 @@ const youLinks = [
   { href: "/achievements", label: "Achievements", hint: "Milestones" },
   { href: "/leaderboard", label: "Streak board", hint: "Rankings" },
   { href: "/guides", label: "Guides", hint: "How it works" },
+  { href: "/changelog", label: "What's new", hint: "Recent updates" },
   { href: "/settings", label: "Settings", hint: "Reminders" },
 ] as const;
 
@@ -33,6 +35,7 @@ function isYouPath(pathname: string) {
     pathname === "/achievements" ||
     pathname === "/leaderboard" ||
     pathname === "/guides" ||
+    pathname === "/changelog" ||
     pathname === "/settings" ||
     pathname === "/admin"
   );
@@ -60,13 +63,16 @@ export function MobileBottomNav() {
   const claimables = useClaimableRewards();
   const incomingFriendRequests = useIncomingFriendRequestCount();
   const [youOpen, setYouOpen] = useState(false);
+  const changelogUnseen = useChangelogUnseen();
 
   useEffect(() => {
     setYouOpen(false);
   }, [pathname]);
 
   const sheetLinks: Array<{ href: string; label: string; hint: string }> = [
-    ...youLinks,
+    ...youLinks.map((item) =>
+      item.href === "/changelog" && changelogUnseen ? { ...item, hint: "New" } : item,
+    ),
     ...(isAdmin ? [{ href: "/admin", label: "Admin", hint: "Catalog & roles" }] : []),
   ];
 

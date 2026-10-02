@@ -18,6 +18,7 @@ import {
   getDailyRewardSummary,
   getLevelState,
   getTodayDateKey,
+  getWeeklyCompletionCapacity,
   hasCompletionForDate,
   isFeatureUnlocked,
 } from "~/lib/habitquest/utils";
@@ -51,12 +52,10 @@ export function HabitQuestApp() {
     deleteHabit,
     completeHabitForToday,
     uncompleteHabitForToday,
-    claimChallengeReward,
+    recordCompletionReflection,
     pendingHabitIds,
     pendingHabitActions,
-    pendingClaimIds,
     projectSave,
-    rewardSystems,
   } = store;
 
   const fullData = useMemo(
@@ -145,10 +144,6 @@ export function HabitQuestApp() {
   const displayName = settings.displayName.trim();
   const streakTier = getStreakFireTier(streakForDisplay);
   const today = getTodayDateKey();
-  const todayCombo =
-    rewardSystems.comboDate === today && rewardSystems.todayCombo > 0
-      ? rewardSystems.todayCombo
-      : 0;
   const dueCount = todayReward.dueHabits.length;
   const petMood: PetMood =
     dueCount <= 0 ? "rest" : todayReward.completedCount >= dueCount ? "proud" : "cheer";
@@ -166,25 +161,14 @@ export function HabitQuestApp() {
 
   const weeklyChallenge = challenges.find((challenge) => challenge.period === "weekly") ?? null;
   const weeklyUnlocked = isFeatureUnlocked(levelUnlocks, "weekly-challenges");
-  const weekPercent = weeklyChallenge?.target
-    ? Math.min(100, (weeklyChallenge.progress / weeklyChallenge.target) * 100)
-    : 0;
-  const weekStatus = !weeklyChallenge
-    ? "In progress"
-    : !weeklyUnlocked
-      ? "Locked"
-      : weeklyChallenge.claimed
-        ? "Claimed"
-        : weeklyChallenge.completed
-          ? "Reward ready"
-          : "In progress";
   const weekRewardReady = Boolean(
     weeklyChallenge && weeklyUnlocked && weeklyChallenge.completed && !weeklyChallenge.claimed,
   );
-  const claimingWeek = Boolean(
+  const showWeeklyPace = Boolean(
     weeklyChallenge &&
-      (pendingClaimIds.includes(`challenge:${weeklyChallenge.id}`) ||
-        pendingClaimIds.includes("claim-all")),
+      !weekRewardReady &&
+      (weeklyChallenge.progress > 0 ||
+        getWeeklyCompletionCapacity(habits) >= weeklyChallenge.target),
   );
 
   return (
@@ -223,16 +207,6 @@ export function HabitQuestApp() {
                   <span className="tabular-nums font-semibold">{streakForDisplay}</span>
                 </PulseOnChange>
               </span>
-              {todayCombo > 1 ? (
-                <span title="Finishing more than one today adds a little extra">
-                  <PulseOnChange
-                    value={todayCombo}
-                    className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-sm font-semibold tabular-nums text-cyan-100"
-                  >
-                    {todayCombo} done today
-                  </PulseOnChange>
-                </span>
-              ) : null}
               <div className="min-w-[10rem] flex-1 sm:max-w-xs">
                 <ExpProgress
                   compact
@@ -281,6 +255,10 @@ export function HabitQuestApp() {
             emptyActionLabel="Add a habit"
             onEmptyAction={openCreateModal}
             onComplete={completeHabitForToday}
+            onCompleteMinimum={(habitId) => completeHabitForToday(habitId, { minimum: true })}
+            onReflect={recordCompletionReflection}
+            completions={completions}
+            dateKey={today}
             onUncomplete={uncompleteHabitForToday}
             evaluateUndo={evaluateUndo}
             onEdit={openEditModal}
@@ -290,47 +268,16 @@ export function HabitQuestApp() {
 
         <ClaimableRewardsStrip />
 
-        {weeklyChallenge ? (
-          weekRewardReady ? (
-            <GlassCard className="rounded-[1.75rem] border-amber-300/25 bg-amber-300/8 p-4 md:p-6">
-              <WeekGoal
-                status={weekStatus}
-                title={weeklyChallenge.description}
-                progress={weeklyChallenge.progress}
-                target={weeklyChallenge.target}
-                percent={weekPercent}
-              />
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={claimingWeek}
-                  onClick={() => claimChallengeReward(weeklyChallenge.id)}
-                  className="min-h-11 rounded-full hq-btn-accent px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {claimingWeek ? "Claiming…" : "Claim"}
-                </button>
-                <Link
-                  href="/week"
-                  className="min-h-11 rounded-full border border-white/15 px-4 py-2 text-sm text-[var(--color-text-muted)] transition hover:border-white/25 hover:text-white"
-                >
-                  Open Week
-                </Link>
-              </div>
-            </GlassCard>
-          ) : (
-            <Link href="/week" className="block rounded-[1.75rem] outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50">
-              <GlassCard className="rounded-[1.75rem] p-4 transition hover:border-white/20 md:p-6">
-                <WeekGoal
-                  status={weekStatus}
-                  title={weeklyChallenge.description}
-                  progress={weeklyChallenge.progress}
-                  target={weeklyChallenge.target}
-                  percent={weekPercent}
-                />
-                <p className="mt-3 text-sm text-[var(--color-text-muted)]">Open Week</p>
-              </GlassCard>
-            </Link>
-          )
+        {showWeeklyPace && weeklyChallenge ? (
+          <Link
+            href="/week"
+            className="flex min-h-11 items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/4 px-4 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
+          >
+            <span className="text-[var(--color-text-muted)]">This week</span>
+            <span className="tabular-nums text-cyan-100">
+              {weeklyChallenge.progress}/{weeklyChallenge.target}
+            </span>
+          </Link>
         ) : null}
       </motion.div>
 
@@ -348,43 +295,5 @@ export function HabitQuestApp() {
         }}
       />
     </main>
-  );
-}
-
-function WeekGoal({
-  status,
-  title,
-  progress,
-  target,
-  percent,
-}: {
-  status: string;
-  title: string;
-  progress: number;
-  target: number;
-  percent: number;
-}) {
-  return (
-    <>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-muted)]">{status}</p>
-          <h2 className="section-title mt-1 text-xl text-white md:text-2xl">{title}</h2>
-        </div>
-        <p className="text-sm font-semibold tabular-nums text-cyan-100">
-          <PulseOnChange value={progress}>
-            {progress}/{target}
-          </PulseOnChange>
-        </p>
-      </div>
-      <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
-        <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-amber-300"
-          initial={false}
-          animate={{ width: `${percent}%` }}
-          transition={{ type: "spring", stiffness: 160, damping: 26 }}
-        />
-      </div>
-    </>
   );
 }

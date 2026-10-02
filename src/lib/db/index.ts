@@ -37,7 +37,7 @@ function needsSsl(connectionString: string) {
   }
 }
 
-const SCHEMA_REVISION = 12;
+const SCHEMA_REVISION = 13;
 
 type GlobalDb = {
   habitquestPgPool?: Pool;
@@ -132,6 +132,8 @@ const DDL = [
     streak_bonus_exp INTEGER NOT NULL DEFAULT 0,
     completed_at VARCHAR(40) NOT NULL,
     crit BOOLEAN NOT NULL DEFAULT false,
+    minimum BOOLEAN NOT NULL DEFAULT false,
+    reflection VARCHAR(16),
     UNIQUE (user_id, habit_id, date)
   )`,
   `CREATE INDEX IF NOT EXISTS idx_completions_user ON habit_completions(user_id)`,
@@ -545,6 +547,18 @@ async function runMigrations(database: ReturnType<typeof createDrizzle>) {
       if (!(await columnExists(client, "habits", column))) {
         await client.query(`ALTER TABLE habits ADD COLUMN ${column} ${definition}`);
       }
+    }
+
+    // Revision 13 re-runs these ALTERs in processes that already finished revision 12.
+    // Missing values stay null/false so older completion rows keep loading.
+    if (!(await columnExists(client, "habit_completions", "minimum"))) {
+      await client.query(
+        `ALTER TABLE habit_completions ADD COLUMN minimum BOOLEAN NOT NULL DEFAULT false`,
+      );
+    }
+
+    if (!(await columnExists(client, "habit_completions", "reflection"))) {
+      await client.query(`ALTER TABLE habit_completions ADD COLUMN reflection VARCHAR(16)`);
     }
 
     // Deduplicate then enforce one clear per habit per day.

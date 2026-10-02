@@ -55,8 +55,9 @@ function eachDateInclusive(start: string, end: string) {
   return dates;
 }
 
-export function getSeasonXpForCompletion(expEarned: number) {
-  return Math.max(10, Math.round(expEarned * 0.5));
+export function getSeasonXpForCompletion(expEarned: number, minimum = false) {
+  const scaled = Math.round(expEarned * 0.5);
+  return Math.max(minimum ? 5 : 10, scaled);
 }
 
 const LIVE_DAY_SOURCES = new Set(["habit", "streak", "comeback", "combo"]);
@@ -77,7 +78,8 @@ export function getPendingHabitExp(data: HabitQuestData, today = getTodayDateKey
 
 export function getPendingSeasonXp(data: HabitQuestData, today = getTodayDateKey()) {
   return getPendingCompletions(data, today).reduce(
-    (sum, completion) => sum + getSeasonXpForCompletion(completion.expEarned),
+    (sum, completion) =>
+      sum + getSeasonXpForCompletion(completion.expEarned, Boolean(completion.minimum)),
     0,
   );
 }
@@ -190,7 +192,7 @@ function rebuildSeasonXpFromSettledCompletions(
     if (!completion.date.startsWith(seasonMonth)) {
       return sum;
     }
-    return sum + getSeasonXpForCompletion(completion.expEarned);
+    return sum + getSeasonXpForCompletion(completion.expEarned, Boolean(completion.minimum));
   }, 0);
 
   pass = { ...pass, xp: 0, level: 1 };
@@ -396,7 +398,11 @@ function applyCalendarDaySettlement(
           completion.expEarned,
           dateKey,
           "habit",
-          completion.crit ? `${habitLabel} bonus` : `${habitLabel} completed`,
+          completion.minimum
+            ? `${habitLabel} minimum`
+            : completion.crit
+              ? `${habitLabel} bonus`
+              : `${habitLabel} completed`,
         ),
         ...data.userProgress.expHistory,
       ],
@@ -447,7 +453,8 @@ function applyCalendarDaySettlement(
   }
 
   const daySeasonXp = dayCompletions.reduce(
-    (sum, completion) => sum + getSeasonXpForCompletion(completion.expEarned),
+    (sum, completion) =>
+      sum + getSeasonXpForCompletion(completion.expEarned, Boolean(completion.minimum)),
     0,
   );
   if (daySeasonXp > 0) {

@@ -15,6 +15,7 @@ import { getStreakFireTier } from "~/lib/habitquest/streak-fire-tier";
 import { useEffectiveProgress } from "~/hooks/use-effective-progress";
 import { useClaimableRewards } from "~/hooks/use-claimable-rewards";
 import { useIncomingFriendRequestCount } from "~/hooks/use-incoming-friend-requests";
+import { useChangelogUnseen } from "~/hooks/use-changelog-seen";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 type NavLink = {
@@ -22,6 +23,7 @@ type NavLink = {
   label: string;
   adminOnly?: boolean;
   activeHrefs?: string[];
+  note?: string;
 };
 
 const primaryNav: NavLink[] = [
@@ -37,6 +39,7 @@ const youNav: NavLink[] = [
   { href: "/achievements", label: "Achievements" },
   { href: "/leaderboard", label: "Streak board" },
   { href: "/guides", label: "Guides" },
+  { href: "/changelog", label: "What's new" },
   { href: "/settings", label: "Settings" },
   { href: "/admin", label: "Admin", adminOnly: true },
 ];
@@ -149,7 +152,14 @@ function NavMenu({
               onClick={onClose}
               className={navLinkClass(pathname === item.href)}
             >
-              {item.label}
+              <span className="flex items-center justify-between gap-3">
+                <span>{item.label}</span>
+                {item.note ? (
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-200">
+                    {item.note}
+                  </span>
+                ) : null}
+              </span>
             </Link>
           ))}
         </div>
@@ -174,6 +184,10 @@ export function Navigation() {
   const profile = getProfileDisplay(shopItems, equippedItems);
   const displayName = settings.displayName.trim() || profile.title?.name || "Unranked Adventurer";
   const isAdmin = authUser?.role === "admin";
+  const changelogUnseen = useChangelogUnseen();
+  const youItems = youNav.map((item) =>
+    item.href === "/changelog" && changelogUnseen ? { ...item, note: "New" } : item,
+  );
 
   useEffect(() => {
     setOpenMenu(null);
@@ -255,7 +269,7 @@ export function Navigation() {
 
               <NavMenu
                 label="You"
-                items={youNav}
+                items={youItems}
                 pathname={pathname}
                 isAdmin={isAdmin}
                 open={openMenu === "you"}

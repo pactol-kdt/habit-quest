@@ -37,6 +37,47 @@ import type {
   HabitQuestData,
   UnlockFeature,
 } from "~/types/habitquest";
+import { isCompletionReflectionRecord } from "@habitquest/shared";
+
+function completionFromRow(row: {
+  id: string;
+  habitId: string;
+  date: string;
+  expEarned: number;
+  streakBonusExp: number;
+  completedAt: string;
+  crit: boolean;
+  minimum?: boolean | null;
+  reflection?: string | null;
+}): HabitCompletion {
+  const reflection = isCompletionReflectionRecord(row.reflection) ? row.reflection : undefined;
+  return {
+    id: row.id,
+    habitId: row.habitId,
+    date: row.date,
+    expEarned: row.expEarned,
+    streakBonusExp: row.streakBonusExp,
+    completedAt: row.completedAt,
+    crit: row.crit || undefined,
+    minimum: row.minimum ? true : undefined,
+    reflection,
+  };
+}
+
+function completionToInsert(userId: string, completion: HabitCompletion) {
+  return {
+    id: completion.id,
+    userId,
+    habitId: completion.habitId,
+    date: completion.date,
+    expEarned: completion.expEarned,
+    streakBonusExp: completion.streakBonusExp,
+    completedAt: completion.completedAt,
+    crit: Boolean(completion.crit),
+    minimum: Boolean(completion.minimum),
+    reflection: isCompletionReflectionRecord(completion.reflection) ? completion.reflection : null,
+  };
+}
 
 type Database = typeof db;
 
@@ -124,17 +165,7 @@ export async function loadNormalizedSave(
         updatedAt: row.updatedAt,
       }),
     ),
-    completions: completionRows.map(
-      (row): HabitCompletion => ({
-        id: row.id,
-        habitId: row.habitId,
-        date: row.date,
-        expEarned: row.expEarned,
-        streakBonusExp: row.streakBonusExp,
-        completedAt: row.completedAt,
-        crit: row.crit || undefined,
-      }),
-    ),
+    completions: completionRows.map((row) => completionFromRow(row)),
     wallet: walletRows[0]
       ? {
           totalCoins: walletRows[0].totalCoins,
@@ -294,15 +325,7 @@ export async function replaceNormalizedSave(
   const normalized = {
     ...incoming,
     completions: mergeCompletionsForFullSave(
-      existingCompletionRows.map((row) => ({
-        id: row.id,
-        habitId: row.habitId,
-        date: row.date,
-        expEarned: row.expEarned,
-        streakBonusExp: row.streakBonusExp,
-        completedAt: row.completedAt,
-        crit: row.crit || undefined,
-      })),
+      existingCompletionRows.map((row) => completionFromRow(row)),
       incoming.completions,
     ),
   };
@@ -378,16 +401,7 @@ export async function replaceNormalizedSave(
 
   if (normalized.completions.length) {
     await tx.insert(habitCompletions).values(
-      normalized.completions.map((completion) => ({
-        id: completion.id,
-        userId,
-        habitId: completion.habitId,
-        date: completion.date,
-        expEarned: completion.expEarned,
-        streakBonusExp: completion.streakBonusExp,
-        completedAt: completion.completedAt,
-        crit: Boolean(completion.crit),
-      })),
+      normalized.completions.map((completion) => completionToInsert(userId, completion)),
     );
   }
 
@@ -573,16 +587,7 @@ export async function persistTodayHabitCompletions(
 
   return database.transaction(async (tx) => {
     await tx.insert(habitCompletions).values(
-      completions.map((completion) => ({
-        id: completion.id,
-        userId,
-        habitId: completion.habitId,
-        date: completion.date,
-        expEarned: completion.expEarned,
-        streakBonusExp: completion.streakBonusExp,
-        completedAt: completion.completedAt,
-        crit: Boolean(completion.crit),
-      })),
+      completions.map((completion) => completionToInsert(userId, completion)),
     );
 
     const rows = await tx
@@ -610,6 +615,44 @@ export async function persistTodayHabitCompletions(
 
     return { updatedAt, version: SAVE_VERSION, todayCombo, comboDate };
   });
+}
+
+/** Private feeling on an existing finish. Does not change EXP, coins, or streaks. */
+export async function persistCompletionReflection(
+  database: Database,
+  userId: string,
+  habitId: string,
+  date: string,
+  reflection: string,
+) {
+  if (!isCompletionReflectionRecord(reflection)) {
+    return null;
+  }
+
+  const updatedAt = new Date().toISOString();
+  const rows = await database
+    .update(habitCompletions)
+    .set({ reflection })
+    .where(
+      and(
+        eq(habitCompletions.userId, userId),
+        eq(habitCompletions.habitId, habitId),
+        eq(habitCompletions.date, date),
+      ),
+    )
+    .returning();
+
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+
+  await database
+    .update(saveMeta)
+    .set({ updatedAt, version: SAVE_VERSION })
+    .where(eq(saveMeta.userId, userId));
+
+  return completionFromRow(row);
 }
 
 /** Surgical undo for a single day's clear — transactional + combo recount. */
@@ -815,6 +858,42 @@ export async function persistHabitCreate(
     });
     await touchSaveMeta(tx, userId, updatedAt);
     return { updatedAt, version: SAVE_VERSION, habit };
+  });
+}
+
+/** Replace every habit during first-run setup. Callers must refuse this once any finish exists. */
+export async function replaceOnboardingHabits(
+  database: Database,
+  userId: string,
+  nextHabits: Habit[],
+) {
+  const updatedAt = new Date().toISOString();
+  return database.transaction(async (tx) => {
+    await tx.delete(habits).where(eq(habits.userId, userId));
+    if (nextHabits.length > 0) {
+      await tx.insert(habits).values(
+        nextHabits.map((habit) => ({
+          id: habit.id,
+          userId,
+          title: habit.title,
+          description: habit.description,
+          difficulty: habit.difficulty,
+          recurrence: habit.recurrence,
+          customDays: habit.customDays,
+          stackAfter: habit.stackAfter,
+          stackAfterHabitId: habit.stackAfterHabitId,
+          cueTime: habit.cueTime,
+          cueContext: habit.cueContext,
+          identityWhy: habit.identityWhy,
+          desiredFeeling: habit.desiredFeeling,
+          tinyVersion: habit.tinyVersion,
+          createdAt: habit.createdAt,
+          updatedAt: habit.updatedAt,
+        })),
+      );
+    }
+    await touchSaveMeta(tx, userId, updatedAt);
+    return { updatedAt, habits: nextHabits };
   });
 }
 
@@ -1085,16 +1164,7 @@ export async function persistGamePatch(
   return database.transaction(async (tx) => {
     if (patch.completions?.length) {
       await tx.insert(habitCompletions).values(
-        patch.completions.map((completion) => ({
-          id: completion.id,
-          userId,
-          habitId: completion.habitId,
-          date: completion.date,
-          expEarned: completion.expEarned,
-          streakBonusExp: completion.streakBonusExp,
-          completedAt: completion.completedAt,
-          crit: Boolean(completion.crit),
-        })),
+        patch.completions.map((completion) => completionToInsert(userId, completion)),
       );
     }
 

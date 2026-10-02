@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { ChallengeCard } from "~/components/habitquest/challenge-card";
 import { GlassCard } from "~/components/habitquest/glass-card";
+import { WeeklyReviewCard } from "~/components/habitquest/weekly-review-card";
 import { PAGE_HEROES } from "~/lib/habitquest/copy";
-import { isFeatureUnlocked } from "~/lib/habitquest/utils";
+import { getWeeklyCompletionCapacity, isFeatureUnlocked } from "~/lib/habitquest/utils";
 import { useHabitQuestStore } from "~/store/habitquest-store";
 
 export function WeekPage() {
@@ -13,12 +14,18 @@ export function WeekPage() {
     pendingClaimIds,
     hydrated,
     challenges,
+    habits,
     shopItems,
     levelUnlocks,
   } = useHabitQuestStore((state) => state);
   const hero = PAGE_HEROES.week;
 
   const weeklyChallenge = challenges.find((challenge) => challenge.period === "weekly") ?? null;
+  const weeklyGoalQuiet = Boolean(
+    weeklyChallenge &&
+      weeklyChallenge.progress === 0 &&
+      getWeeklyCompletionCapacity(habits) < weeklyChallenge.target,
+  );
   const weeklyUnlocked = isFeatureUnlocked(levelUnlocks, "weekly-challenges");
   const weeklyRequiredLevel = levelUnlocks.find(
     (unlock) => unlock.feature === "weekly-challenges",
@@ -44,6 +51,11 @@ export function WeekPage() {
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] md:text-base md:leading-7">
           {hero.support}
         </p>
+        {weeklyGoalQuiet ? (
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)]">
+            You only need one habit to begin. This week&apos;s larger target can wait until your schedule can reach it.
+          </p>
+        ) : null}
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
             href="/"
@@ -77,6 +89,8 @@ export function WeekPage() {
           />
         </div>
       ) : null}
+
+      <WeeklyReviewCard />
     </div>
   );
 }

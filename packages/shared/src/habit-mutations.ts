@@ -3,6 +3,7 @@ import { settleHabitDayProgress } from "./day-settlement";
 import {
   createId,
   getDifficultyExp,
+  getMinimumCompletionExp,
   getStreakBonus,
   getTodayDateKey,
   hasCompletionForDate,
@@ -98,10 +99,16 @@ export type HabitMutationResult =
     }
   | { ok: false; error: string };
 
+export type CompleteHabitOptions = {
+  /** Finish the tiny version. Counts as done, with reduced level progress and no bonus roll. */
+  minimum?: boolean;
+};
+
 export function applyCompleteHabitForToday(
   data: HabitQuestData,
   habitId: string,
   today = getTodayDateKey(),
+  options: CompleteHabitOptions = {},
 ): HabitMutationResult {
   if (hasCompletionForDate(data.completions, habitId, today)) {
     return { ok: false, error: "Already completed today." };
@@ -112,8 +119,15 @@ export function applyCompleteHabitForToday(
     return { ok: false, error: "Habit not found." };
   }
 
-  const isCrit = rollCritForHabit(habitId, today);
-  const baseExp = applyCritMultiplier(getDifficultyExp(habit.difficulty), isCrit);
+  const minimum = Boolean(options.minimum);
+  if (minimum && !habit.tinyVersion.trim()) {
+    return { ok: false, error: "This habit has no minimum version." };
+  }
+
+  const isCrit = minimum ? false : rollCritForHabit(habitId, today);
+  const baseExp = minimum
+    ? getMinimumCompletionExp(habit.difficulty)
+    : applyCritMultiplier(getDifficultyExp(habit.difficulty), isCrit);
   const hadCompletionToday = data.completions.some((completion) => completion.date === today);
 
   let rewardSystems = updateCombo(
@@ -129,6 +143,7 @@ export function applyCompleteHabitForToday(
     streakBonusExp: 0,
     completedAt: new Date().toISOString(),
     crit: isCrit || undefined,
+    minimum: minimum || undefined,
   };
 
   const nextCompletions = [provisionalCompletion, ...data.completions];
